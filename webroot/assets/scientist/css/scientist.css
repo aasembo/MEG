@@ -1,0 +1,112 @@
+/**
+ * Scientist Role CSS
+ * Color scheme: Teal/Green
+ */
+
+/* Scientist Navbar - Teal/Green gradient */
+.scientist-navbar {
+    background: linear-gradient(135deg, #20c997 0%, #1aa179 100%) !important;
+}
+
+/* Layout Styles */
+.sidebar .card {
+    border-radius: 0.5rem;
+}
+
+.list-group-item-action:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+    transition: all 0.3s ease;
+}
+
+.content {
+    min-height: calc(100vh - 200px);
+}
+
+/* Card styling */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Button styling - Scientist theme */
+.btn-primary {
+    background-color: #20c997;
+    border-color: #20c997;
+}
+
+.btn-primary:hover {
+    background-color: #1aa179;
+    border-color: #198754;
+}
+
+/* Scientist-specific styling */
+.scientist-card {
+    border-left: 4px solid #20c997;
+}
+
+.scientist-badge {
+    background-color: #20c997;
+    color: white;
+}
+
+/* Research data styling */
+.research-data {
+    background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 0.5rem 0;
+}
+
+/* Data visualization styling */
+.chart-container {
+    background: white;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Sample status indicators */
+.status-pending {
+    color: #ffc107;
+}
+
+.status-completed {
+    color: #20c997;
+}
+
+.status-review {
+    color: #17a2b8;
+}
+
+/* Research navigation */
+.research-nav {
+    background: rgba(32, 201, 151, 0.1);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+}
+
+.research-nav .nav-link {
+    color: #20c997;
+}
+
+.research-nav .nav-link:hover {
+    color: #1aa179;
+    background-color: rgba(32, 201, 151, 0.1);
+}
+
+/* Data tables */
+.research-table {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.research-table th {
+    background: linear-gradient(135deg, #20c997, #1aa179);
+    color: white;
+    border: none;
+}
+
+.research-table tbody tr:hover {
+    background-color: rgba(32, 201, 151, 0.05);
+}

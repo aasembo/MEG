@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Redirect Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .test-link { display: block; margin: 10px 0; padding: 10px; background: #f0f0f0; text-decoration: none; border-radius: 4px; }
+        .test-link:hover { background: #e0e0e0; }
+        .cache-buster { font-size: 0.8em; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Hospital Redirect Test</h1>
+    <p>Click these links to test the redirect behavior. Each link includes a cache-busting parameter:</p>
+    
+    <script>
+        const timestamp = Date.now();
+        document.write(`
+            <a href="http://hospital1.meg.www/?t=${timestamp}" class="test-link">
+                ✅ Hospital1 (Active) - Should load normally<br>
+                <span class="cache-buster">http://hospital1.meg.www/?t=${timestamp}</span>
+            </a>
+            
+            <a href="http://hospital2.meg.www/?t=${timestamp}" class="test-link">
+                🔄 Hospital2 (Inactive) - Should redirect to main domain<br>
+                <span class="cache-buster">http://hospital2.meg.www/?t=${timestamp}</span>
+            </a>
+            
+            <a href="http://meg.www/?t=${timestamp}" class="test-link">
+                🏠 Main Domain - Should show MEG Healthcare (no hospital context)<br>
+                <span class="cache-buster">http://meg.www/?t=${timestamp}</span>
+            </a>
+        `);
+    </script>
+    
+    <h2>What to Expect:</h2>
+    <ul>
+        <li><strong>Hospital1</strong>: Should display "Hospital" with "hospital1" indicator</li>
+        <li><strong>Hospital2</strong>: Should redirect to main domain and show "MEG Healthcare"</li>
+        <li><strong>Main Domain</strong>: Should show "MEG Healthcare" with no hospital context</li>
+    </ul>
+    
+    <h2>If redirects don't work:</h2>
+    <ol>
+        <li>Clear your browser cache</li>
+        <li>Try in an incognito/private window</li>
+        <li>Force refresh with Ctrl+F5 (Windows) or Cmd+Shift+R (Mac)</li>
+    </ol>
+</body>
+</html>

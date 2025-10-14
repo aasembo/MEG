@@ -1,0 +1,173 @@
+# CakePHP specific files #
+##########################
+/config/app_local.php
+/config/.env
+/logs/*
+/tmp/*
+/vendor/*
+
+# Development and testing files #
+#################################
+/server.log
+/test_*.php
+*.log
+*.cache
+*.sqlite
+composer.lock
+
+# Database and backup files #
+#############################
+*.sql
+*.dump
+*.backup
+
+# Environment files #
+#####################
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+# Icon must end with two \r
+Icon
+
+ehthumbs.db
+Thumbs.db
+.directory
+
+# Tool specific files #
+#######################
+# PHPUnit
+.phpunit.cache
+tests.sqlite
+# vim
+*~
+*.swp
+*.swo
+# sublime text & textmate
+*.sublime-*
+*.stTheme.cache
+*.tmlanguage.cache
+*.tmPreferences.cache
+# Eclipse
+.settings/*
+# JetBrains, aka PHPStorm, IntelliJ IDEA
+.idea/*
+# NetBeans
+nbproject/*
+# Visual Studio Code
+.vscode/
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/extensions.json
+# nova
+.nova
+# Sass preprocessor
+.sass-cache/
+# node
+/node_modules/*
+# yarn
+yarn-debug.log
+yarn-error.log
+
+# Upload directories #
+######################
+/webroot/files/*
+/webroot/uploads/*
+
+# Security and sensitive files #
+################################
+*.pem
+*.key
+*.crt
+*.p12
+config/app_local.php
+/config/app_local.php
+
+# Additional unwanted files #
+############################
+# Debug and test files
+debug_*.php
+test_*.php
+/test_*.php
+
+# Server logs
+server.log
+access.log
+error.log
+
+# Backup files
+*.bak
+*.backup
+*.orig
+*.tmp
+
+# Cache files
+.phpunit.cache/
+*.cache
+
+# Package files
+*.tar.gz
+*.zip
+*.rar
+
+# Generated documentation
+/docs/api/
+/docs/build/
+
+# Runtime files
+*.pid
+*.lock
+
+# Local configuration overrides
+/config/app_local.php
+/config/.env.local
+
+# IDE metadata
+.metadata/
+.recommenders/
+.project
+.classpath
+
+# Deployment files
+deployment.zip
+deploy.tar.gz
+
+# Performance profiling
+*.prof
+*.xhprof
+
+# Temporary and system files
+Thumbs.db
+.DS_Store
+*~
+.Trashes
+._*
+
+# PHP CS Fixer
+.php_cs.cache
+.php-cs-fixer.cache
+
+# PHPStan
+.phpstan.cache
+
+# Infection
+infection.log
+
+# Development databases
+*.db
+*.sqlite3
+
+# Application specific unwanted files
+/webroot/test_*
+console.php
+migrate.php

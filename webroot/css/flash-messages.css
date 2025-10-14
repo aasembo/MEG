@@ -1,0 +1,239 @@
+/**
+ * Enhanced Bootstrap Flash Messages Styling
+ * Provides improved visual design for CakePHP flash messages
+ */
+
+/* Flash Messages Container */
+.flash-messages {
+    position: relative;
+    margin-bottom: 1rem;
+    z-index: 1050;
+}
+
+/* Flash Message Icons */
+.flash-icon {
+    flex-shrink: 0;
+    font-size: 1.1em;
+    margin-top: 0.125rem;
+}
+
+/* Enhanced Alert Styling */
+.alert {
+    border: none;
+    border-left: 4px solid;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Alert Type Specific Styling */
+.alert-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border-left-color: #198754;
+}
+
+.alert-success .flash-icon {
+    color: #198754;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-left-color: #dc3545;
+}
+
+.alert-danger .flash-icon {
+    color: #dc3545;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #664d03;
+    border-left-color: #ffc107;
+}
+
+.alert-warning .flash-icon {
+    color: #ffc107;
+}
+
+.alert-info {
+    background-color: #cff4fc;
+    color: #055160;
+    border-left-color: #0dcaf0;
+}
+
+.alert-info .flash-icon {
+    color: #0dcaf0;
+}
+
+.alert-primary {
+    background-color: #cfe2ff;
+    color: #084298;
+    border-left-color: #0d6efd;
+}
+
+.alert-primary .flash-icon {
+    color: #0d6efd;
+}
+
+/* Close Button Styling */
+.alert .btn-close {
+    padding: 0.5rem;
+    margin: -0.25rem -0.25rem -0.25rem auto;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.alert .btn-close:hover {
+    opacity: 1;
+}
+
+/* Auto-dismiss Animation */
+.flash-auto-dismiss {
+    animation: flash-fade-in 0.3s ease-in;
+}
+
+.flash-auto-dismiss.flash-fade-out {
+    animation: flash-fade-out 0.3s ease-out forwards;
+}
+
+@keyframes flash-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes flash-fade-out {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .alert {
+        margin: 0.5rem;
+        border-radius: 0.375rem;
+    }
+    
+    .flash-icon {
+        font-size: 1em;
+    }
+}
+
+/* Fixed Position Flash Messages (for overlays) */
+.flash-fixed {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    max-width: 400px;
+    z-index: 1055;
+}
+
+.flash-fixed .alert {
+    margin-bottom: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Toast-style Flash Messages */
+.flash-toast {
+    min-width: 250px;
+    max-width: 400px;
+}
+
+.flash-toast .alert {
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+}
+
+/* Dark Theme Support */
+@media (prefers-color-scheme: dark) {
+    .alert-success {
+        background-color: rgba(25, 135, 84, 0.2);
+        color: #75b798;
+    }
+    
+    .alert-danger {
+        background-color: rgba(220, 53, 69, 0.2);
+        color: #ea868f;
+    }
+    
+    .alert-warning {
+        background-color: rgba(255, 193, 7, 0.2);
+        color: #ffda6a;
+    }
+    
+    .alert-info {
+        background-color: rgba(13, 202, 240, 0.2);
+        color: #6edff6;
+    }
+    
+    .alert-primary {
+        background-color: rgba(13, 110, 253, 0.2);
+        color: #6ea8fe;
+    }
+}
+
+/* Animation for multiple messages */
+.flash-messages .alert:nth-child(1) { animation-delay: 0ms; }
+.flash-messages .alert:nth-child(2) { animation-delay: 100ms; }
+.flash-messages .alert:nth-child(3) { animation-delay: 200ms; }
+.flash-messages .alert:nth-child(4) { animation-delay: 300ms; }
+.flash-messages .alert:nth-child(5) { animation-delay: 400ms; }
+
+/* Accessibility Improvements */
+.alert:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Utility Classes */
+.flash-no-icon .flash-icon {
+    display: none;
+}
+
+.flash-large {
+    padding: 1rem 1.25rem;
+    font-size: 1.1rem;
+}
+
+.flash-small {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+/* Progress bar for auto-dismiss */
+.flash-auto-dismiss::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: currentColor;
+    opacity: 0.3;
+    animation: flash-progress 5s linear;
+}
+
+@keyframes flash-progress {
+    from { width: 100%; }
+    to { width: 0%; }
+}
+
+/* Hide progress bar on hover to pause auto-dismiss */
+.flash-auto-dismiss:hover::after {
+    animation-play-state: paused;
+}

@@ -1,0 +1,116 @@
+/* Admin Login Page Styles */
+
+/* Custom Color Variables */
+:root {
+    --custom-primary: #e91e63;
+    --custom-primary-rgb: 233, 30, 99;
+    --custom-primary-hover: #c2185b;
+    --custom-primary-light: #f8bbd9;
+}
+
+/* Login Page Styles */
+.login-container {
+    min-height: 100vh;
+}
+
+.login-card {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.login-card-header {
+    background: var(--custom-primary) !important;
+    padding: 2rem 1.5rem;
+}
+
+.shield-icon {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Form Styles */
+.form-control:focus {
+    border-color: var(--custom-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--custom-primary-rgb), 0.15);
+}
+
+.btn-login {
+    background: var(--custom-primary);
+    border: none;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-login:hover {
+    background: var(--custom-primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(var(--custom-primary-rgb), 0.3);
+}
+
+/* Custom Primary Button Override */
+.btn-primary {
+    background-color: var(--custom-primary);
+    border-color: var(--custom-primary);
+}
+
+.btn-primary:hover {
+    background-color: var(--custom-primary-hover);
+    border-color: var(--custom-primary-hover);
+}
+
+.btn-primary:focus,
+.btn-primary.focus {
+    box-shadow: 0 0 0 0.2rem rgba(var(--custom-primary-rgb), 0.5);
+}
+
+/* Card Styles */
+.card {
+    border-radius: 12px;
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+}
+
+.card-footer {
+    border-radius: 0 0 12px 12px !important;
+}
+
+/* Alert Styles */
+.alert {
+    border-radius: 8px;
+    border: none;
+    font-weight: 500;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+    position: relative;
+    animation: slideInDown 0.3s ease-out;
+}
+
+/* Flash Message Animations */
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Fix for CakePHP form helper wrapper */
+.input {
+    margin-bottom: 0 !important;
+}
+
+.input input {
+    width: 100% !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+    .login-card {
+        margin: 10px;
+    }
+}
