@@ -10,16 +10,21 @@
         <?php echo $this->Html->link(__('Add Modality'), ['action' => 'add'], ['class' => 'btn btn-primary']) ?>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>Modalities List
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <?php if (!empty($modalities->toArray())): ?>
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table table-hover mb-0">
                     <thead class="table-light">
                         <tr>
                             <th><?php echo $this->Paginator->sort('id') ?></th>
                             <th><?php echo $this->Paginator->sort('name') ?></th>
                             <th><?php echo $this->Paginator->sort('description') ?></th>
-                            <th><?php echo $this->Paginator->sort('hospital.name', 'Hospital') ?></th>
                             <th><?php echo $this->Paginator->sort('created') ?></th>
                             <th class="actions"><?php echo __('Actions') ?></th>
                         </tr>
@@ -30,7 +35,6 @@
                             <td><?php echo $this->Number->format($modality->id) ?></td>
                             <td><strong><?php echo h($modality->name) ?></strong></td>
                             <td><?php echo h($modality->description) ?: '<em class="text-muted">No description</em>' ?></td>
-                            <td><?php echo $modality->hasValue('hospital') ? $this->Html->link($modality->hospital->name, ['controller' => 'Hospitals', 'action' => 'view', $modality->hospital->id]) : '' ?></td>
                             <td><?php echo h($modality->created->format('M j, Y g:i A')) ?></td>
                             <td class="actions">
                                 <div class="btn-group btn-group-sm" role="group">
@@ -44,19 +48,31 @@
                     </tbody>
                 </table>
             </div>
+            <?php else: ?>
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-x-ray fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">No Modalities Found</h4>
+                    <p class="text-muted mb-4">You haven't created any imaging modalities yet. Modalities define the types of medical imaging equipment available.</p>
+                </div>
+                <div>
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-plus me-2"></i>Add Your First Modality', 
+                        ['action' => 'add'], 
+                        ['class' => 'btn btn-primary btn-lg', 'escape' => false]
+                    ) ?>
+                </div>
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Examples: CT Scanner, MRI, X-Ray, Ultrasound, etc.
+                    </small>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
+        
+        <?php echo $this->element('admin_pagination', ['items' => $modalities, 'itemType' => 'modalities']) ?>
     </div>
 
-    <div class="paginator mt-3">
-        <ul class="pagination justify-content-center">
-            <?php echo $this->Paginator->first('<< ' . __('first'), ['class' => 'page-link']) ?>
-            <?php echo $this->Paginator->prev('< ' . __('previous'), ['class' => 'page-link']) ?>
-            <?php echo $this->Paginator->numbers(['class' => 'page-link']) ?>
-            <?php echo $this->Paginator->next(__('next') . ' >', ['class' => 'page-link']) ?>
-            <?php echo $this->Paginator->last(__('last') . ' >>', ['class' => 'page-link']) ?>
-        </ul>
-        <p class="text-center text-muted">
-            <?php echo $this->Paginator->counter(__('Page {{page}} of {{pages}}, showing {{current}} record(s) out of {{count}} total')) ?>
-        </p>
-    </div>
 </div>

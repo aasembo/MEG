@@ -10,10 +10,16 @@
         <?php echo $this->Html->link(__('Add Exam'), ['action' => 'add'], ['class' => 'btn btn-primary']) ?>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>Exams List
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <?php if (!empty($exams->toArray())): ?>
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table table-hover mb-0">
                     <thead class="table-light">
                         <tr>
                             <th><?php echo $this->Paginator->sort('id') ?></th>
@@ -48,19 +54,30 @@
                     </tbody>
                 </table>
             </div>
+            <?php else: ?>
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-file-medical fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">No Exams Found</h4>
+                    <p class="text-muted mb-4">You haven't created any exams yet. Exams are diagnostic tests performed using medical equipment and procedures.</p>
+                </div>
+                <div>
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-plus me-2"></i>Add Your First Exam', 
+                        ['action' => 'add'], 
+                        ['class' => 'btn btn-primary btn-lg', 'escape' => false]
+                    ) ?>
+                </div>
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Examples: Chest X-Ray, Blood Panel, ECG, Ultrasound, etc.
+                    </small>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
-    </div>
-
-    <div class="paginator mt-3">
-        <ul class="pagination justify-content-center">
-            <?php echo $this->Paginator->first('<< ' . __('first'), ['class' => 'page-link']) ?>
-            <?php echo $this->Paginator->prev('< ' . __('previous'), ['class' => 'page-link']) ?>
-            <?php echo $this->Paginator->numbers(['class' => 'page-link']) ?>
-            <?php echo $this->Paginator->next(__('next') . ' >', ['class' => 'page-link']) ?>
-            <?php echo $this->Paginator->last(__('last') . ' >>', ['class' => 'page-link']) ?>
-        </ul>
-        <p class="text-center text-muted">
-            <?php echo $this->Paginator->counter(__('Page {{page}} of {{pages}}, showing {{current}} record(s) out of {{count}} total')) ?>
-        </p>
+        
+        <?php echo $this->element('admin_pagination', ['items' => $exams, 'itemType' => 'exams']) ?>
     </div>
 </div>

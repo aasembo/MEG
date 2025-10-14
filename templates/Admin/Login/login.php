@@ -67,7 +67,7 @@
         <div class="card-footer bg-light text-center text-muted py-3 border-top">
             <small>
                 <i class="fas fa-info-circle me-1"></i>
-                Only users with 'super' role can access this panel
+                Only users with 'administrator' role can access this panel
             </small>
         </div>
     </div>
