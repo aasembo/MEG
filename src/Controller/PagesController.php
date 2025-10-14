@@ -46,7 +46,7 @@ class PagesController extends AppController
                     'user_id' => $sessionUser['id'],
                     'role_type' => $userWithRole->role->type,
                     'request' => $this->request,
-                    'status' => UserActivityLogger::STATUS_WARNING,
+                    'status' => SiteConstants::ACTIVITY_STATUS_WARNING,
                     'description' => 'Authenticated user attempted to access frontend homepage, redirected to dashboard',
                     'event_data' => [
                         'attempted_url' => $this->request->getRequestTarget(),

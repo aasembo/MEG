@@ -42,6 +42,13 @@ class AppController extends Controller
     {
         parent::initialize();
 
+        // Add SSL detector to prevent "No detector set for type `ssl`" error
+        $this->request->addDetector('ssl', function ($request) {
+            return $request->is('https') || 
+                   $request->getEnv('HTTPS') || 
+                   $request->getEnv('HTTP_X_FORWARDED_PROTO') === 'https';
+        });
+
         $this->loadComponent('Flash');
         
         // Set hospital context for all controllers except Auth and System controllers
@@ -426,7 +433,11 @@ class AppController extends Controller
         }
         
         // For production domains, use HTTPS and no port
-        $protocol = $this->request->is('ssl') ? 'https' : 'http';
+        $isSecure = $this->request->is('ssl') || 
+                   $this->request->is('https') || 
+                   $this->request->getEnv('HTTPS') ||
+                   $this->request->getEnv('HTTP_X_FORWARDED_PROTO') === 'https';
+        $protocol = $isSecure ? 'https' : 'http';
         return $protocol . '://' . $mainDomain;
     }
 }
