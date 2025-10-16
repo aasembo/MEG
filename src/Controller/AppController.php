@@ -493,14 +493,82 @@ class AppController extends Controller
                 return false;
             }
 
-            // For more thorough validation, we could validate against Okta's userinfo endpoint
-            // but this adds latency to every request. For now, we'll rely on local validation.
-            
-            return true;
+            // For production, validate against Okta's userinfo endpoint periodically
+            // This checks if the user is still logged into Okta
+            return $this->validateTokenWithOkta($idToken);
 
         } catch (\Exception $e) {
             // Any error means token is invalid
             return false;
+        }
+    }
+
+    /**
+     * Validate token with Okta's userinfo endpoint
+     *
+     * @param string $idToken The ID token to validate
+     * @return bool True if valid, false if invalid
+     */
+    protected function validateTokenWithOkta(string $idToken): bool
+    {
+        try {
+            // To reduce load, only validate against Okta every few minutes
+            $lastValidation = $this->request->getSession()->read('okta_last_validation');
+            $now = time();
+            
+            // For admin routes, validate more frequently (30 seconds)
+            // For regular routes, validate every 2 minutes
+            $prefix = $this->request->getParam('prefix');
+            $validationInterval = ($prefix === 'Admin') ? 30 : 120;
+            
+            // If we validated within the interval, assume still valid
+            if ($lastValidation && ($now - $lastValidation) < $validationInterval) {
+                return true;
+            }
+
+            // Extract access token or use the ID token for validation
+            $accessToken = $this->request->getSession()->read('oauth_access_token');
+            if (!$accessToken) {
+                // If no access token, we can't validate reliably, fallback to local validation
+                return true;
+            }
+
+            // Validate using Okta's userinfo endpoint
+            $oktaDomain = \Cake\Core\Configure::read('Okta.baseUrl');
+            if (!$oktaDomain) {
+                return true; // No Okta domain configured, skip validation
+            }
+
+            $userInfoEndpoint = $oktaDomain . '/oauth2/default/v1/userinfo';
+            
+            // Use CakePHP HTTP client
+            $http = new \Cake\Http\Client([
+                'timeout' => 5 // 5 second timeout to avoid blocking requests
+            ]);
+
+            $response = $http->get($userInfoEndpoint, [], [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $accessToken,
+                    'Accept' => 'application/json'
+                ]
+            ]);
+
+            $httpCode = $response->getStatusCode();
+            
+            if ($httpCode === 200) {
+                // Token is valid, update last validation time
+                $this->request->getSession()->write('okta_last_validation', $now);
+                return true;
+            } else {
+                // Token is invalid (401, 403, etc.)
+                return false;
+            }
+
+        } catch (\Exception $e) {
+            // Network error or other issue - assume token is still valid to avoid false logouts
+            // Log the error for monitoring
+            $this->log('Okta token validation error: ' . $e->getMessage(), 'warning');
+            return true;
         }
     }
 
@@ -573,6 +641,8 @@ class AppController extends Controller
         // Clear all authentication and session data
         $this->Authentication->logout();
         $this->request->getSession()->delete('oauth_id_token');
+        $this->request->getSession()->delete('oauth_access_token');
+        $this->request->getSession()->delete('okta_last_validation');
         $this->request->getSession()->delete('Hospital.current');
 
         // Log the automatic logout

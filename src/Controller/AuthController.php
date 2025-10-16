@@ -148,11 +148,16 @@ class AuthController extends AppController
         // Clear the code verifier from session after use
         $this->request->getSession()->delete('oauth_code_verifier');
         
-        // Store ID token in session for logout purposes
+        // Store tokens in session for logout and validation purposes
         if (isset($tokenResponse['id_token'])) {
             $this->request->getSession()->write('oauth_id_token', $tokenResponse['id_token']);
         } else {
             $this->log('No ID token found in token response. Available keys: ' . implode(', ', array_keys($tokenResponse)), 'warning');
+        }
+        
+        // Store access token for real-time session validation
+        if (isset($tokenResponse['access_token'])) {
+            $this->request->getSession()->write('oauth_access_token', $tokenResponse['access_token']);
         }
         
         // Get user information using the access token (optional - we can get most info from JWT)

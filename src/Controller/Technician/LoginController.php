@@ -206,6 +206,8 @@ class LoginController extends AppController
             
             // Clear OAuth tokens from session if they exist
             $this->request->getSession()->delete('oauth_id_token');
+            $this->request->getSession()->delete('oauth_access_token');
+            $this->request->getSession()->delete('okta_last_validation');
             
             $this->Flash->success(__('You have been logged out.'));
             

@@ -206,11 +206,15 @@ class LoginController extends AppController
                 
                 // Clear OAuth tokens from session AFTER building logout URL
                 $this->request->getSession()->delete('oauth_id_token');
+                $this->request->getSession()->delete('oauth_access_token');
+                $this->request->getSession()->delete('okta_last_validation');
                 
                 return $this->redirect($oktaLogoutUrl);
             } else {
                 // Clear OAuth tokens from session if they exist
                 $this->request->getSession()->delete('oauth_id_token');
+                $this->request->getSession()->delete('oauth_access_token');
+                $this->request->getSession()->delete('okta_last_validation');
                 
                 // Form-based login or Okta disabled - redirect to login page
                 return $this->redirect(['action' => 'login']);
