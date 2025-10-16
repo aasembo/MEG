@@ -64,6 +64,9 @@ class AppController extends Controller
             $this->getName() === 'Auth' ||
             ($this->getName() === 'Pages' && $this->request->getParam('action') !== 'home')) {
             $this->loadComponent('Authentication.Authentication');
+            
+            // Check Okta session validity for authenticated users
+            $this->checkOktaSessionValidity();
         }
 
         /*
@@ -435,5 +438,171 @@ class AppController extends Controller
                    $this->request->getEnv('HTTP_X_FORWARDED_PROTO') === 'https';
         $protocol = $isSecure ? 'https' : 'http';
         return $protocol . '://' . $mainDomain;
+    }
+
+    /**
+     * Check if Okta session is still valid for authenticated users
+     * If user is logged out from Okta but still logged into our system, log them out
+     *
+     * @return void
+     */
+    protected function checkOktaSessionValidity(): void
+    {
+        // Skip for auth callback and logout actions to avoid infinite loops
+        $action = $this->request->getParam('action');
+        if (in_array($action, ['callback', 'logout'])) {
+            return;
+        }
+
+        // Only check if Okta is enabled
+        if (!\Cake\Core\Configure::read('Okta.enabled', false)) {
+            return;
+        }
+
+        // Check if user is authenticated in our system
+        $result = $this->Authentication->getResult();
+        if (!$result || !$result->isValid()) {
+            return; // User not logged in, nothing to check
+        }
+
+        // Get ID token from session
+        $idToken = $this->request->getSession()->read('oauth_id_token');
+        if (!$idToken) {
+            // User is authenticated but no Okta token - might be local login
+            return;
+        }
+
+        // Validate the ID token to check if it's still valid
+        if (!$this->validateOktaIdToken($idToken)) {
+            // ID token is invalid or expired, log user out
+            $this->logoutFromOktaExpiry();
+        }
+    }
+
+    /**
+     * Validate Okta ID token
+     *
+     * @param string $idToken The ID token to validate
+     * @return bool True if valid, false if invalid or expired
+     */
+    protected function validateOktaIdToken(string $idToken): bool
+    {
+        try {
+            // First, check token expiration locally (fast check)
+            if (!$this->checkTokenExpiration($idToken)) {
+                return false;
+            }
+
+            // For more thorough validation, we could validate against Okta's userinfo endpoint
+            // but this adds latency to every request. For now, we'll rely on local validation.
+            
+            return true;
+
+        } catch (\Exception $e) {
+            // Any error means token is invalid
+            return false;
+        }
+    }
+
+    /**
+     * Check if token is expired based on local claims
+     *
+     * @param string $idToken The ID token to check
+     * @return bool True if valid, false if expired or invalid
+     */
+    protected function checkTokenExpiration(string $idToken): bool
+    {
+        try {
+            // Extract payload from JWT token
+            $tokenParts = explode('.', $idToken);
+            if (count($tokenParts) !== 3) {
+                return false;
+            }
+
+            // Decode the payload (second part)
+            $payload = $tokenParts[1];
+            $payload = str_pad($payload, (int)ceil(strlen($payload) / 4) * 4, '=', STR_PAD_RIGHT);
+            $decodedPayload = base64_decode($payload);
+            
+            if ($decodedPayload === false) {
+                return false;
+            }
+
+            $claims = json_decode($decodedPayload, true);
+            if ($claims === null) {
+                return false;
+            }
+
+            // Check if token is expired
+            if (isset($claims['exp'])) {
+                $expirationTime = $claims['exp'];
+                $currentTime = time();
+                
+                // Add a 5-minute buffer to handle clock skew
+                if ($currentTime >= ($expirationTime - 300)) {
+                    return false; // Token expired or about to expire
+                }
+            }
+
+            // Additional validation: Check issuer
+            if (isset($claims['iss'])) {
+                $expectedIssuer = env('OKTA_BASE_URL') . '/oauth2/default';
+                if ($claims['iss'] !== $expectedIssuer) {
+                    return false; // Invalid issuer
+                }
+            }
+
+            return true;
+
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Log user out when Okta session expires
+     *
+     * @return void
+     */
+    protected function logoutFromOktaExpiry(): void
+    {
+        // Get user info for logging
+        $user = $this->Authentication->getIdentity();
+        $userId = $user ? $user->getIdentifier() : null;
+
+        // Clear all authentication and session data
+        $this->Authentication->logout();
+        $this->request->getSession()->delete('oauth_id_token');
+        $this->request->getSession()->delete('Hospital.current');
+
+        // Log the automatic logout
+        if ($userId) {
+            $this->log("User {$userId} automatically logged out due to Okta session expiry", 'info');
+        }
+
+        // Set flash message for user
+        $this->Flash->warning(__('Your session has expired. Please log in again.'), [
+            'element' => 'error',
+            'params' => ['autoDismiss' => false]
+        ]);
+
+        // Determine appropriate redirect based on current context
+        $prefix = $this->request->getParam('prefix');
+        $redirectRoute = ['controller' => 'Pages', 'action' => 'home', 'prefix' => false];
+
+        // Redirect to appropriate login page based on current prefix
+        if ($prefix === 'Admin') {
+            $redirectRoute = ['prefix' => 'Admin', 'controller' => 'Login', 'action' => 'login'];
+        } elseif ($prefix === 'Doctor') {
+            $redirectRoute = ['prefix' => 'Doctor', 'controller' => 'Login', 'action' => 'login'];
+        } elseif ($prefix === 'Scientist') {
+            $redirectRoute = ['prefix' => 'Scientist', 'controller' => 'Login', 'action' => 'login'];
+        } elseif ($prefix === 'Technician') {
+            $redirectRoute = ['prefix' => 'Technician', 'controller' => 'Login', 'action' => 'login'];
+        } elseif ($prefix === 'System') {
+            $redirectRoute = ['prefix' => 'System', 'controller' => 'Login', 'action' => 'login'];
+        }
+
+        $this->redirect($redirectRoute);
     }
 }

@@ -62,7 +62,7 @@ return [
         'cssBaseUrl' => 'css/',
         'jsBaseUrl' => 'js/',
         // Main domain configuration for hospital redirection
-        'mainDomain' => env('MAIN_DOMAIN', 'meg.www'),
+        'mainDomain' => env('APP_BASE_URL', 'meg.www'),
         'paths' => [
             'plugins' => [ROOT . DS . 'plugins' . DS],
             'templates' => [ROOT . DS . 'templates' . DS],

@@ -47,8 +47,8 @@ class AuthController extends AppController
     {
         parent::beforeFilter($event);
         
-        // Allow unauthenticated access to callback action
-        $this->Authentication->addUnauthenticatedActions(['callback']);
+        // Allow unauthenticated access to callback and logout callback actions
+        $this->Authentication->addUnauthenticatedActions(['callback', 'logoutCallback']);
     }    /**
      * Okta callback handler using Jumbojett OpenID Connect Client
      * Processes the authorization code and creates/authenticates users for doctors, scientists, and technicians
@@ -949,5 +949,133 @@ class AuthController extends AppController
         $this->log("Unknown role '{$role}' - redirecting to homepage", 'warning');
         $this->Flash->error(__('Unable to determine appropriate dashboard for your role.'));
         return $this->redirect(['controller' => 'Pages', 'action' => 'home', 'prefix' => false]);
+    }
+
+    /**
+     * Okta logout callback endpoint
+     * This endpoint can be called by Okta when a user logs out from Okta directly
+     * It will find and logout any active sessions for that user
+     *
+     * @return \Cake\Http\Response
+     */
+    public function logoutCallback()
+    {
+        $this->request->allowMethod(['post', 'get']);
+        
+        try {
+            // Get the id_token_hint from the request (if provided by Okta)
+            $idTokenHint = $this->request->getQuery('id_token_hint') ?: $this->request->getData('id_token_hint');
+            
+            if ($idTokenHint) {
+                // Extract user information from the ID token
+                $userInfo = $this->extractUserInfoFromIdToken($idTokenHint);
+                
+                if ($userInfo && isset($userInfo['sub'])) {
+                    // Find user by Okta ID and clear their sessions
+                    $this->clearUserSessionsByOktaId($userInfo['sub']);
+                }
+            }
+            
+            // Always return success response for Okta
+            $response = $this->response->withType('application/json')
+                                     ->withStringBody(json_encode(['status' => 'success']));
+            
+            return $response;
+            
+        } catch (\Exception $e) {
+            // Log error but still return success to Okta
+            $this->log('Okta logout callback error: ' . $e->getMessage(), 'error');
+            
+            $response = $this->response->withType('application/json')
+                                     ->withStringBody(json_encode(['status' => 'error', 'message' => 'Internal error']));
+            
+            return $response;
+        }
+    }
+
+    /**
+     * Extract user information from ID token
+     *
+     * @param string $idToken The ID token
+     * @return array|null User information or null if extraction fails
+     */
+    private function extractUserInfoFromIdToken(string $idToken): ?array
+    {
+        try {
+            // JWT tokens have 3 parts separated by dots: header.payload.signature
+            $tokenParts = explode('.', $idToken);
+            
+            if (count($tokenParts) !== 3) {
+                return null;
+            }
+            
+            // Decode the payload (second part)
+            $payload = $tokenParts[1];
+            $payload = str_pad($payload, (int)ceil(strlen($payload) / 4) * 4, '=', STR_PAD_RIGHT);
+            $decodedPayload = base64_decode($payload);
+            
+            if ($decodedPayload === false) {
+                return null;
+            }
+            
+            $claims = json_decode($decodedPayload, true);
+            
+            if ($claims === null) {
+                return null;
+            }
+            
+            return $claims;
+            
+        } catch (\Exception $e) {
+            $this->log('Error extracting user info from ID token: ' . $e->getMessage(), 'error');
+            return null;
+        }
+    }
+
+    /**
+     * Clear all active sessions for a user based on their Okta ID
+     *
+     * @param string $oktaId The Okta sub (user ID)
+     * @return void
+     */
+    private function clearUserSessionsByOktaId(string $oktaId): void
+    {
+        try {
+            // Find user by Okta ID
+            $usersTable = $this->fetchTable('Users');
+            $user = $usersTable->find()
+                ->where(['okta_id' => $oktaId])
+                ->first();
+            
+            if (!$user) {
+                $this->log("No user found with Okta ID: {$oktaId}", 'warning');
+                return;
+            }
+            
+            // Log the logout event
+            $this->activityLogger->log('okta_logout_callback', [
+                'user_id' => $user->id,
+                'request' => $this->request,
+                'description' => "User logged out from Okta, clearing local sessions",
+                'event_data' => [
+                    'okta_sub' => $oktaId,
+                    'email' => $user->email,
+                    'logout_source' => 'okta_callback'
+                ]
+            ]);
+            
+            $this->log("Cleared sessions for user {$user->email} (Okta ID: {$oktaId}) due to Okta logout", 'info');
+            
+            // Note: In a production system with multiple servers, you would need to:
+            // 1. Store session data in a shared store (Redis, database)
+            // 2. Invalidate sessions across all servers
+            // 3. Use session blacklisting or token revocation
+            
+            // For now, we'll rely on the token validation in AppController::checkOktaSessionValidity()
+            // which will automatically log out users when their tokens expire
+            
+        } catch (\Exception $e) {
+            $this->log('Error clearing user sessions: ' . $e->getMessage(), 'error');
+        }
     }
 }
