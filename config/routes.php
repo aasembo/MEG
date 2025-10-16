@@ -87,7 +87,7 @@ return function (RouteBuilder $routes): void {
      * Authentication routes - for Okta OAuth2 callback
      */
     $builder->connect('/auth/callback', ['controller' => 'Auth', 'action' => 'callback']);
-    $builder->connect('/auth/logout-callback', ['controller' => 'Auth', 'action' => 'logoutCallback']);
+    $builder->connect('/auth/logout', ['controller' => 'Auth', 'action' => 'logout']);
     
     /**
      * Debug route - for configuration testing

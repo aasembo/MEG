@@ -48,7 +48,7 @@ class AuthController extends AppController
         parent::beforeFilter($event);
         
         // Allow unauthenticated access to callback and logout callback actions
-        $this->Authentication->addUnauthenticatedActions(['callback', 'logoutCallback']);
+        $this->Authentication->addUnauthenticatedActions(['callback', 'logout']);
     }    /**
      * Okta callback handler using Jumbojett OpenID Connect Client
      * Processes the authorization code and creates/authenticates users for doctors, scientists, and technicians
@@ -958,7 +958,7 @@ class AuthController extends AppController
      *
      * @return \Cake\Http\Response
      */
-    public function logoutCallback()
+    public function logout()
     {
         $this->request->allowMethod(['post', 'get']);
         
