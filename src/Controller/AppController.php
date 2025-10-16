@@ -132,11 +132,7 @@ class AppController extends Controller
                         ->where(['subdomain' => $subdomain])
                         ->first();
                     
-                    // Debug logging for development
                     $mainDomain = \Cake\Core\Configure::read('App.mainDomain', 'meg.www');
-                    if ($host === 'localhost' || strpos($host, 'localhost:') === 0 || $host === $mainDomain || strpos($host, $mainDomain) !== false) {
-                        $this->log("Hospital check for subdomain '{$subdomain}': " . ($hospitalCheck ? "Found hospital '{$hospitalCheck->name}' with status '{$hospitalCheck->status}'" : "Not found"), 'debug');
-                    }
                 
                 // If hospital doesn't exist at all, redirect
                 if (!$hospitalCheck) {

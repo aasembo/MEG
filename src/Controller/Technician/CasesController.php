@@ -270,8 +270,8 @@ class CasesController extends AppController
                             ]);
                             
                             if (!$casesExamsProceduresTable->save($casesExamsProcedure)) {
-                                // Log error but continue
-                                $this->log('Failed to save case exam procedure: ' . print_r($casesExamsProcedure->getErrors(), true), 'error');
+                                // Log validation errors
+                                $this->log('Failed to save case exam procedure with validation errors', 'error');
                             }
                         }
                     }
@@ -291,10 +291,9 @@ class CasesController extends AppController
                 return $this->redirect(['action' => 'view', $case->id]);
             }
             
-            // Log detailed validation errors for debugging
+            // Log validation errors
             $errors = $case->getErrors();
-            $this->log('Case validation errors: ' . print_r($errors, true), 'error');
-            $this->log('Case data submitted: ' . print_r($data, true), 'debug');
+            $this->log('Case validation failed', 'error');
             
             $this->Flash->error(__('The case could not be saved. Please, try again.'));
             
@@ -464,7 +463,7 @@ class CasesController extends AppController
                             ]);
                             
                             if (!$casesExamsProceduresTable->save($casesExamsProcedure)) {
-                                $this->log('Failed to save new case exam procedure: ' . print_r($casesExamsProcedure->getErrors(), true), 'error');
+                                $this->log('Failed to save new case exam procedure', 'error');
                             }
                         }
                     }
@@ -707,7 +706,7 @@ class CasesController extends AppController
                         ]);
                         
                         if (!$casesExamsProceduresTable->save($casesExamsProcedure)) {
-                            $this->log('Failed to save new case exam procedure: ' . print_r($casesExamsProcedure->getErrors(), true), 'error');
+                            $this->log('Failed to save new case exam procedure', 'error');
                         }
                     }
                 }

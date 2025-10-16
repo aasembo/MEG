@@ -171,3 +171,4 @@ infection.log
 /webroot/test_*
 console.php
 migrate.php
+docs/Okta-UserType-Configuration.md

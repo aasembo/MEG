@@ -316,10 +316,6 @@ class PatientsController extends AppController
                     // Rollback transaction on any error
                     $connection->rollback();
                     
-                    // Log the specific error for debugging
-                    error_log('Patient creation error: ' . $e->getMessage());
-                    error_log('Stack trace: ' . $e->getTraceAsString());
-                    
                     // Show specific error in development, generic in production
                     if (Configure::read('debug')) {
                         $this->Flash->error(__('Error creating patient: {0}', $e->getMessage()));

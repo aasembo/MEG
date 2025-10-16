@@ -195,6 +195,12 @@ class LoginController extends AppController
                 ]);
             }
             
+            // For Okta logout, build logout URL BEFORE clearing session
+            $oktaLogoutUrl = null;
+            if ($loginMethod === 'okta' && \Cake\Core\Configure::read('Okta.enabled', false)) {
+                $oktaLogoutUrl = $this->buildOktaLogoutUrl();
+            }
+            
             // Logout from local CakePHP session
             $this->Authentication->logout();
             
@@ -204,9 +210,8 @@ class LoginController extends AppController
             $this->Flash->success(__('You have been logged out.'));
             
             // Redirect based on login method
-            if ($loginMethod === 'okta' && \Cake\Core\Configure::read('Okta.enabled', false)) {
-                // Build Okta logout URL and redirect to complete Okta logout
-                $oktaLogoutUrl = $this->buildOktaLogoutUrl();
+            if ($oktaLogoutUrl) {
+                // Redirect to complete Okta logout
                 return $this->redirect($oktaLogoutUrl);
             } else {
                 // Form-based login or Okta disabled - redirect to login page
@@ -228,21 +233,17 @@ class LoginController extends AppController
     {
         $baseUrl = env('OKTA_BASE_URL');
         $clientId = env('OKTA_CLIENT_ID');
-        $redirectUri = 'http://meg.www/auth/callback'; // Match Okta configuration exactly
+        $redirectUri = env('OKTA_REDIRECT_URI', env('APP_BASE_URL', 'http://meg.www') . '/auth/callback'); // Match Okta configuration exactly
         
         // Get hospital context from session or subdomain with improved detection
         $hospital = $this->request->getSession()->read('Hospital.current');
         $hospitalId = $hospital ? $hospital->id : null;
         $hospitalSubdomain = $this->getHospitalSubdomain();
         
-        // Log hospital context for debugging
-        $this->log("Technician login - Hospital ID: " . ($hospitalId ?: 'NONE') . ", Hospital Subdomain: " . ($hospitalSubdomain ?: 'NONE') . ", Hospital Name: " . ($hospital ? $hospital->name : 'NONE'), 'info');
-        
         // Ensure we have hospital context for role-based access
         if (!$hospitalId && !$hospitalSubdomain) {
             // Use default hospital subdomain 'hospital1' when no subdomain provided
             $hospitalSubdomain = 'hospital1';
-            $this->log("Technician login - No hospital context provided, using default subdomain: hospital1", 'info');
             
             // Load the default hospital from database
             $hospitalsTable = $this->fetchTable('Hospitals');
@@ -254,7 +255,6 @@ class LoginController extends AppController
                 $hospitalId = $defaultHospital->id;
                 // Store hospital context in session for future requests
                 $this->request->getSession()->write('Hospital.current', $defaultHospital);
-                $this->log("Technician login - Set default hospital context: {$defaultHospital->name} (ID: {$hospitalId})", 'info');
             } else {
                 $this->Flash->error(__('Default hospital is not available. Please contact support.'));
                 // Return null to indicate failure, let calling method handle redirect
@@ -282,7 +282,7 @@ class LoginController extends AppController
         $params = [
             'client_id' => $clientId,
             'response_type' => 'code',
-            'scope' => 'openid email profile',
+            'scope' => 'openid email profile userType',
             'redirect_uri' => $redirectUri,
             'state' => $state,
             'response_mode' => 'query',
@@ -292,7 +292,7 @@ class LoginController extends AppController
         ];
         
         // Use standard OpenID Connect authorization endpoint
-        return $baseUrl . '/oauth2/v1/authorize?' . http_build_query($params);
+        return $baseUrl . '/oauth2/default/v1/authorize?' . http_build_query($params);
     }
 
     /**
@@ -373,17 +373,10 @@ class LoginController extends AppController
     private function buildOktaLogoutUrl(): string
     {
         $baseUrl = env('OKTA_BASE_URL');
-        $postLogoutRedirectUri = 'http://meg.www/';
+        $postLogoutRedirectUri = env('APP_BASE_URL', 'http://meg.www');
         
         // Get ID token from session for logout hint
         $idToken = $this->request->getSession()->read('oauth_id_token');
-        
-        // Log for debugging
-        if ($idToken) {
-            $this->log('ID token found in session for logout', 'debug');
-        } else {
-            $this->log('No ID token found in session during logout', 'warning');
-        }
         
         // Okta logout endpoint with post-logout redirect and id_token_hint
         $params = [
@@ -395,7 +388,7 @@ class LoginController extends AppController
             $params['id_token_hint'] = $idToken;
         }
         
-        return $baseUrl . '/oauth2/v1/logout?' . http_build_query($params);
+        return $baseUrl . '/oauth2/default/v1/logout?' . http_build_query($params);
     }
     
     /**

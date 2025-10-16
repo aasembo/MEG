@@ -104,7 +104,26 @@ class UsersTable extends Table {
         $rules->add($rules->isUnique(['username']), ['errorField' => 'username']);
         $rules->add($rules->isUnique(['email']), ['errorField' => 'email']);
         $rules->add($rules->existsIn(['role_id'], 'Roles'), ['errorField' => 'role_id']);
-        $rules->add($rules->existsIn(['hospital_id'], 'Hospitals'), ['errorField' => 'hospital_id']);
+        
+        // Custom rule for hospital_id: allow 0 for super users, otherwise must exist in hospitals table
+        $rules->add(function ($entity, $options) {
+            // If hospital_id is 0, check if user has super role
+            if ($entity->hospital_id === 0) {
+                // Load role to check type
+                if ($entity->role_id) {
+                    $rolesTable = \Cake\ORM\TableRegistry::getTableLocator()->get('Roles');
+                    $role = $rolesTable->find()->where(['id' => $entity->role_id])->first();
+                    if ($role && $role->type === 'super') {
+                        return true; // Allow hospital_id = 0 for super users
+                    }
+                }
+                return false; // Don't allow hospital_id = 0 for non-super users
+            }
+            
+            // For hospital_id > 0, check if it exists in hospitals table
+            $hospitalsTable = \Cake\ORM\TableRegistry::getTableLocator()->get('Hospitals');
+            return $hospitalsTable->exists(['id' => $entity->hospital_id]);
+        }, ['errorField' => 'hospital_id', 'message' => 'Invalid hospital assignment']);
 
         return $rules;
     }

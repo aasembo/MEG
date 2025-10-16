@@ -196,17 +196,21 @@ class LoginController extends AppController
             // Logout from local CakePHP session
             $this->Authentication->logout();
             
-            // Clear OAuth tokens from session if they exist
-            $this->request->getSession()->delete('oauth_id_token');
-            
             $this->Flash->success(__('You have been logged out.'));
             
             // Redirect based on login method
             if ($loginMethod === 'okta' && \Cake\Core\Configure::read('Okta.enabled', false)) {
                 // Build Okta logout URL and redirect to complete Okta logout
                 $oktaLogoutUrl = $this->buildOktaLogoutUrl();
+                
+                // Clear OAuth tokens from session AFTER building logout URL
+                $this->request->getSession()->delete('oauth_id_token');
+                
                 return $this->redirect($oktaLogoutUrl);
             } else {
+                // Clear OAuth tokens from session if they exist
+                $this->request->getSession()->delete('oauth_id_token');
+                
                 // Form-based login or Okta disabled - redirect to login page
                 return $this->redirect(['action' => 'login']);
             }
@@ -226,15 +230,12 @@ class LoginController extends AppController
     {
         $baseUrl = env('OKTA_BASE_URL');
         $clientId = env('OKTA_CLIENT_ID');
-        $redirectUri = 'http://meg.www/auth/callback'; // Match Okta configuration exactly
+        $redirectUri = env('OKTA_REDIRECT_URI', env('APP_BASE_URL', 'http://meg.www') . '/auth/callback'); // Match Okta configuration exactly
         
         // Get hospital context from middleware (set by HospitalRoutingMiddleware)
         $hospital = $this->request->getAttribute('hospital_context');
         $hospitalSubdomain = $this->request->getAttribute('hospital_subdomain');
         $hospitalId = $hospital ? $hospital->id : null;
-        
-        // Log hospital context for debugging
-        $this->log("Doctor login - Hospital ID: " . ($hospitalId ?: 'NONE') . ", Hospital Subdomain: " . ($hospitalSubdomain ?: 'NONE') . ", Hospital Name: " . ($hospital ? $hospital->name : 'NONE'), 'info');
         
         // Ensure we have hospital context for role-based access
         if (!$hospitalId) {
@@ -262,7 +263,7 @@ class LoginController extends AppController
         $params = [
             'client_id' => $clientId,
             'response_type' => 'code',
-            'scope' => 'openid email profile',
+            'scope' => 'openid email profile userType',
             'redirect_uri' => $redirectUri,
             'state' => $state,
             'response_mode' => 'query',
@@ -272,7 +273,7 @@ class LoginController extends AppController
         ];
         
         // Use standard OpenID Connect authorization endpoint
-        return $baseUrl . '/oauth2/v1/authorize?' . http_build_query($params);
+        return $baseUrl . '/oauth2/default/v1/authorize?' . http_build_query($params);
     }
 
     /**
@@ -353,23 +354,11 @@ class LoginController extends AppController
     private function buildOktaLogoutUrl(): string
     {
         $baseUrl = env('OKTA_BASE_URL');
-        $postLogoutRedirectUri = 'http://meg.www/';
+        $postLogoutRedirectUri = env('APP_BASE_URL', 'http://meg.www');
         
         // Get ID token from session for logout hint
         $idToken = $this->request->getSession()->read('oauth_id_token');
         
-        // Enhanced debugging
-        $this->log('=== LOGOUT DEBUG ===', 'debug');
-        $this->log('All session data: ' . print_r($this->request->getSession()->read(), true), 'debug');
-        $this->log('ID token from session: ' . ($idToken ? 'FOUND (length: ' . strlen($idToken) . ')' : 'NOT FOUND'), 'debug');
-        $this->log('=== END LOGOUT DEBUG ===', 'debug');
-        
-        // Log for debugging
-        if ($idToken) {
-            $this->log('ID token found in session for logout', 'debug');
-        } else {
-            $this->log('No ID token found in session during logout', 'warning');
-        }
         
         // Okta logout endpoint with post-logout redirect and id_token_hint
         $params = [
@@ -381,8 +370,7 @@ class LoginController extends AppController
             $params['id_token_hint'] = $idToken;
         }
         
-        $logoutUrl = $baseUrl . '/oauth2/v1/logout?' . http_build_query($params);
-        $this->log('Final logout URL: ' . $logoutUrl, 'debug');
+        $logoutUrl = $baseUrl . '/oauth2/default/v1/logout?' . http_build_query($params);
         
         return $logoutUrl;
     }

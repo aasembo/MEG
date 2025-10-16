@@ -37,16 +37,6 @@ class AuthController extends AppController
         if (!$this->oktaClientId) {
             throw new \Exception('OKTA_CLIENT_ID environment variable is not set');
         }
-        
-        // Debug logging to help troubleshoot configuration
-        $this->log('Okta Domain: ' . $this->oktaDomain, 'debug');
-        $this->log('Okta Client ID: ' . $this->oktaClientId, 'debug');
-        $this->log('Okta Client Secret: ' . ($this->oktaClientSecret ? 'SET' : 'NOT SET'), 'debug');
-        
-        // Also check environment variables directly
-        error_log('ENV OKTA_BASE_URL: ' . ($this->oktaDomain ?? 'NOT SET'));
-        error_log('ENV OKTA_CLIENT_ID: ' . ($this->oktaClientId ?? 'NOT SET'));
-        error_log('ENV OKTA_CLIENT_SECRET: ' . ($this->oktaClientSecret ? 'SET' : 'NOT SET'));
     }
     
     /**
@@ -82,7 +72,6 @@ class AuthController extends AppController
             // Handle Okta errors with detailed logging
             if ($error) {
                 $errorDescription = $this->request->getQuery('error_description');
-                $this->log("Okta authentication error: {$error}. Description: {$errorDescription}", 'error');
                 
                 // Log failed authentication attempt
                 $this->activityLogger->logLoginFailed(null, [
@@ -108,8 +97,6 @@ class AuthController extends AppController
             return $this->processCallback($code, $state);
             
         } catch (\Exception $e) {
-            $this->log('Okta authentication error: ' . $e->getMessage(), 'error');
-            $this->log('Exception trace: ' . $e->getTraceAsString(), 'error');
             $this->Flash->error(__('Authentication failed. Please try again. Error: {0}', $e->getMessage()));
             return $this->redirect(['controller' => 'Pages', 'action' => 'home', 'prefix' => false]);
         } finally {
@@ -138,7 +125,7 @@ class AuthController extends AppController
         $hospitalSubdomain = $stateData['hospital_subdomain'] ?? null;
         
         // Validate role is one of our supported roles
-        if (!in_array($requestedRole, ['doctor', 'scientist', 'technician'])) {
+        if (!in_array($requestedRole, ['doctor', 'scientist', 'technician', 'administrator'])) {
             throw new \Exception('Invalid role requested');
         }
         
@@ -149,7 +136,7 @@ class AuthController extends AppController
         }
         
         // Build redirect URI to match Okta configuration exactly
-        $redirectUri = 'http://meg.www/auth/callback';
+        $redirectUri = env('OKTA_REDIRECT_URI', env('APP_BASE_URL', 'http://meg.www') . '/auth/callback');
         
         // Exchange authorization code for access token using manual HTTP request
         $tokenResponse = $this->exchangeCodeForToken($code, $codeVerifier, $redirectUri);
@@ -163,30 +150,80 @@ class AuthController extends AppController
         
         // Store ID token in session for logout purposes
         if (isset($tokenResponse['id_token'])) {
-            $this->log('=== STORING ID TOKEN ===', 'debug');
-            $this->log('ID token found in response, storing in session', 'debug');
-            $this->log('ID token length: ' . strlen($tokenResponse['id_token']), 'debug');
             $this->request->getSession()->write('oauth_id_token', $tokenResponse['id_token']);
-            
-            // Verify it was stored
-            $storedToken = $this->request->getSession()->read('oauth_id_token');
-            $this->log('Verification - ID token stored successfully: ' . ($storedToken ? 'YES' : 'NO'), 'debug');
-            $this->log('=== END STORING ID TOKEN ===', 'debug');
         } else {
             $this->log('No ID token found in token response. Available keys: ' . implode(', ', array_keys($tokenResponse)), 'warning');
         }
         
-        // Get user information using the access token
+        // Get user information using the access token (optional - we can get most info from JWT)
         $userInfo = $this->getUserInfo($tokenResponse['access_token']);
-        
+       
+        // If UserInfo fails, create basic user info from JWT tokens
         if (!$userInfo) {
-            throw new \Exception('Failed to get user information from Okta');
+            $this->log('UserInfo endpoint failed, attempting to extract user data from JWT tokens', 'warning');
+            $userInfo = $this->createUserInfoFromTokens($tokenResponse);
+            
+            if (!$userInfo) {
+                throw new \Exception('Failed to get user information from Okta UserInfo endpoint and JWT tokens');
+            }
+        }
+        
+        // Extract userType from access token JWT claims
+        $accessTokenClaims = $this->extractTokenClaims($tokenResponse['access_token']);
+        if ($accessTokenClaims && isset($accessTokenClaims['userType'])) {
+            $userInfo['userType'] = $accessTokenClaims['userType'];
+        }
+        
+        // Also check ID token if available
+        if (isset($tokenResponse['id_token'])) {
+            $idTokenClaims = $this->extractTokenClaims($tokenResponse['id_token']);
+            if ($idTokenClaims && isset($idTokenClaims['userType']) && !isset($userInfo['userType'])) {
+                $userInfo['userType'] = $idTokenClaims['userType'];
+            }
+        }
+        
+        // Determine the actual role to use - prefer Okta userType over state parameter
+        try {
+            $finalRole = $this->determineUserRole($userInfo, $requestedRole);
+        } catch (\Exception $e) {
+            // Log failed authentication attempt due to missing/invalid role
+            $this->activityLogger->logLoginFailed(null, [
+                'request' => $this->request,
+                'description' => "Access denied: " . $e->getMessage(),
+                'event_data' => [
+                    'okta_sub' => $userInfo['sub'] ?? null,
+                    'requested_role' => $requestedRole,
+                    'authentication_method' => 'okta_openid_connect',
+                    'reason' => 'invalid_or_missing_role'
+                ]
+            ]);
+            
+            $this->Flash->error(__('Access not allowed. Your account does not have the required permissions to access this system.'));
+            return $this->redirect(['controller' => 'Pages', 'action' => 'home', 'prefix' => false]);
         }
         
         // Find or create user
-        $user = $this->findOrCreateUser($userInfo, $requestedRole, $hospitalId, $hospitalSubdomain);
+        $user = $this->findOrCreateUser($userInfo, $finalRole, $hospitalId, $hospitalSubdomain);
         if (!$user) {
-            throw new \Exception('Failed to create or authenticate user');
+            // Log detailed error for debugging
+            $this->log("findOrCreateUser returned null. UserInfo keys: " . implode(', ', array_keys($userInfo)), 'error');
+            $this->log("Final role: {$finalRole}, Hospital ID: " . ($hospitalId ?: 'NONE'), 'error');
+            
+            // Log failed authentication attempt
+            $this->activityLogger->logLoginFailed(null, [
+                'request' => $this->request,
+                'description' => "Failed to create or authenticate user during Okta login",
+                'event_data' => [
+                    'okta_sub' => $userInfo['sub'] ?? null,
+                    'email' => $userInfo['email'] ?? null,
+                    'final_role' => $finalRole,
+                    'hospital_id' => $hospitalId,
+                    'authentication_method' => 'okta_openid_connect',
+                    'reason' => 'user_creation_failed'
+                ]
+            ]);
+            
+            throw new \Exception('Failed to create or authenticate user. Please contact support if this issue persists.');
         }
         
         // Log the user in
@@ -194,20 +231,22 @@ class AuthController extends AppController
         
         // Log Okta authentication event
         $this->activityLogger->logOktaAuth($user->id, [
-            'role_type' => $requestedRole,
+            'role_type' => $finalRole,
             'hospital_id' => $hospitalId,
             'request' => $this->request,
             'event_data' => [
                 'okta_sub' => $userInfo['sub'] ?? null,
                 'hospital_subdomain' => $hospitalSubdomain,
-                'authentication_method' => 'okta_openid_connect'
+                'authentication_method' => 'okta_openid_connect',
+                'requested_role' => $requestedRole,
+                'okta_provided_role' => $userInfo['extracted_user_type'] ?? null
             ]
         ]);
         
         // Verify role-specific record exists
-        $hasRoleRecord = $this->verifyRoleRecord($user, $requestedRole);
+        $hasRoleRecord = $this->verifyRoleRecord($user, $finalRole);
         if (!$hasRoleRecord) {
-            $this->log("Warning: User {$user->email} authenticated but missing {$requestedRole} record", 'warning');
+            $this->log("Warning: User {$user->email} authenticated but missing {$finalRole} record", 'warning');
         }
         
         // Ensure hospital context is set in session after successful authentication
@@ -227,9 +266,128 @@ class AuthController extends AppController
         }
         
         $this->Flash->success(__('Welcome, {0}{1}!', $userName, $hospitalInfo));
-        $this->log("User {$userName} ({$user->email}) successfully authenticated for {$requestedRole} role" . ($hospitalInfo ? $hospitalInfo : ''), 'info');
+        $this->log("User {$userName} ({$user->email}) successfully authenticated for {$finalRole} role" . ($hospitalInfo ? $hospitalInfo : ''), 'info');
         
-        return $this->redirectToRoleDashboard($requestedRole);
+        return $this->redirectToRoleDashboard($finalRole);
+    }
+
+    /**
+     * Determine the user role from Okta userInfo and fallback to requested role
+     *
+     * @param array $userInfo User information from Okta
+     * @param string $requestedRole Role from state parameter
+     * @return string Final role to use
+     */
+    private function determineUserRole(array $userInfo, string $requestedRole): string
+    {
+        // Check for userType directly from token (highest priority)
+        $oktaRole = $userInfo['userType'] ?? $userInfo['extracted_user_type'] ?? null;
+        
+        // If not found, check other possible fields
+        if (!$oktaRole) {
+            $possibleFields = ['role', 'user_type', 'custom_role'];
+            foreach ($possibleFields as $field) {
+                if (isset($userInfo[$field])) {
+                    $oktaRole = $userInfo[$field];
+                    $this->log("Found role in field '{$field}': {$oktaRole}", 'info');
+                    break;
+                }
+            }
+        }
+        
+        // Handle groups if role is still not found
+        if (!$oktaRole && isset($userInfo['groups']) && is_array($userInfo['groups'])) {
+            $roleMap = ['doctor', 'scientist', 'technician', 'administrator', 'nurse'];
+            foreach ($userInfo['groups'] as $group) {
+                $groupLower = strtolower($group);
+                foreach ($roleMap as $role) {
+                    if (strpos($groupLower, $role) !== false) {
+                        $oktaRole = $role;
+                        $this->log("Extracted role from group '{$group}': {$oktaRole}", 'info');
+                        break 2;
+                    }
+                }
+            }
+        }
+        
+        if ($oktaRole) {
+            // Validate that the Okta role is one we support
+            $supportedRoles = ['doctor', 'scientist', 'technician', 'administrator', 'nurse'];
+            if (in_array(strtolower($oktaRole), $supportedRoles)) {
+                $finalRole = strtolower($oktaRole);
+                $this->log("Using Okta-provided role: {$finalRole} (requested: {$requestedRole})", 'info');
+                
+                // Log a warning if Okta role differs from requested role
+                if ($finalRole !== $requestedRole) {
+                    $this->log("Warning: Okta role '{$finalRole}' differs from requested role '{$requestedRole}'", 'warning');
+                }
+                
+                return $finalRole;
+            } else {
+                $this->log("Okta provided unsupported role '{$oktaRole}' - access denied", 'error');
+                throw new \Exception("Access not allowed. Your account does not have the required permissions.");
+            }
+        } else {
+            // Fallback to requested role if no role found in Okta (for testing/development)
+            $supportedRoles = ['doctor', 'scientist', 'technician', 'administrator', 'nurse'];
+            if (in_array(strtolower($requestedRole), $supportedRoles)) {
+                $this->log("No role found in Okta userInfo - falling back to requested role: {$requestedRole}", 'warning');
+                return strtolower($requestedRole);
+            } else {
+                $this->log("No valid role found in Okta userInfo and requested role '{$requestedRole}' is not supported - access denied", 'error');
+                throw new \Exception("Access not allowed. No valid role found in your account.");
+            }
+        }
+    }
+
+    /**
+     * Extract claims from JWT token (access token or ID token)
+     *
+     * @param string $token JWT token
+     * @return array|null Decoded claims or null if invalid
+     */
+    private function extractTokenClaims(string $token): ?array
+    {
+        try {
+            // JWT tokens have 3 parts separated by dots: header.payload.signature
+            $tokenParts = explode('.', $token);
+            
+            if (count($tokenParts) !== 3) {
+                $this->log('Invalid JWT token format - expected 3 parts', 'warning');
+                return null;
+            }
+            
+            // Decode the payload (second part)
+            $payload = $tokenParts[1];
+            
+            // Add padding if needed for base64 decoding
+            $payload = str_pad($payload, (int)ceil(strlen($payload) / 4) * 4, '=', STR_PAD_RIGHT);
+            
+            $decodedPayload = base64_decode($payload);
+            
+            if ($decodedPayload === false) {
+                $this->log('Failed to base64 decode JWT payload', 'warning');
+                return null;
+            }
+            
+            $claims = json_decode($decodedPayload, true);
+            
+            if ($claims === null) {
+                $this->log('Failed to JSON decode JWT claims', 'warning');
+                return null;
+            }
+            
+            // Log userType specifically if found
+            if (isset($claims['userType'])) {
+                $this->log("JWT contains userType: {$claims['userType']}", 'info');
+            }
+            
+            return $claims;
+            
+        } catch (\Exception $e) {
+            $this->log('Error extracting JWT claims: ' . $e->getMessage(), 'error');
+            return null;
+        }
     }
 
     /**
@@ -240,11 +398,7 @@ class AuthController extends AppController
      */
     private function exchangeCodeForToken($code, $codeVerifier, $redirectUri)
     {
-        $this->log('Starting token exchange with code: ' . substr($code, 0, 10) . '...', 'debug');
-        $this->log('Code verifier: ' . substr($codeVerifier, 0, 10) . '...', 'debug');
-        $this->log('Redirect URI: ' . $redirectUri, 'debug');
-        
-        $tokenUrl = $this->oktaDomain . '/oauth2/v1/token';
+        $tokenUrl = $this->oktaDomain . '/oauth2/default/v1/token';
         
         $postFields = [
             'grant_type' => 'authorization_code',
@@ -261,32 +415,6 @@ class AuthController extends AppController
         } else {
             $this->log('Using PKCE-only authentication', 'debug');
         }
-        
-        $this->log('Token request URL: ' . $tokenUrl, 'debug');
-        $this->log('Token request data: ' . json_encode($postFields), 'debug');
-        $this->log('Redirect URI being sent: ' . $redirectUri, 'debug');
-        
-        // Debug output for immediate visibility
-        error_log('=== OKTA TOKEN EXCHANGE DEBUG ===');
-        error_log('Token URL: ' . $tokenUrl);
-        error_log('Client ID from config: ' . $this->oktaClientId);
-        error_log('Okta Domain from config: ' . $this->oktaDomain);
-        error_log('Redirect URI: ' . $redirectUri);
-        error_log('POST Fields: ' . json_encode($postFields));
-        error_log('=== END DEBUG ===');
-        
-        // Also write to a file we can easily read
-        file_put_contents('/tmp/okta_debug.log', 
-            "=== OKTA TOKEN EXCHANGE DEBUG ===\n" .
-            "Timestamp: " . date('Y-m-d H:i:s') . "\n" .
-            "Token URL: " . $tokenUrl . "\n" .
-            "Client ID: " . $this->oktaClientId . "\n" .
-            "Okta Domain: " . $this->oktaDomain . "\n" .
-            "Redirect URI: " . $redirectUri . "\n" .
-            "POST Fields: " . json_encode($postFields, JSON_PRETTY_PRINT) . "\n" .
-            "=== END DEBUG ===\n\n", 
-            FILE_APPEND
-        );
         
         // Use CakePHP HTTP client instead of cURL
         $http = new Client();
@@ -306,20 +434,6 @@ class AuthController extends AppController
             throw new \Exception('Network error during token exchange: ' . $e->getMessage());
         }
         
-        $this->log('Token response HTTP code: ' . $httpCode, 'debug');
-        $this->log('Token response: ' . $responseBody, 'debug');
-        
-        error_log('Token Response HTTP Code: ' . $httpCode);
-        error_log('Token Response: ' . $responseBody);
-        
-        // Also write response to debug file
-        file_put_contents('/tmp/okta_debug.log', 
-            "Response HTTP Code: " . $httpCode . "\n" .
-            "Response Body: " . $responseBody . "\n" .
-            "=== END RESPONSE ===\n\n", 
-            FILE_APPEND
-        );
-        
         if ($httpCode !== 200) {
             $this->log('Token exchange failed with HTTP ' . $httpCode . ': ' . $responseBody, 'error');
             throw new \Exception('Token exchange failed with HTTP ' . $httpCode . ': ' . $responseBody);
@@ -331,11 +445,6 @@ class AuthController extends AppController
             throw new \Exception('Invalid token response from Okta');
         }
         
-        // Log what tokens are included in the response
-        $availableTokens = array_keys($tokenData);
-        $this->log('Token response contains: ' . implode(', ', $availableTokens), 'debug');
-        
-        $this->log('Token exchange successful', 'debug');
         return $tokenData;
     }
 
@@ -353,7 +462,7 @@ class AuthController extends AppController
             throw new \Exception('Okta base URL configuration is missing');
         }
         
-        $userInfoEndpoint = $baseUrl . '/oauth2/v1/userinfo';
+        $userInfoEndpoint = $baseUrl . '/oauth2/default/v1/userinfo';
         
         // Make HTTP request to userinfo endpoint using CakePHP HTTP client
         $http = new Client();
@@ -369,13 +478,17 @@ class AuthController extends AppController
             $httpCode = $response->getStatusCode();
             $responseBody = $response->getStringBody();
             
+            
         } catch (\Exception $e) {
             $this->log('HTTP client error during userinfo request: ' . $e->getMessage(), 'error');
+            $this->log('UserInfo endpoint: ' . $userInfoEndpoint, 'error');
             return null;
         }
         
         if ($httpCode !== 200) {
             $this->log("UserInfo request failed. HTTP Code: {$httpCode}, Response: {$responseBody}", 'error');
+            $this->log("UserInfo endpoint used: {$userInfoEndpoint}", 'error');
+            
             return null;
         }
         
@@ -385,6 +498,73 @@ class AuthController extends AppController
             return null;
         }
         
+        return $userInfo;
+    }
+
+    /**
+     * Create user info from JWT tokens when UserInfo endpoint fails
+     *
+     * @param array $tokenResponse Token response containing access_token and id_token
+     * @return array|null User info extracted from tokens or null if extraction fails
+     */
+    private function createUserInfoFromTokens(array $tokenResponse): ?array
+    {
+        $userInfo = [];
+        
+        // Extract from access token
+        if (isset($tokenResponse['access_token'])) {
+            $accessTokenClaims = $this->extractTokenClaims($tokenResponse['access_token']);
+            if ($accessTokenClaims) {
+                $this->log('Extracting user info from access token claims', 'info');
+                
+                // Common fields that might be in access token
+                $fieldsToExtract = ['sub', 'email', 'userType', 'given_name', 'family_name', 'name', 'preferred_username'];
+                foreach ($fieldsToExtract as $field) {
+                    if (isset($accessTokenClaims[$field])) {
+                        $userInfo[$field] = $accessTokenClaims[$field];
+                    }
+                }
+            }
+        }
+        
+        // Extract from ID token (preferred for user profile data)
+        if (isset($tokenResponse['id_token'])) {
+            $idTokenClaims = $this->extractTokenClaims($tokenResponse['id_token']);
+            if ($idTokenClaims) {
+                $this->log('Extracting user info from ID token claims', 'info');
+                
+                // ID token typically has more user profile information
+                $fieldsToExtract = ['sub', 'email', 'given_name', 'family_name', 'name', 'preferred_username', 'userType'];
+                foreach ($fieldsToExtract as $field) {
+                    if (isset($idTokenClaims[$field])) {
+                        $userInfo[$field] = $idTokenClaims[$field];
+                        $this->log("Extracted {$field} from ID token: {$idTokenClaims[$field]}", 'debug');
+                    }
+                }
+            }
+        }
+        
+        // Ensure we have minimum required fields
+        if (!isset($userInfo['email']) && !isset($userInfo['sub'])) {
+            $this->log('Cannot create user info - missing email and sub fields in JWT tokens', 'error');
+            return null;
+        }
+        
+        // Use preferred_username as email if email is missing
+        if (!isset($userInfo['email']) && isset($userInfo['preferred_username'])) {
+            $userInfo['email'] = $userInfo['preferred_username'];
+            $this->log('Using preferred_username as email: ' . $userInfo['email'], 'info');
+        }
+        
+        // Parse name if given_name and family_name are missing
+        if (!isset($userInfo['given_name']) && !isset($userInfo['family_name']) && isset($userInfo['name'])) {
+            $nameParts = explode(' ', $userInfo['name'], 2);
+            $userInfo['given_name'] = $nameParts[0] ?? '';
+            $userInfo['family_name'] = $nameParts[1] ?? '';
+            $this->log('Parsed name into given_name and family_name', 'debug');
+        }
+        
+        $this->log('Successfully created user info from JWT tokens with fields: ' . implode(', ', array_keys($userInfo)), 'info');
         return $userInfo;
     }
 
@@ -423,19 +603,17 @@ class AuthController extends AppController
         }
         
         // Get role ID from role name
-        $this->log("Looking up role ID for role: {$role}", 'debug');
         $roleId = $this->getRoleIdFromName($role);
         if (!$roleId) {
             $this->log("Failed to find role ID for role: {$role}", 'error');
             throw new \Exception("Invalid role: {$role}");
         }
-        $this->log("Found role ID: {$roleId} for role: {$role}", 'debug');
         
         // Log hospital context for debugging
         $this->log("Processing user authentication - Email: {$email}, Role: {$role}, Hospital ID: " . ($hospitalId ?: 'NONE') . ", Hospital Subdomain: " . ($hospitalSubdomain ?: 'NONE'), 'info');
         
-        // For role-based users (doctor, scientist, technician), hospital ID is required
-        if (in_array($role, ['doctor', 'scientist', 'technician']) && !$hospitalId) {
+        // For all users except super administrators, hospital ID is required
+        if ($role !== 'super' && !$hospitalId) {
             $this->log("Hospital ID is required for {$role} role but not provided. Email: {$email}", 'error');
             throw new \Exception("Hospital context is required for {$role} access. Please ensure you are accessing from a valid hospital subdomain.");
         }
@@ -446,14 +624,11 @@ class AuthController extends AppController
             $conditions['hospital_id'] = $hospitalId;
         }
         
-        $this->log("Looking for existing user with conditions: " . json_encode($conditions), 'debug');
-        
         $existingUser = $usersTable->find()
             ->where($conditions)
             ->first();
         
         if ($existingUser) {
-            $this->log("Found existing user with ID: {$existingUser->id}", 'debug');
             // User exists with correct role and hospital - update last login and OpenID Connect data
             $existingUser->modified = new \DateTime();
             if (isset($userInfo['sub'])) {
@@ -471,61 +646,36 @@ class AuthController extends AppController
         }
         
         // Check if user exists with same email but different role or hospital
-        $this->log("No existing user found with exact conditions. Checking for email conflicts...", 'debug');
         $userWithConflict = $usersTable->find()
             ->where(['email' => $email])
             ->first();
         
         if ($userWithConflict) {
-            $this->log("Found conflicting user with ID: {$userWithConflict->id}, role_id: {$userWithConflict->role_id}, hospital_id: {$userWithConflict->hospital_id}", 'debug');
-            // User exists but with different role or hospital
-            $this->log("User {$email} exists with different role/hospital. Current role: {$userWithConflict->role_id}, Hospital: {$userWithConflict->hospital_id}. Requested role: {$roleId}, Hospital: {$hospitalId}", 'info');
+            // User exists but with different role or hospital - this is NOT allowed
+            // Each user should have a fixed role and should not be able to switch roles by accessing different URLs
+            $this->log("User {$email} exists with different role/hospital. Current role: {$userWithConflict->role_id}, Hospital: {$userWithConflict->hospital_id}. Requested role: {$roleId}, Hospital: {$hospitalId}", 'warning');
             
-            // For now, update the user to the new role and hospital context
-            // This allows users to switch between roles/hospitals
-            $userWithConflict->role_id = $roleId;
-            if ($hospitalId) {
-                $userWithConflict->hospital_id = $hospitalId;
-            }
-            $userWithConflict->modified = new \DateTime();
-            if (isset($userInfo['sub'])) {
-                $userWithConflict->okta_id = $userInfo['sub'];
-            }
-            
-            if ($usersTable->save($userWithConflict)) {
-                $this->log("Updated existing user {$email} to role {$role} at hospital {$hospitalId}", 'info');
-                
-                // Ensure role-specific record exists for the updated user
-                $roleRecord = $this->createRoleSpecificRecord($userWithConflict, $role, $hospitalId, $userInfo);
-                if ($roleRecord) {
-                    $this->log("Created {$role} record for updated user {$userWithConflict->id}", 'info');
-                } else {
-                    $this->log("Warning: Failed to create {$role} record for updated user {$userWithConflict->id}", 'warning');
-                }
-                
-                return $userWithConflict;
-            } else {
-                $this->log("Failed to update existing user {$email}: " . json_encode($userWithConflict->getErrors()), 'error');
-                return null;
-            }
+            // Return the existing user WITHOUT modifying their role
+            // The calling authentication system should validate if they have permission for the requested role
+            return $userWithConflict;
         }
         
         // Create new user with the requested role and hospital
-        $this->log("No conflicting user found. Creating new user...", 'debug');
         $userData = [
             'email' => $email,
             'username' => $email, // Use email as username
             'first_name' => $userInfo['given_name'] ?? '',
             'last_name' => $userInfo['family_name'] ?? '',
             'role_id' => $roleId,
+            'hospital_id' => ($role === 'super') ? 0 : $hospitalId, // Only super admin can have hospital_id = 0
             'status' => SiteConstants::USER_STATUS_ACTIVE,
             'okta_id' => $userInfo['sub'] ?? null,
             'created' => new \DateTime(),
             'modified' => new \DateTime()
         ];
         
-        // Add hospital ID if available (required for role-based users)
-        if ($hospitalId) {
+        // Update hospital ID if a specific hospital is provided (overrides the default)
+        if ($hospitalId && $role !== 'super') {
             // Verify hospital exists and is active
             $hospitalsTable = $this->fetchTable('Hospitals');
             $hospitalRecord = $hospitalsTable->find()
@@ -539,14 +689,14 @@ class AuthController extends AppController
             
             $userData['hospital_id'] = $hospitalId;
             $this->log("Associating new user {$email} with hospital: {$hospitalRecord->name} (ID: {$hospitalId})", 'info');
-        } else if (in_array($role, ['doctor', 'scientist', 'technician'])) {
-            // This should not happen due to earlier validation, but double-check
+        } else if ($role === 'super') {
+            $this->log("Creating super user {$email} with hospital_id = 0", 'info');
+        } else {
+            // This should not happen due to earlier validation
             throw new \Exception("Hospital association is required for {$role} users.");
         }
         
         $newUser = $usersTable->newEntity($userData);
-        
-        $this->log("Attempting to create new user with data: " . json_encode($userData), 'debug');
         
         if ($usersTable->save($newUser)) {
             $hospitalInfo = $hospitalId ? " for hospital ID {$hospitalId}" : '';
@@ -578,6 +728,18 @@ class AuthController extends AppController
         }
         
         $this->log("Failed to create new user for {$email}: " . json_encode($newUser->getErrors()), 'error');
+        
+        // Log specific validation errors for debugging
+        $errors = $newUser->getErrors();
+        foreach ($errors as $field => $fieldErrors) {
+            foreach ($fieldErrors as $error) {
+                $this->log("User creation validation error - {$field}: {$error}", 'error');
+            }
+        }
+        
+        // Also log the user data that was attempted
+        $this->log("User data that failed to save: " . json_encode($userData), 'error');
+        
         return null;
     }
 
@@ -707,7 +869,6 @@ class AuthController extends AppController
             ->first();
         
         if ($role) {
-            $this->log("Found role ID {$role->id} for role type '{$roleName}'", 'debug');
             return $role->id;
         } else {
             $this->log("No role found for type '{$roleName}'", 'error');

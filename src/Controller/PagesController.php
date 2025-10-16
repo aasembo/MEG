@@ -163,12 +163,10 @@ class PagesController extends AppController
         $route = $roleRoutes[strtolower($role)] ?? null;
         
         if ($route) {
-            $this->log("Redirecting authenticated user to {$role} dashboard: " . json_encode($route), 'info');
             return $this->redirect($route);
         }
         
         // Fallback: if role not recognized, redirect to a generic dashboard or logout
-        $this->log("Unknown role '{$role}' for authenticated user, redirecting to logout", 'warning');
         return $this->redirect(['controller' => 'Users', 'action' => 'logout', 'prefix' => false]);
     }
 }
