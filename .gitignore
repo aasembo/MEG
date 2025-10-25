@@ -2,6 +2,7 @@
 ##########################
 /config/app_local.php
 /config/.env
+/config/Migrations/
 /logs/*
 /tmp/*
 /vendor/*
@@ -123,6 +124,7 @@ error.log
 # Generated documentation
 /docs/api/
 /docs/build/
+/docs/
 
 # Runtime files
 *.pid

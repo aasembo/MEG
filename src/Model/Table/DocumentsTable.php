@@ -57,7 +57,7 @@ class DocumentsTable extends Table {
 
         $validator
             ->scalar('file_type')
-            ->maxLength('file_type', 50)
+            ->maxLength('file_type', 100)
             ->allowEmptyString('file_type');
 
         $validator

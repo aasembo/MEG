@@ -172,9 +172,9 @@
                             </td>
                             <td>
                                 <?php if ($user->role): ?>
-                                    <span class="badge bg-<?php echo $user->role->type === 'super' ? 'warning' : ($user->role->type === 'admin' ? 'info' : 'secondary') ?>">
+                                    <span class="badge <?php echo $this->Role->badgeClass($user->role->type); ?>">
                                         <i class="fas fa-<?php echo $user->role->type === 'super' ? 'crown' : ($user->role->type === 'admin' ? 'user-shield' : 'user') ?> me-1"></i>
-                                        <?php echo h($user->role->name) ?>
+                                        <?php echo h($this->Role->label($user->role->type)); ?>
                                     </span>
                                 <?php else: ?>
                                     <span class="text-muted">No role</span>

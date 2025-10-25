@@ -27,9 +27,73 @@ $this->assign('title', 'Assign Case #' . $case->id);
 
     <div class="row">
         <div class="col-lg-8">
+            <?php if (!empty($case->case_assignments)): ?>
+                <?php $currentAssignment = $case->case_assignments[0]; ?>
+                <?php if (isset($currentAssignment->assigned_to_user) && $currentAssignment->assigned_to_user): ?>
+                <div class="alert alert-warning border-warning" role="alert">
+                    <div class="d-flex align-items-start">
+                        <i class="fas fa-exclamation-triangle fa-2x me-3 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <h5 class="alert-heading mb-2">
+                                <i class="fas fa-user-check me-1"></i> Case Already Assigned
+                            </h5>
+                            <p class="mb-2">
+                                This case is currently assigned to 
+                                <strong><?php echo h($currentAssignment->assigned_to_user->first_name . ' ' . $currentAssignment->assigned_to_user->last_name); ?></strong>
+                                <?php if (isset($currentAssignment->assigned_to_user->role) && $currentAssignment->assigned_to_user->role): ?>
+                                    <span class="badge bg-info ms-2">
+                                        <?php echo h($this->Role->label($currentAssignment->assigned_to_user->role->type)); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </p>
+                            <hr class="my-2">
+                            <div class="small">
+                                <p class="mb-1">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    <strong>Assigned on:</strong> <?php echo $currentAssignment->timestamp->format('F j, Y \a\t g:i A'); ?>
+                                </p>
+                                <?php if (isset($currentAssignment->user) && $currentAssignment->user): ?>
+                                <p class="mb-1">
+                                    <i class="fas fa-user me-1"></i>
+                                    <strong>Assigned by:</strong> <?php echo h($currentAssignment->user->first_name . ' ' . $currentAssignment->user->last_name); ?>
+                                    <?php if (isset($currentAssignment->user->role) && $currentAssignment->user->role): ?>
+                                        <span class="badge bg-secondary ms-1">
+                                            <?php echo h($this->Role->label($currentAssignment->user->role->type)); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </p>
+                                <?php endif; ?>
+                                <?php if (!empty($currentAssignment->notes)): ?>
+                                    <p class="mb-0">
+                                        <i class="fas fa-comment me-1"></i>
+                                        <strong>Notes:</strong> <?php echo h($currentAssignment->notes); ?>
+                                    </p>
+                                <?php endif; ?>
+                            </div>
+                            <div class="alert alert-light border mt-3 mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <strong>Reassignment:</strong> Selecting a new scientist below will reassign this case and update the assignment history.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+            <?php endif; ?>
+            
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-user-plus me-1"></i> Case Assignment</h5>
+                    <h5 class="mb-0">
+                        <?php 
+                        $hasValidAssignment = !empty($case->case_assignments) && 
+                                             isset($case->case_assignments[0]->assigned_to_user) && 
+                                             $case->case_assignments[0]->assigned_to_user;
+                        ?>
+                        <?php if ($hasValidAssignment): ?>
+                            <i class="fas fa-exchange-alt me-1"></i> Reassign Case to Scientist
+                        <?php else: ?>
+                            <i class="fas fa-user-plus me-1"></i> Assign Case to Scientist
+                        <?php endif; ?>
+                    </h5>
                 </div>
                 <div class="card-body">
                     <!-- Case Information Summary -->
@@ -38,8 +102,8 @@ $this->assign('title', 'Assign Case #' . $case->id);
                             <div class="col-md-6">
                                 <h6 class="fw-semibold mb-2">Case Details</h6>
                                 <p class="mb-1"><strong>Patient:</strong> 
-                                    <?php if ($case->patient_users): ?>
-                                        <?php echo h($case->patient_users->first_name . ' ' . $case->patient_users->last_name); ?>
+                                    <?php if ($case->patient_user): ?>
+                                        <?php echo h($case->patient_user->first_name . ' ' . $case->patient_user->last_name); ?>
                                     <?php else: ?>
                                         <span class="text-muted">No patient assigned</span>
                                     <?php endif; ?>
@@ -78,13 +142,20 @@ $this->assign('title', 'Assign Case #' . $case->id);
 
                     <?php echo $this->Form->create($case, ['class' => 'needs-validation', 'novalidate' => true]); ?>
                     
+                    <?php 
+                    // Check if case has a valid assignment
+                    $hasValidAssignment = !empty($case->case_assignments) && 
+                                         isset($case->case_assignments[0]->assigned_to_user) && 
+                                         $case->case_assignments[0]->assigned_to_user;
+                    ?>
+                    
                     <div class="row mb-3">
                         <div class="col-12">
                             <?php echo $this->Form->control('assigned_to', [
                                 'type' => 'select',
                                 'options' => $scientists,
                                 'empty' => 'Select a scientist...',
-                                'label' => 'Assign to Scientist',
+                                'label' => ($hasValidAssignment ? 'Reassign to Scientist' : 'Assign to Scientist'),
                                 'class' => 'form-select',
                                 'required' => true,
                                 'help' => 'Choose the scientist who will handle this case'
@@ -96,20 +167,25 @@ $this->assign('title', 'Assign Case #' . $case->id);
                         <div class="col-12">
                             <?php echo $this->Form->control('notes', [
                                 'type' => 'textarea',
-                                'label' => 'Assignment Notes',
+                                'label' => ($hasValidAssignment ? 'Reassignment Notes' : 'Assignment Notes'),
                                 'class' => 'form-control',
                                 'rows' => 4,
-                                'placeholder' => 'Add any special instructions or notes for the assigned scientist...',
+                                'placeholder' => ($hasValidAssignment 
+                                    ? 'Add reason for reassignment or any special instructions...' 
+                                    : 'Add any special instructions or notes for the assigned scientist...'),
                                 'help' => 'Optional notes about the assignment, special requirements, or priority instructions'
                             ]); ?>
                         </div>
                     </div>
 
                     <div class="d-flex justify-content-between pt-3 border-top">
-                        <?php echo $this->Form->button(__('Assign Case'), [
-                            'type' => 'submit',
-                            'class' => 'btn btn-primary px-4'
-                        ]); ?>
+                        <?php echo $this->Form->button(
+                            ($hasValidAssignment ? __('Reassign Case') : __('Assign Case')), 
+                            [
+                                'type' => 'submit',
+                                'class' => 'btn btn-primary px-4'
+                            ]
+                        ); ?>
                         
                         <?php echo $this->Html->link(
                             __('Cancel'),

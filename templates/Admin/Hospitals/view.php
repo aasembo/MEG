@@ -131,8 +131,8 @@
                                     </td>
                                     <td>
                                         <?php if ($user->role): ?>
-                                            <span class="badge bg-<?php echo $user->role->type === 'super' ? 'warning' : ($user->role->type === 'admin' ? 'info' : 'secondary') ?>">
-                                                <?php echo h($user->role->name) ?>
+                                            <span class="badge <?php echo $this->Role->badgeClass($user->role->type); ?>">
+                                                <?php echo h($this->Role->label($user->role->type)); ?>
                                             </span>
                                         <?php else: ?>
                                             <span class="text-muted">No role</span>
@@ -221,8 +221,8 @@
                     <h6 class="mb-3">Users by Role</h6>
                     <?php foreach ($userCounts as $roleCount): ?>
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge bg-<?php echo $roleCount->role_type === 'admin' ? 'info' : 'secondary' ?>">
-                                <?php echo h(ucfirst($roleCount->role_type)) ?>
+                            <span class="badge <?php echo $this->Role->badgeClass($roleCount->role_type); ?>">
+                                <?php echo h($this->Role->label($roleCount->role_type)); ?>
                             </span>
                             <span class="fw-bold"><?php echo $roleCount->count ?></span>
                         </div>

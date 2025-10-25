@@ -165,6 +165,10 @@ class CasesTable extends Table
             ->scalar('notes')
             ->allowEmptyString('notes');
 
+        $validator
+            ->scalar('symptoms')
+            ->allowEmptyString('symptoms');
+
         return $validator;
     }
 

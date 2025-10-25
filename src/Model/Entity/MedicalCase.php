@@ -18,6 +18,7 @@ class MedicalCase extends Entity {
         'status' => true,
         'priority' => true,
         'notes' => true,
+        'symptoms' => true,
         'created' => true,
         'modified' => true,
         'user' => true,
@@ -80,5 +81,29 @@ class MedicalCase extends Entity {
         ];
 
         return $colorClasses[$this->status] ?? 'text-muted';
+    }
+
+    public function getStatusClass(): string {
+        $badgeClasses = [
+            'draft' => 'bg-secondary',
+            'assigned' => 'bg-info',
+            'in_progress' => 'bg-warning text-dark',
+            'review' => 'bg-primary',
+            'completed' => 'bg-success',
+            'cancelled' => 'bg-dark'
+        ];
+
+        return $badgeClasses[$this->status] ?? 'bg-secondary';
+    }
+
+    public function getPriorityClass(): string {
+        $badgeClasses = [
+            'low' => 'bg-success',
+            'medium' => 'bg-warning text-dark',
+            'high' => 'bg-danger',
+            'urgent' => 'bg-danger'
+        ];
+
+        return $badgeClasses[$this->priority] ?? 'bg-secondary';
     }
 }

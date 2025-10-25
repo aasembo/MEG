@@ -82,6 +82,8 @@ class DashboardController extends AppController
             ];
         }
         
-        $this->set(compact('user', 'currentHospital', 'caseStats'));
+        $this->set(compact('userWithRole', 'currentHospital', 'caseStats'));
+        // Keep 'user' for backward compatibility
+        $this->set('user', $userWithRole);
     }
 }

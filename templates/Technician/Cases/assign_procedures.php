@@ -189,7 +189,7 @@
                                 <div>
                                     <?php echo $this->Form->button(
                                         '<i class="fas fa-save me-1"></i> Update Procedures',
-                                        ['type' => 'submit', 'class' => 'btn btn-primary', 'escape' => false]
+                                        ['type' => 'submit', 'class' => 'btn btn-primary', 'escapeTitle' => false]
                                     ); ?>
                                 </div>
                             </div>

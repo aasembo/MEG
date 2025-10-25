@@ -277,7 +277,13 @@ $this->assign('title', 'Technician Dashboard');
                             </h5>
                         </div>
                         <div class="card-body">
-                            <p><strong>Role:</strong> Technician</p>
+                            <?php if (isset($user->role) && $user->role): ?>
+                                <p><strong>Role:</strong> 
+                                    <span class="badge <?php echo $this->Role->badgeClass($user->role->type); ?>">
+                                        <?php echo h($this->Role->label($user->role->type)); ?>
+                                    </span>
+                                </p>
+                            <?php endif; ?>
                             <p><strong>Username:</strong> <?php echo h($user->username ?? 'N/A'); ?></p>
                             <?php if ($currentHospital): ?>
                                 <p><strong>Hospital:</strong> <?php echo h($currentHospital->name); ?></p>
