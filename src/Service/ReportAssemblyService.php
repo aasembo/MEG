@@ -494,7 +494,7 @@ class ReportAssemblyService
      */
     public function assembleReport($case, array $structure, array $documentContents): array
     {
-        try {
+        try { die;
             // Get basic patient and case info
             $patientData = $this->extractPatientData($case);
             $caseData = $this->extractCaseData($case);

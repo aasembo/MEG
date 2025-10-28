@@ -5,6 +5,7 @@ namespace App\Service;
 
 use Cake\ORM\TableRegistry;
 use Cake\Log\Log;
+use App\Service\ServiceUsageLogger;
 
 /**
  * AI Provider Router Service
@@ -21,9 +22,9 @@ use Cake\Log\Log;
  */
 class AiProviderRouter
 {
-    private const PROVIDER_OPENAI = 'openai';
-    private const PROVIDER_GEMINI = 'gemini';
-    private const PROVIDER_FALLBACK = 'fallback';
+    public const PROVIDER_OPENAI = 'openai';
+    public const PROVIDER_GEMINI = 'gemini';
+    public const PROVIDER_FALLBACK = 'fallback';
     
     // Pricing per 1K tokens (input + output averaged)
     private const PRICING = [
@@ -200,6 +201,7 @@ class AiProviderRouter
      * @param string $serviceName Service name (e.g., 'report_generation', 'case_recommendations')
      * @param int $tokensUsed Number of tokens used
      * @param int|null $userId User ID who triggered the request
+     * @param int|null $relatedId Related record ID (case_id, document_id, etc.)
      * @return bool Success
      */
     public function logUsage(
@@ -207,22 +209,35 @@ class AiProviderRouter
         string $provider, 
         string $serviceName, 
         int $tokensUsed,
-        ?int $userId = null
+        ?int $userId = null,
+        ?int $relatedId = null
     ): bool {
         try {
             $cost = $this->calculateCost($provider, $tokensUsed);
+            $unitCost = $tokensUsed > 0 ? $cost / $tokensUsed : 0;
             
-            $log = $this->serviceUsageLogsTable->newEntity([
-                'hospital_id' => $hospitalId,
-                'provider' => $provider,
-                'service_name' => $serviceName,
-                'tokens_used' => $tokensUsed,
-                'cost' => $cost,
-                'user_id' => $userId,
-            ]);
+            // Use the universal ServiceUsageLogger
+            $logger = new ServiceUsageLogger();
+            
+            $logId = $logger->quickLog(
+                $hospitalId,
+                ServiceUsageLogger::TYPE_AI,
+                $provider, // 'openai' or 'gemini'
+                $serviceName,   // 'case_recommendation', 'report_generation', etc.
+                true,      // success
+                [
+                    'user_id' => $userId,
+                    'related_id' => $relatedId,
+                    'units_consumed' => $tokensUsed,
+                    'unit_cost' => $unitCost,
+                    'total_cost_usd' => $cost,
+                    'metadata' => "AI service: {$serviceName}"
+                ]
+            );
 
-            if ($this->serviceUsageLogsTable->save($log)) {
-                Log::debug('AI usage logged', [
+            if ($logId > 0) {
+                Log::debug('AI usage logged via ServiceUsageLogger', [
+                    'log_id' => $logId,
                     'hospital_id' => $hospitalId,
                     'provider' => $provider,
                     'service' => $serviceName,
@@ -232,10 +247,9 @@ class AiProviderRouter
                 return true;
             }
 
-            Log::error('Failed to log AI usage', [
-                'errors' => $log->getErrors()
-            ]);
+            Log::error('Failed to log AI usage via ServiceUsageLogger');
             return false;
+            
         } catch (\Exception $e) {
             Log::error('Exception logging AI usage', [
                 'error' => $e->getMessage()

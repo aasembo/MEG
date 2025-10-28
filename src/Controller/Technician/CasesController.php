@@ -2292,7 +2292,8 @@ class CasesController extends AppController {
         // Get symptoms/indications (generic categories only, not patient-specific text)
         $symptomCategories = $this->_categorizeSymptoms($case->symptoms ?? '');
 
-        // Determine report type (reuse the AI service instance)
+        // Determine report type
+        $aiReportService = new AiReportGenerationService();
         $reportType = $aiReportService->determineReportType($procedureTypes);
 
         return array(

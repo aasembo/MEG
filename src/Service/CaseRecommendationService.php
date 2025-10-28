@@ -6,6 +6,7 @@ namespace App\Service;
 use Cake\Http\Client;
 use Cake\Log\Log;
 use App\Service\AiProviderRouter;
+use App\Service\ServiceUsageLogger;
 
 /**
  * Case Recommendation Service
@@ -118,15 +119,6 @@ class CaseRecommendationService
                 $content = $response['choices'][0]['message']['content'];
                 $recommendations = $this->parseRecommendations($content, $availableExamsProcedures, $availableDepartments, $availableSedations);
                 
-                // Log usage
-                $this->aiRouter->logUsage(
-                    $this->hospitalId,
-                    $this->provider,
-                    'case_recommendations',
-                    $estimatedTotalTokens,
-                    $this->userId
-                );
-                
                 return $recommendations;
             }
 
@@ -211,17 +203,113 @@ PROMPT;
      * Call appropriate AI provider based on configuration
      * 
      * @param string $prompt
+     * @param int|null $caseId Related case ID (optional)
      * @return array|null
      */
-    private function callAiProvider(string $prompt): ?array
+    private function callAiProvider(string $prompt, ?int $caseId = null): ?array
     {
-        if ($this->provider === 'openai') {
-            return $this->callOpenAI($prompt);
-        } elseif ($this->provider === 'gemini') {
-            return $this->callGemini($prompt);
+        // Initialize ServiceUsageLogger
+        $logger = new ServiceUsageLogger();
+        
+        // Start logging
+        $logId = $logger->startLog(
+            $this->hospitalId,
+            ServiceUsageLogger::TYPE_AI,
+            $this->provider,
+            ServiceUsageLogger::ACTION_AI_CASE_RECOMMENDATION,
+            [
+                'user_id' => $this->userId,
+                'related_id' => $caseId,
+                'request_data' => [
+                    'model' => $this->model,
+                    'prompt_length' => strlen($prompt),
+                    'max_tokens' => $this->maxTokens,
+                    'temperature' => $this->temperature
+                ]
+            ]
+        );
+        
+        try {
+            // Make the API call
+            if ($this->provider === 'openai') {
+                $response = $this->callOpenAI($prompt);
+            } elseif ($this->provider === 'gemini') {
+                $response = $this->callGemini($prompt);
+            } else {
+                $response = null;
+            }
+            
+            // If successful, complete the log
+            if ($response) {
+                // Extract token count from response
+                $tokens = $this->extractTokenCount($response);
+                $cost = $this->aiRouter->calculateCost($this->provider, $tokens);
+                $unitCost = $tokens > 0 ? $cost / $tokens : 0;
+                
+                $logger->completeLog($logId, [
+                    'response_data' => [
+                        'has_content' => isset($response['choices'][0]['message']['content']),
+                        'token_count' => $tokens
+                    ],
+                    'units_consumed' => $tokens,
+                    'unit_cost' => $unitCost,
+                    'total_cost_usd' => $cost
+                ]);
+                
+                Log::debug('AI case recommendation completed', [
+                    'log_id' => $logId,
+                    'provider' => $this->provider,
+                    'tokens' => $tokens,
+                    'cost' => $cost
+                ]);
+            } else {
+                // Log as failed
+                $logger->failLog($logId, 'NO_RESPONSE', 'AI provider returned null response');
+            }
+            
+            return $response;
+            
+        } catch (\Exception $e) {
+            // Log the failure
+            $logger->failLog($logId, 'API_ERROR', $e->getMessage(), [
+                'response_data' => ['error' => $e->getMessage()]
+            ]);
+            
+            Log::error('AI API Error in case recommendations', [
+                'log_id' => $logId,
+                'provider' => $this->provider,
+                'error' => $e->getMessage()
+            ]);
+            
+            return null;
+        }
+    }
+    
+    /**
+     * Extract token count from API response
+     * 
+     * @param array $response API response
+     * @return int Token count
+     */
+    private function extractTokenCount(array $response): int
+    {
+        // OpenAI format
+        if (isset($response['usage']['total_tokens'])) {
+            return (int)$response['usage']['total_tokens'];
         }
         
-        return null;
+        // Gemini format (converted to OpenAI format in callGemini)
+        if (isset($response['usageMetadata']['totalTokenCount'])) {
+            return (int)$response['usageMetadata']['totalTokenCount'];
+        }
+        
+        // Fallback: estimate based on response length
+        if (isset($response['choices'][0]['message']['content'])) {
+            $content = $response['choices'][0]['message']['content'];
+            return (int)(strlen($content) / 4);
+        }
+        
+        return 0;
     }
 
     /**
@@ -337,6 +425,7 @@ PROMPT;
                     $text = $data['candidates'][0]['content']['parts'][0]['text'];
                     
                     // Convert Gemini response format to OpenAI format for consistency
+                    // Include usage metadata for token tracking
                     return [
                         'choices' => [
                             [
@@ -344,7 +433,8 @@ PROMPT;
                                     'content' => $text
                                 ]
                             ]
-                        ]
+                        ],
+                        'usageMetadata' => $data['usageMetadata'] ?? []
                     ];
                 }
                 

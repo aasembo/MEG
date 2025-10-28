@@ -8,9 +8,20 @@ use Cake\Validation\Validator;
 
 /**
  * ServiceUsageLogs Model
- *
- * Tracks usage of AI services, notifications, and other metered services
- * for cost tracking and billing purposes
+ * 
+ * Universal logging system for all external service usage including:
+ * - AI services (OpenAI, Gemini, etc.)
+ * - Payment gateways (Stripe, PayPal, etc.)
+ * - Communication services (SMS, Email)
+ * - Storage services (AWS S3, Google Cloud Storage)
+ * - Analytics and other external APIs
+ * 
+ * Features:
+ * - Comprehensive request/response logging
+ * - Cost tracking and budget monitoring
+ * - Performance metrics (response times)
+ * - Error tracking and alerting
+ * - Usage analytics and reporting
  *
  * @property \App\Model\Table\HospitalsTable&\Cake\ORM\Association\BelongsTo $Hospitals
  * @property \App\Model\Table\UsersTable&\Cake\ORM\Association\BelongsTo $Users
@@ -75,37 +86,76 @@ class ServiceUsageLogsTable extends Table
             ->notEmptyString('hospital_id');
 
         $validator
-            ->scalar('service_type')
-            ->maxLength('service_type', 50)
-            ->requirePresence('service_type', 'create')
-            ->notEmptyString('service_type')
-            ->add('service_type', 'validType', array(
-                'rule' => array('inList', array('ai', 'notification', 'storage', 'other')),
-                'message' => 'Service type must be ai, notification, storage, or other',
+            ->scalar('type')
+            ->maxLength('type', 50)
+            ->requirePresence('type', 'create')
+            ->notEmptyString('type')
+            ->add('type', 'validType', array(
+                'rule' => array('inList', array('ai', 'payment', 'sms', 'email', 'storage', 'analytics', 'ocr', 'translation', 'maps', 'other')),
+                'message' => 'Invalid service type',
             ));
-
-        $validator
-            ->scalar('service_name')
-            ->maxLength('service_name', 100)
-            ->requirePresence('service_name', 'create')
-            ->notEmptyString('service_name');
 
         $validator
             ->scalar('provider')
             ->maxLength('provider', 50)
-            ->allowEmptyString('provider');
+            ->requirePresence('provider', 'create')
+            ->notEmptyString('provider');
 
         $validator
-            ->integer('tokens_used')
-            ->allowEmptyString('tokens_used');
-
-        $validator
-            ->decimal('cost')
-            ->allowEmptyString('cost');
+            ->integer('related_id')
+            ->allowEmptyString('related_id');
 
         $validator
             ->integer('user_id')
             ->allowEmptyString('user_id');
+
+        $validator
+            ->scalar('action')
+            ->maxLength('action', 100)
+            ->requirePresence('action', 'create')
+            ->notEmptyString('action');
+
+        $validator
+            ->scalar('request_data')
+            ->allowEmptyString('request_data');
+
+        $validator
+            ->scalar('response_data')
+            ->allowEmptyString('response_data');
+
+        $validator
+            ->scalar('status')
+            ->requirePresence('status', 'create')
+            ->notEmptyString('status')
+            ->add('status', 'validStatus', array(
+                'rule' => array('inList', array('success', 'failed', 'pending', 'timeout', 'cancelled')),
+                'message' => 'Invalid status',
+            ));
+
+        $validator
+            ->integer('response_time_ms')
+            ->allowEmptyString('response_time_ms');
+
+        $validator
+            ->scalar('error_code')
+            ->maxLength('error_code', 50)
+            ->allowEmptyString('error_code');
+
+        $validator
+            ->scalar('error_message')
+            ->allowEmptyString('error_message');
+
+        $validator
+            ->decimal('units_consumed')
+            ->allowEmptyString('units_consumed');
+
+        $validator
+            ->decimal('unit_cost')
+            ->allowEmptyString('unit_cost');
+
+        $validator
+            ->decimal('total_cost_usd')
+            ->allowEmptyString('total_cost_usd');
 
         $validator
             ->scalar('metadata')
@@ -118,132 +168,264 @@ class ServiceUsageLogsTable extends Table
      * Get usage summary for a hospital
      *
      * @param int $hospitalId Hospital ID
-     * @param string $period Period (today, week, month, year)
+     * @param string|null $startDate Start date (Y-m-d format)
+     * @param string|null $endDate End date (Y-m-d format)
      * @return array Summary statistics
      */
-    public function getUsageSummary(int $hospitalId, string $period = 'month'): array
+    public function getUsageSummary(int $hospitalId, ?string $startDate = null, ?string $endDate = null): array
     {
-        $conditions = array('hospital_id' => $hospitalId);
-
-        // Add date filter
-        $dateField = 'created >=';
-        switch ($period) {
-            case 'today':
-                $conditions[$dateField] = date('Y-m-d 00:00:00');
-                break;
-            case 'week':
-                $conditions[$dateField] = date('Y-m-d 00:00:00', strtotime('-7 days'));
-                break;
-            case 'month':
-                $conditions[$dateField] = date('Y-m-01 00:00:00');
-                break;
-            case 'year':
-                $conditions[$dateField] = date('Y-01-01 00:00:00');
-                break;
-        }
-
-        // Get summary by service type
         $query = $this->find()
-            ->where($conditions)
-            ->select(array(
-                'service_type',
-                'provider',
-                'total_tokens' => 'SUM(tokens_used)',
-                'total_cost' => 'SUM(cost)',
-                'request_count' => 'COUNT(*)',
-            ))
-            ->group(array('service_type', 'provider'));
+            ->where(array('hospital_id' => $hospitalId));
 
-        $summary = array(
-            'period' => $period,
-            'total_cost' => 0.0,
-            'total_tokens' => 0,
-            'total_requests' => 0,
-            'by_service' => array(),
-        );
-
-        foreach ($query as $row) {
-            $serviceType = $row->service_type;
-            $provider = $row->provider ?: 'unknown';
-
-            if (!isset($summary['by_service'][$serviceType])) {
-                $summary['by_service'][$serviceType] = array(
-                    'total_cost' => 0.0,
-                    'total_tokens' => 0,
-                    'total_requests' => 0,
-                    'by_provider' => array(),
-                );
-            }
-
-            $summary['by_service'][$serviceType]['by_provider'][$provider] = array(
-                'tokens' => (int)$row->total_tokens,
-                'cost' => (float)$row->total_cost,
-                'requests' => (int)$row->request_count,
-            );
-
-            $summary['by_service'][$serviceType]['total_cost'] += (float)$row->total_cost;
-            $summary['by_service'][$serviceType]['total_tokens'] += (int)$row->total_tokens;
-            $summary['by_service'][$serviceType]['total_requests'] += (int)$row->request_count;
-
-            $summary['total_cost'] += (float)$row->total_cost;
-            $summary['total_tokens'] += (int)$row->total_tokens;
-            $summary['total_requests'] += (int)$row->request_count;
+        if ($startDate) {
+            $query->where(array('created >=' => $startDate));
         }
 
-        return $summary;
+        if ($endDate) {
+            $query->where(array('created <=' => $endDate));
+        }
+
+        $summary = $query->select(array(
+            'total_calls' => $query->func()->count('*'),
+            'successful_calls' => $query->func()->sum(
+                $query->newExpr()->addCase(
+                    array($query->newExpr()->eq('status', 'success')),
+                    array(1),
+                    array('integer')
+                )
+            ),
+            'failed_calls' => $query->func()->sum(
+                $query->newExpr()->addCase(
+                    array($query->newExpr()->eq('status', 'failed')),
+                    array(1),
+                    array('integer')
+                )
+            ),
+            'total_cost' => $query->func()->sum('total_cost_usd'),
+            'total_units' => $query->func()->sum('units_consumed'),
+            'avg_response_time' => $query->func()->avg('response_time_ms')
+        ))->first();
+
+        return array(
+            'total_calls' => (int)($summary->total_calls ?? 0),
+            'successful_calls' => (int)($summary->successful_calls ?? 0),
+            'failed_calls' => (int)($summary->failed_calls ?? 0),
+            'success_rate' => $summary->total_calls > 0 
+                ? round(($summary->successful_calls / $summary->total_calls) * 100, 2) 
+                : 0,
+            'total_cost' => (float)($summary->total_cost ?? 0),
+            'total_units' => (float)($summary->total_units ?? 0),
+            'avg_response_time_ms' => (int)($summary->avg_response_time ?? 0)
+        );
     }
 
     /**
-     * Get top users by cost
+     * Get usage by service type
      *
      * @param int $hospitalId Hospital ID
-     * @param int $limit Number of users to return
-     * @param string $period Period (today, week, month, year)
-     * @return array Top users
+     * @param string|null $startDate Start date
+     * @param string|null $endDate End date
+     * @return array Usage grouped by type
      */
-    public function getTopUsers(int $hospitalId, int $limit = 10, string $period = 'month'): array
+    public function getUsageByType(int $hospitalId, ?string $startDate = null, ?string $endDate = null): array
     {
-        $conditions = array('hospital_id' => $hospitalId);
+        $query = $this->find()
+            ->where(array('hospital_id' => $hospitalId));
 
-        // Add date filter
-        $dateField = 'created >=';
-        switch ($period) {
-            case 'today':
-                $conditions[$dateField] = date('Y-m-d 00:00:00');
-                break;
-            case 'week':
-                $conditions[$dateField] = date('Y-m-d 00:00:00', strtotime('-7 days'));
-                break;
-            case 'month':
-                $conditions[$dateField] = date('Y-m-01 00:00:00');
-                break;
-            case 'year':
-                $conditions[$dateField] = date('Y-01-01 00:00:00');
-                break;
+        if ($startDate) {
+            $query->where(array('created >=' => $startDate));
         }
 
-        $query = $this->find()
-            ->where($conditions)
-            ->contain('Users')
-            ->select(array(
-                'user_id',
-                'total_cost' => 'SUM(cost)',
-                'total_requests' => 'COUNT(*)',
-            ))
-            ->group('user_id')
-            ->order(array('total_cost' => 'DESC'))
-            ->limit($limit);
+        if ($endDate) {
+            $query->where(array('created <=' => $endDate));
+        }
 
-        $topUsers = array();
-        foreach ($query as $row) {
-            $topUsers[] = array(
-                'user_id' => $row->user_id,
-                'user' => $row->user,
-                'total_cost' => (float)$row->total_cost,
-                'total_requests' => (int)$row->total_requests,
+        $results = $query->select(array(
+            'type',
+            'call_count' => $query->func()->count('*'),
+            'total_cost' => $query->func()->sum('total_cost_usd'),
+            'total_units' => $query->func()->sum('units_consumed')
+        ))
+        ->group('type')
+        ->order(array('total_cost' => 'DESC'))
+        ->toArray();
+
+        $usage = array();
+        foreach ($results as $row) {
+            $usage[$row->type] = array(
+                'calls' => (int)$row->call_count,
+                'cost' => (float)($row->total_cost ?? 0),
+                'units' => (float)($row->total_units ?? 0)
             );
         }
 
-        return $topUsers;
+        return $usage;
+    }
+
+    /**
+     * Get usage by provider
+     *
+     * @param int $hospitalId Hospital ID
+     * @param string $type Service type filter
+     * @param string|null $startDate Start date
+     * @param string|null $endDate End date
+     * @return array Usage grouped by provider
+     */
+    public function getUsageByProvider(
+        int $hospitalId,
+        string $type,
+        ?string $startDate = null,
+        ?string $endDate = null
+    ): array {
+        $query = $this->find()
+            ->where(array(
+                'hospital_id' => $hospitalId,
+                'type' => $type
+            ));
+
+        if ($startDate) {
+            $query->where(array('created >=' => $startDate));
+        }
+
+        if ($endDate) {
+            $query->where(array('created <=' => $endDate));
+        }
+
+        $results = $query->select(array(
+            'provider',
+            'call_count' => $query->func()->count('*'),
+            'success_count' => $query->func()->sum(
+                $query->newExpr()->addCase(
+                    array($query->newExpr()->eq('status', 'success')),
+                    array(1),
+                    array('integer')
+                )
+            ),
+            'total_cost' => $query->func()->sum('total_cost_usd'),
+            'total_units' => $query->func()->sum('units_consumed'),
+            'avg_response_time' => $query->func()->avg('response_time_ms')
+        ))
+        ->group('provider')
+        ->order(array('total_cost' => 'DESC'))
+        ->toArray();
+
+        $usage = array();
+        foreach ($results as $row) {
+            $usage[$row->provider] = array(
+                'calls' => (int)$row->call_count,
+                'successful' => (int)($row->success_count ?? 0),
+                'cost' => (float)($row->total_cost ?? 0),
+                'units' => (float)($row->total_units ?? 0),
+                'avg_response_time_ms' => (int)($row->avg_response_time ?? 0)
+            );
+        }
+
+        return $usage;
+    }
+
+    /**
+     * Get recent errors
+     *
+     * @param int $hospitalId Hospital ID
+     * @param int $limit Number of errors to return
+     * @return array Recent errors
+     */
+    public function getRecentErrors(int $hospitalId, int $limit = 10): array
+    {
+        return $this->find()
+            ->where(array(
+                'hospital_id' => $hospitalId,
+                'status' => 'failed'
+            ))
+            ->order(array('created' => 'DESC'))
+            ->limit($limit)
+            ->toArray();
+    }
+
+    /**
+     * Get monthly cost trend
+     *
+     * @param int $hospitalId Hospital ID
+     * @param int $months Number of months to retrieve
+     * @return array Monthly costs
+     */
+    public function getMonthlyCostTrend(int $hospitalId, int $months = 6): array
+    {
+        $query = $this->find()
+            ->where(array('hospital_id' => $hospitalId))
+            ->where(array('created >=' => date('Y-m-d', strtotime("-{$months} months"))));
+
+        $results = $query->select(array(
+            'month' => $query->func()->concat(array(
+                $query->func()->year(array('created' => 'identifier')),
+                "'-'",
+                $query->func()->month(array('created' => 'identifier'))
+            )),
+            'total_cost' => $query->func()->sum('total_cost_usd'),
+            'call_count' => $query->func()->count('*')
+        ))
+        ->group('month')
+        ->order(array('month' => 'ASC'))
+        ->toArray();
+
+        $trend = array();
+        foreach ($results as $row) {
+            $trend[$row->month] = array(
+                'cost' => (float)($row->total_cost ?? 0),
+                'calls' => (int)$row->call_count
+            );
+        }
+
+        return $trend;
+    }
+
+    /**
+     * Check if budget limit is exceeded
+     *
+     * @param int $hospitalId Hospital ID
+     * @param string $type Service type
+     * @param string|null $provider Provider (optional)
+     * @param float $budgetLimit Budget limit in USD
+     * @param string $period Period (current_month, current_year, all_time)
+     * @return array Budget status
+     */
+    public function checkBudget(
+        int $hospitalId,
+        string $type,
+        ?string $provider,
+        float $budgetLimit,
+        string $period = 'current_month'
+    ): array {
+        $query = $this->find()
+            ->where(array('hospital_id' => $hospitalId, 'type' => $type));
+
+        if ($provider) {
+            $query->where(array('provider' => $provider));
+        }
+
+        // Apply date filter based on period
+        if ($period === 'current_month') {
+            $query->where(array('created >=' => date('Y-m-01 00:00:00')));
+        } elseif ($period === 'current_year') {
+            $query->where(array('created >=' => date('Y-01-01 00:00:00')));
+        }
+
+        $result = $query->select(array(
+            'total' => $query->func()->sum('total_cost_usd')
+        ))->first();
+
+        $totalCost = (float)($result->total ?? 0);
+        $remaining = $budgetLimit - $totalCost;
+        $percentUsed = $budgetLimit > 0 ? ($totalCost / $budgetLimit) * 100 : 0;
+
+        return array(
+            'budget_limit' => $budgetLimit,
+            'total_spent' => $totalCost,
+            'remaining' => $remaining,
+            'percent_used' => round($percentUsed, 2),
+            'is_exceeded' => $totalCost > $budgetLimit,
+            'is_warning' => $percentUsed >= 80, // 80% threshold
+            'period' => $period
+        );
     }
 }

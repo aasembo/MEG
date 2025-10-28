@@ -636,14 +636,21 @@ document.addEventListener('DOMContentLoaded', function() {
     let allDocuments = [];
     let currentDocumentIndex = -1;
     
-    // Collect all documents from the page
+    // Collect all documents from the page (deduplicate by ID)
+    const seenIds = new Set();
     document.querySelectorAll('.preview-doc-btn').forEach(function(btn, index) {
-        allDocuments.push({
-            id: btn.getAttribute('data-document-id'),
-            filename: btn.getAttribute('data-filename'),
-            procedure: btn.getAttribute('data-procedure'),
-            button: btn
-        });
+        const docId = btn.getAttribute('data-document-id');
+        
+        // Only add if we haven't seen this document ID yet
+        if (!seenIds.has(docId)) {
+            seenIds.add(docId);
+            allDocuments.push({
+                id: docId,
+                filename: btn.getAttribute('data-filename'),
+                procedure: btn.getAttribute('data-procedure'),
+                button: btn
+            });
+        }
     });
     
     // Preview button click handler

@@ -1747,22 +1747,34 @@ document.addEventListener('DOMContentLoaded', function() {
             const allButtons = document.querySelectorAll('#caseView<?php echo $case->id; ?> .preview-doc-btn, #documentsModal .preview-doc-btn');
             console.log('Found preview buttons:', allButtons.length);
             
+            // Deduplicate documents by ID (same document appears in both case view and modal)
+            const seenIds = new Set();
             allDocuments = [];
-            allButtons.forEach((btn, idx) => {
+            let uniqueIndex = 0;
+            
+            allButtons.forEach((btn) => {
                 const btnDocId = btn.getAttribute('data-document-id');
-                allDocuments.push({
-                    id: btnDocId,
-                    filename: btn.getAttribute('data-filename'),
-                    procedure: btn.getAttribute('data-procedure'),
-                    index: idx
-                });
-                if (btnDocId === documentId) {
-                    currentDocIndex = idx;
-                    console.log('Setting current index to:', idx);
+                
+                // Only add if we haven't seen this document ID yet
+                if (!seenIds.has(btnDocId)) {
+                    seenIds.add(btnDocId);
+                    allDocuments.push({
+                        id: btnDocId,
+                        filename: btn.getAttribute('data-filename'),
+                        procedure: btn.getAttribute('data-procedure'),
+                        index: uniqueIndex
+                    });
+                    
+                    if (btnDocId === documentId) {
+                        currentDocIndex = uniqueIndex;
+                        console.log('Setting current index to:', uniqueIndex);
+                    }
+                    
+                    uniqueIndex++;
                 }
             });
             
-            console.log('Total documents in array:', allDocuments.length, 'Current index:', currentDocIndex);
+            console.log('Total unique documents:', allDocuments.length, 'Current index:', currentDocIndex);
             previewDocument(documentId, filename, procedure);
         }
     }

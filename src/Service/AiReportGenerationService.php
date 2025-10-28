@@ -7,6 +7,7 @@ use Cake\Log\Log;
 use Cake\Core\Configure;
 use Cake\ORM\TableRegistry;
 use App\Service\AiProviderRouter;
+use App\Service\ServiceUsageLogger;
 
 /**
  * AI Report Generation Service
@@ -112,34 +113,20 @@ class AiReportGenerationService
             // Generate report structure from AI provider
             $prompt = $this->buildPrompt($caseMetadata);
             
-            // Call appropriate AI provider
+            // Extract case_id if available for logging
+            $caseId = $caseMetadata['case_id'] ?? null;
+            
+            // Call appropriate AI provider (with built-in logging)
             $startTime = microtime(true);
-            $response = $this->callAiProvider($prompt);
+            $response = $this->callAiProvider($prompt, $caseId);
             $endTime = microtime(true);
 
             // Parse and structure the response
             $structure = $this->parseAiResponse($response);
 
-            // Estimate tokens used (rough approximation: 1 token ≈ 4 characters)
-            $promptTokens = (int)ceil(strlen($prompt) / 4);
-            $responseTokens = (int)ceil(strlen($response) / 4);
-            $totalTokens = $promptTokens + $responseTokens;
-
-            // Log usage via AI Router
-            $this->aiRouter->logUsage(
-                $this->hospitalId,
-                $this->provider,
-                'report_generation',
-                $totalTokens,
-                $this->userId
-            );
-
-            $cost = $this->aiRouter->calculateCost($this->provider, $totalTokens);
-
             Log::info('AI report structure generated successfully', array(
                 'provider' => $this->provider,
-                'tokens' => $totalTokens,
-                'cost' => sprintf('$%.4f', $cost),
+                'response_length' => strlen($response),
                 'duration' => sprintf('%.2fs', $endTime - $startTime),
             ));
             
@@ -275,19 +262,82 @@ class AiReportGenerationService
     }
 
     /**
-     * Call AI Provider (OpenAI or Gemini)
+     * Call AI Provider (OpenAI or Gemini) with logging
      *
      * @param string $prompt Prompt to send
+     * @param int|null $caseId Related case ID (optional)
      * @return string Raw response
      */
-    private function callAiProvider(string $prompt): string
+    private function callAiProvider(string $prompt, ?int $caseId = null): string
     {
-        if ($this->provider === AiProviderRouter::PROVIDER_OPENAI) {
-            return $this->callOpenAI($prompt);
-        } elseif ($this->provider === AiProviderRouter::PROVIDER_GEMINI) {
-            return $this->callGemini($prompt);
-        } else {
-            throw new \Exception('Invalid AI provider: ' . $this->provider);
+        // Initialize ServiceUsageLogger
+        $logger = new ServiceUsageLogger();
+        
+        // Start logging
+        $logId = $logger->startLog(
+            $this->hospitalId,
+            ServiceUsageLogger::TYPE_AI,
+            $this->provider,
+            ServiceUsageLogger::ACTION_AI_REPORT_GENERATION,
+            [
+                'user_id' => $this->userId,
+                'related_id' => $caseId,
+                'request_data' => [
+                    'model' => $this->model,
+                    'prompt_length' => strlen($prompt),
+                    'temperature' => $this->temperature
+                ]
+            ]
+        );
+        
+        try {
+            // Make the API call
+            if ($this->provider === AiProviderRouter::PROVIDER_OPENAI) {
+                $response = $this->callOpenAI($prompt);
+            } elseif ($this->provider === AiProviderRouter::PROVIDER_GEMINI) {
+                $response = $this->callGemini($prompt);
+            } else {
+                throw new \Exception('Invalid AI provider: ' . $this->provider);
+            }
+            
+            // Estimate tokens (rough estimate for string responses)
+            $estimatedTokens = (int)((strlen($prompt) + strlen($response)) / 4);
+            $cost = $this->aiRouter->calculateCost($this->provider, $estimatedTokens);
+            $unitCost = $estimatedTokens > 0 ? $cost / $estimatedTokens : 0;
+            
+            // Complete the log
+            $logger->completeLog($logId, [
+                'response_data' => [
+                    'response_length' => strlen($response),
+                    'estimated_tokens' => $estimatedTokens
+                ],
+                'units_consumed' => $estimatedTokens,
+                'unit_cost' => $unitCost,
+                'total_cost_usd' => $cost
+            ]);
+            
+            Log::debug('AI report generation completed', [
+                'log_id' => $logId,
+                'provider' => $this->provider,
+                'estimated_tokens' => $estimatedTokens,
+                'cost' => $cost
+            ]);
+            
+            return $response;
+            
+        } catch (\Exception $e) {
+            // Log the failure
+            $logger->failLog($logId, 'API_ERROR', $e->getMessage(), [
+                'response_data' => ['error' => $e->getMessage()]
+            ]);
+            
+            Log::error('AI report generation failed', [
+                'log_id' => $logId,
+                'provider' => $this->provider,
+                'error' => $e->getMessage()
+            ]);
+            
+            throw $e;
         }
     }
 
