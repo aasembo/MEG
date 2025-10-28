@@ -49,14 +49,14 @@ $config = $roleConfig[$role] ?? $roleConfig['doctor'];
             ]) ?>
             
             <div class="mb-3">
-                <?php echo $this->Form->control('username', [
+                <?php echo $this->Form->control('email', [
                     'label' => [
-                        'text' => '<i class="fas fa-user me-2"></i>Username',
+                        'text' => '<i class="fas fa-email me-2"></i>Email',
                         'escape' => false,
                         'class' => 'form-label'
                     ],
                     'class' => 'form-control form-control-lg',
-                    'placeholder' => 'Enter your username',
+                    'placeholder' => 'Enter your email',
                     'required' => true
                 ]) ?>
             </div>

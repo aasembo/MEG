@@ -11,43 +11,22 @@ use Cake\Log\Log;
 use App\Service\DocumentContentService;
 use App\Service\AiReportGenerationService;
 use App\Service\ReportAssemblyService;
+use App\Service\CaseStatusService;
 use Cake\Core\Configure;
 
-/**
- * Cases Controller
- *
- * @property \App\Model\Table\CasesTable $Cases
- * @property \App\Model\Table\CaseVersionsTable $CaseVersions
- * @property \App\Model\Table\CaseAssignmentsTable $CaseAssignments
- * @property \App\Model\Table\CaseAuditsTable $CaseAudits
- * @property \App\Model\Table\UsersTable $Users
- */
-class CasesController extends AppController
-{
-    /**
-     * User Activity Logger instance
-     */
+class CasesController extends AppController {
     private $activityLogger;
-
-    /**
-     * Initialize method
-     */
-    public function initialize(): void
-    {
+    private $caseStatusService;
+    public function initialize(): void {
         parent::initialize();
         $this->activityLogger = new UserActivityLogger();
+        $this->caseStatusService = new CaseStatusService();
         
         // Set technician layout for all actions
         $this->viewBuilder()->setLayout('technician');
     }
 
-    /**
-     * Index method
-     *
-     * @return \Psr\Http\Message\ResponseInterface|null|void Renders view
-     */
-    public function index()
-    {
+    public function index() {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -149,19 +128,12 @@ class CasesController extends AppController
             'priority', 
             'search',
             'currentHospital',
-            'hospitalName'
+            'hospitalName',
+            'user'
         ));
     }
 
-    /**
-     * View method
-     *
-     * @param string|null $id Case id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void Renders view
-     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
-     */
-    public function view($id = null)
-    {
+    public function view($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -169,6 +141,10 @@ class CasesController extends AppController
             $this->Flash->error(__('No hospital context found. Please contact your administrator.'));
             return $this->redirect(['action' => 'index']);
         }
+
+        // Load full user entity with roles for "You" pattern in templates
+        $usersTable = $this->fetchTable('Users');
+        $userWithRoles = $usersTable->get($user->id, ['contain' => ['Roles']]);
 
         try {
             $case = $this->Cases->get($id, [
@@ -185,7 +161,9 @@ class CasesController extends AppController
                         'Users' => ['Roles'],
                         'AssignedToUsers' => ['Roles']
                     ],
-                    'CaseAudits' => ['ChangedByUsers'],
+                    'CaseAudits' => [
+                        'ChangedByUsers' => ['Roles']
+                    ],
                     'Documents' => [
                         'Users',
                         'CasesExamsProcedures' => [
@@ -212,6 +190,14 @@ class CasesController extends AppController
             return $this->redirect(['action' => 'index']);
         }
 
+        // Handle role-based status transition on first view
+        $roleColumn = 'technician_status';
+        $currentRoleStatus = $case->{$roleColumn} ?? 'draft';
+        
+        if ($currentRoleStatus === 'draft') {
+            $this->caseStatusService->transitionOnView($case, 'technician', $user->id);
+        }
+
         // Log activity
         $this->activityLogger->log(
             SiteConstants::EVENT_CASE_VIEWED,
@@ -226,27 +212,19 @@ class CasesController extends AppController
         $s3Service = new \App\Lib\S3DocumentService();
         $isS3Enabled = $s3Service->isS3Enabled();
 
-        $this->set(compact('case', 'currentHospital', 'isS3Enabled'));
+        $this->set(compact('case', 'currentHospital', 'isS3Enabled', 'user'));
+        // Pass user with roles for role badge helper
+        $this->set('user', $userWithRoles);
     }
 
-    /**
-     * Add method - Step 1: Patient Information
-     *
-     * @return \Psr\Http\Message\ResponseInterface|null|void Redirects on successful add, renders view otherwise.
-     */
-    public function add()
-    {
+    public function add() {
         // Clear any existing wizard data when starting a new case
         $this->request->getSession()->delete('CaseWizard');
         
         return $this->redirect(['action' => 'addStep1']);
     }
 
-    /**
-     * Add Case - Step 1: Patient Information
-     */
-    public function addStep1()
-    {
+    public function addStep1() {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -289,11 +267,7 @@ class CasesController extends AppController
         $this->set(compact('patients', 'caseData', 'currentHospital'));
     }
 
-    /**
-     * Add Case - Step 2: Department & Procedures
-     */
-    public function addStep2()
-    {
+    public function addStep2() {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -362,11 +336,7 @@ class CasesController extends AppController
         $this->set(compact('step1Data', 'step2Data', 'departments', 'sedations', 'examsProcedures', 'aiRecommendations', 'currentHospital'));
     }
 
-    /**
-     * Add Case - Step 3: Review & Notes
-     */
-    public function addStep3()
-    {
+    public function addStep3() {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -421,25 +391,13 @@ class CasesController extends AppController
         $this->set(compact('step1Data', 'step2Data', 'step3Data', 'patient', 'department', 'sedation', 'selectedExamsProcedures', 'aiRecommendations', 'currentHospital'));
     }
 
-    /**
-     * Edit method
-     *
-     * @param string|null $id Case id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void Redirects on successful edit, renders view otherwise.
-     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
-     */
-    public function edit($id = null)
-    {
+    public function edit($id = null) {
         // Clear any existing edit wizard data and redirect to step 1
         $this->request->getSession()->delete('CaseEditWizard');
         return $this->redirect(['action' => 'editStep1', $id]);
     }
 
-    /**
-     * Edit Case - Step 1: Patient Information
-     */
-    public function editStep1($id = null)
-    {
+    public function editStep1($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -458,8 +416,8 @@ class CasesController extends AppController
                 throw new RecordNotFoundException(__('Case not found.'));
             }
 
-            // Check if case can be edited
-            if (!in_array($case->status, [SiteConstants::CASE_STATUS_DRAFT, SiteConstants::CASE_STATUS_ASSIGNED])) {
+            // Check if case can be edited (technician can edit until global status is completed/cancelled)
+            if (in_array($case->status, [SiteConstants::CASE_STATUS_COMPLETED, SiteConstants::CASE_STATUS_CANCELLED])) {
                 $this->Flash->error(__('This case cannot be edited in its current status.'));
                 return $this->redirect(['action' => 'view', $id]);
             }
@@ -496,11 +454,7 @@ class CasesController extends AppController
         $this->set(compact('case', 'patients', 'caseData', 'currentHospital'));
     }
 
-    /**
-     * Edit Case - Step 2: Department & Procedures
-     */
-    public function editStep2($id = null)
-    {
+    public function editStep2($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -593,11 +547,7 @@ class CasesController extends AppController
         $this->set(compact('case', 'step1Data', 'step2Data', 'departments', 'sedations', 'examsProcedures', 'aiRecommendations', 'currentHospital'));
     }
 
-    /**
-     * Edit Case - Step 3: Review & Notes
-     */
-    public function editStep3($id = null)
-    {
+    public function editStep3($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -667,11 +617,7 @@ class CasesController extends AppController
         $this->set(compact('case', 'step1Data', 'step2Data', 'step3Data', 'patient', 'department', 'sedation', 'selectedExamsProcedures', 'aiRecommendations', 'currentHospital'));
     }
 
-    /**
-     * AJAX endpoint to save Edit Step 1 data
-     */
-    public function saveEditStep1($id = null)
-    {
+    public function saveEditStep1($id = null) {
         $this->request->allowMethod(['post']);
         $this->viewBuilder()->setClassName('Json');
         
@@ -726,11 +672,7 @@ class CasesController extends AppController
             ]));
     }
 
-    /**
-     * AJAX endpoint to save Edit Step 2 data
-     */
-    public function saveEditStep2($id = null)
-    {
+    public function saveEditStep2($id = null) {
         $this->request->allowMethod(['post']);
         $this->viewBuilder()->setClassName('Json');
         
@@ -781,11 +723,7 @@ class CasesController extends AppController
             ]));
     }
 
-    /**
-     * AJAX endpoint to save Edit Step 3 data and update the case
-     */
-    public function saveEditStep3($id = null)
-    {
+    public function saveEditStep3($id = null) {
         $this->request->allowMethod(['post']);
         $this->viewBuilder()->setClassName('Json');
         
@@ -949,254 +887,8 @@ class CasesController extends AppController
             ]));
     }
 
-    /**
-     * Original edit method (kept for reference/backwards compatibility)
-     *
-     * @param string|null $id Case id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void Redirects on successful edit, renders view otherwise.
-     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
-     */
-    public function editOld($id = null)
-    {
-        $user = $this->getAuthUser();
-        $currentHospital = $this->request->getSession()->read('Hospital.current');
-        
-        if (!$currentHospital || !isset($currentHospital->id)) {
-            $this->Flash->error(__('No hospital context found. Please contact your administrator.'));
-            return $this->redirect(['action' => 'index']);
-        }
 
-        try {
-            $case = $this->Cases->get($id, [
-                'contain' => [
-                    'CurrentVersions',
-                    'CasesExamsProcedures' => [
-                        'ExamsProcedures' => ['Exams', 'Procedures']
-                    ]
-                ]
-            ]);
-            
-            // Verify hospital access
-            if ($case->hospital_id !== $currentHospital->id) {
-                throw new RecordNotFoundException(__('Case not found.'));
-            }
-
-                        // Check if case can be edited (only drafts and assigned cases)
-            if (!in_array($case->status, [SiteConstants::CASE_STATUS_DRAFT, SiteConstants::CASE_STATUS_ASSIGNED])) {
-                $this->Flash->error(__('This case cannot be edited in its current status.'));
-                return $this->redirect(['action' => 'view', $id]);
-            }
-
-        } catch (RecordNotFoundException $e) {
-            $this->Flash->error(__('Case not found.'));
-            return $this->redirect(['action' => 'index']);
-        }
-
-        if ($this->request->is(['patch', 'post', 'put'])) {
-            $data = $this->request->getData();
-            $originalCase = clone $case;
-            
-            $case = $this->Cases->patchEntity($case, $data);
-            
-            if ($this->Cases->save($case)) {
-                // Handle exam procedures - full edit approach (add/remove)
-                if (isset($data['exam_procedures'])) {
-                    $casesExamsProceduresTable = $this->fetchTable('CasesExamsProcedures');
-                    
-                    // Get currently assigned procedures
-                    $currentAssignments = $casesExamsProceduresTable->find()
-                        ->where(['case_id' => $case->id])
-                        ->all()
-                        ->indexBy('exams_procedure_id')
-                        ->toArray();
-                    
-                    $selectedProcedures = array_keys(array_filter($data['exam_procedures']));
-                    
-                    // Remove procedures that are no longer selected
-                    foreach ($currentAssignments as $procedureId => $assignment) {
-                        if (!in_array($procedureId, $selectedProcedures)) {
-                            if (!$casesExamsProceduresTable->delete($assignment)) {
-                                $this->log('Failed to remove case exam procedure: ' . $procedureId, 'error');
-                            }
-                        }
-                    }
-                    
-                    // Add new procedures that were selected
-                    foreach ($selectedProcedures as $procedureId) {
-                        if (!isset($currentAssignments[$procedureId])) {
-                            $casesExamsProcedure = $casesExamsProceduresTable->newEntity([
-                                'case_id' => $case->id,
-                                'exams_procedure_id' => $procedureId,
-                                'status' => SiteConstants::CASE_STATUS_PENDING,
-                                'scheduled_at' => null,
-                                'notes' => ''
-                            ]);
-                            
-                            if (!$casesExamsProceduresTable->save($casesExamsProcedure)) {
-                                $this->log('Failed to save new case exam procedure', 'error');
-                            }
-                        }
-                    }
-                }
-
-                // Create new version if significant changes occurred
-                $caseVersionsTable = $this->fetchTable('CaseVersions');
-                $latestVersion = $caseVersionsTable->find()
-                    ->where(['case_id' => $case->id])
-                    ->orderBy(['version_number' => 'DESC'])
-                    ->first();
-
-                $newVersionNumber = $latestVersion ? $latestVersion->version_number + 1 : 1;
-                
-                $version = $caseVersionsTable->newEntity([
-                    'case_id' => $case->id,
-                    'version_number' => $newVersionNumber,
-                    'user_id' => $user->id,
-                    'timestamp' => new \DateTime()
-                ]);
-                
-                if ($caseVersionsTable->save($version)) {
-                    // Update case with current version
-                    $case->current_version_id = $version->id;
-                    $case->current_user_id = $user->id;
-                    $this->Cases->save($case);
-                    
-                    // Log changes in audit trail
-                    $caseAuditsTable = $this->fetchTable('CaseAudits');
-                    $changes = $this->getChangedFields($originalCase, $case);
-                    
-                    foreach ($changes as $field => $change) {
-                        $caseAuditsTable->logChange(
-                            $case->id,
-                            $version->id,
-                            $field,
-                            $change['old'],
-                            $change['new'],
-                            $user->id
-                        );
-                    }
-                }
-
-                // Log activity
-                $this->activityLogger->log(
-                    SiteConstants::EVENT_CASE_UPDATED,
-                    [
-                        'user_id' => $user->id,
-                        'request' => $this->request,
-                        'event_data' => ['case_id' => $case->id, 'hospital_id' => $currentHospital->id, 'changes' => array_keys($changes)]
-                    ]
-                );
-
-                $this->Flash->success(__('The case has been updated successfully.'));
-                return $this->redirect(['action' => 'view', $case->id]);
-            }
-            
-            $this->Flash->error(__('The case could not be saved. Please, try again.'));
-        }
-
-        // Get patients for this hospital
-        $patientsTable = $this->fetchTable('Users');
-        $patients = $patientsTable->find('list', [
-            'keyField' => 'id',
-            'valueField' => function($user) {
-                return $user->first_name . ' ' . $user->last_name . ' (' . $user->username . ')';
-            }
-        ])
-        ->innerJoinWith('Roles')
-        ->where([
-            'Users.hospital_id' => $currentHospital->id,
-            'Users.status' => 'active',
-            'Roles.type' => 'patient'
-        ])
-        ->orderBy(['Users.last_name' => 'ASC', 'Users.first_name' => 'ASC'])
-        ->toArray();
-
-        $priorities = [
-            'low' => 'Low',
-            'medium' => 'Medium',
-            'high' => 'High',
-            'urgent' => 'Urgent'
-        ];
-
-        $statuses = [
-            SiteConstants::CASE_STATUS_DRAFT => 'Draft',
-            SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned',
-            SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
-            'review' => 'Under Review',
-            SiteConstants::CASE_STATUS_COMPLETED => 'Completed',
-            SiteConstants::CASE_STATUS_CANCELLED => 'Cancelled'
-        ];
-
-        // Load departments for the hospital
-        $departmentsTable = $this->fetchTable('Departments');
-        $departments = $departmentsTable->find('list')
-            ->where(['hospital_id' => $currentHospital->id])
-            ->orderBy(['name' => 'ASC'])
-            ->toArray();
-
-        // Load sedations for the hospital
-        $sedationsTable = $this->fetchTable('Sedations');
-        $sedations = $sedationsTable->find('list', [
-            'keyField' => 'id',
-            'valueField' => function($sedation) {
-                return $sedation->level . ' (' . $sedation->type . ')';
-            }
-        ])
-        ->where(['hospital_id' => $currentHospital->id])
-        ->orderBy(['level' => 'ASC'])
-        ->toArray();
-
-        // Load modalities for the hospital
-        $modalitiesTable = $this->fetchTable('Modalities');
-        $modalities = $modalitiesTable->find('list')
-            ->where(['hospital_id' => $currentHospital->id])
-            ->orderBy(['name' => 'ASC'])
-            ->toArray();
-
-        // Load exams procedures with their related data
-        $examsProceduresTable = $this->fetchTable('ExamsProcedures');
-        $examsProceduresQuery = $examsProceduresTable->find()
-            ->contain([
-                'Exams' => ['Modalities', 'Departments'],
-                'Procedures'
-            ])
-            ->where([
-                'Exams.hospital_id' => $currentHospital->id
-            ])
-            ->toArray();
-
-        $examsProcedures = collection($examsProceduresQuery)
-            ->combine('id', function($ep) {
-                $examName = $ep->exam->name ?? 'Unknown Exam';
-                $procedureName = $ep->procedure->name ?? 'Unknown Procedure';
-                $modalityName = $ep->exam->modality->name ?? '';
-                $displayName = $examName . ' - ' . $procedureName;
-                if ($modalityName) {
-                    $displayName .= ' (' . $modalityName . ')';
-                }
-                return $displayName;
-            })
-            ->toArray();
-
-        // Get currently assigned exam procedures for pre-selection
-        $assignedExamProcedures = [];
-        if (!empty($case->cases_exams_procedures)) {
-            $assignedExamProcedures = collection($case->cases_exams_procedures)
-                ->extract('exams_procedure_id')
-                ->toArray();
-        }
-
-        $this->set(compact('case', 'patients', 'priorities', 'statuses', 'departments', 'sedations', 'modalities', 'examsProcedures', 'assignedExamProcedures', 'currentHospital'));
-    }
-
-    /**
-     * Assign procedures method - dedicated view for procedure assignment
-     *
-     * @param string|null $id Case id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void Redirects on successful assignment.
-     */
-    public function assignProcedures($id = null)
-    {
+    public function assignProcedures($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -1228,8 +920,8 @@ class CasesController extends AppController
                 throw new RecordNotFoundException(__('Case not found.'));
             }
 
-            // Check if case can have procedures assigned (only drafts and assigned cases)
-            if (!in_array($case->status, [SiteConstants::CASE_STATUS_DRAFT, SiteConstants::CASE_STATUS_ASSIGNED])) {
+            // Check if technician can modify procedures (until global status is completed/cancelled)
+            if (in_array($case->status, [SiteConstants::CASE_STATUS_COMPLETED, SiteConstants::CASE_STATUS_CANCELLED])) {
                 $this->Flash->error(__('Procedures cannot be modified for this case in its current status.'));
                 return $this->redirect(['action' => 'view', $id]);
             }
@@ -1346,14 +1038,7 @@ class CasesController extends AppController
         $this->set(compact('case', 'examsProcedures', 'assignedExamProcedures', 'proceduresByModality', 'currentHospital'));
     }
 
-    /**
-     * Upload document method
-     *
-     * @param string|null $id Case id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void Redirects on successful upload.
-     */
-    public function uploadDocument($id = null)
-    {
+    public function uploadDocument($id = null) {
         $this->request->allowMethod(['post', 'put']);
         
         $user = $this->getAuthUser();
@@ -1473,14 +1158,7 @@ class CasesController extends AppController
         return $this->redirect(['action' => 'view', $id]);
     }
 
-    /**
-     * Download document method
-     *
-     * @param string|null $id Document id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void Redirects or serves file.
-     */
-    public function downloadDocument($id = null)
-    {
+    public function downloadDocument($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -1505,11 +1183,32 @@ class CasesController extends AppController
             return $this->redirect(['action' => 'index']);
         }
 
-        // Get download URL from S3
+        // Stream file content directly instead of redirecting
         $s3Service = new \App\Lib\S3DocumentService();
-        $downloadUrl = $s3Service->getDownloadUrl($document->file_path);
+        
+        try {
+            // Check if S3 is enabled
+            if ($s3Service->isS3Enabled() && strpos($document->file_path, 'uploads/') !== 0) {
+                // Get from S3 and stream
+                $s3Client = $s3Service->getS3Client();
+                $result = $s3Client->getObject([
+                    'Bucket' => $s3Service->getBucket(),
+                    'Key' => $document->file_path
+                ]);
+                
+                $content = $result['Body']->getContents();
+                $contentType = $result['ContentType'] ?? $document->file_type;
+            } else {
+                // Get from local storage
+                $fullPath = WWW_ROOT . str_replace('/', DS, $document->file_path);
+                if (!file_exists($fullPath)) {
+                    $this->Flash->error(__('File not found.'));
+                    return $this->redirect(['action' => 'view', $document->case_id]);
+                }
+                $content = file_get_contents($fullPath);
+                $contentType = $document->file_type;
+            }
 
-        if ($downloadUrl) {
             // Log activity
             $this->activityLogger->log(
                 SiteConstants::EVENT_DOCUMENT_DOWNLOADED,
@@ -1525,21 +1224,23 @@ class CasesController extends AppController
                 ]
             );
 
-            return $this->redirect($downloadUrl);
-        } else {
-            $this->Flash->error(__('Failed to generate download link. Please try again.'));
+            // Return document with download headers
+            return $this->response
+                ->withType($contentType)
+                ->withStringBody($content)
+                ->withHeader('Content-Disposition', 'attachment; filename="' . $document->original_filename . '"')
+                ->withHeader('Content-Length', (string)strlen($content))
+                ->withHeader('Cache-Control', 'no-cache, must-revalidate')
+                ->withHeader('Pragma', 'no-cache');
+
+        } catch (\Exception $e) {
+            Log::error('Failed to download document: ' . $e->getMessage());
+            $this->Flash->error(__('Failed to download document. Please try again.'));
             return $this->redirect(['action' => 'view', $document->case_id]);
         }
     }
 
-    /**
-     * View/Preview document in browser
-     *
-     * @param string|null $id Document id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void Response with document content or redirect
-     */
-    public function viewDocument($id = null)
-    {
+    public function viewDocument($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -1613,14 +1314,7 @@ class CasesController extends AppController
         }
     }
 
-    /**
-     * Proxy document content for preview (allows Office Online Viewer to access S3 documents)
-     *
-     * @param string|null $id Document id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void Response with document content
-     */
-    public function proxyDocument($id = null)
-    {
+    public function proxyDocument($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -1708,14 +1402,7 @@ class CasesController extends AppController
         }
     }
 
-    /**
-     * Assign case to scientist method
-     *
-     * @param string|null $id Case id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void Redirects on successful assignment.
-     */
-    public function assign($id = null)
-    {
+    public function assign($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -1745,7 +1432,7 @@ class CasesController extends AppController
             }
 
             // Check if case can be assigned
-            if (!in_array($case->status, [SiteConstants::CASE_STATUS_DRAFT, SiteConstants::CASE_STATUS_ASSIGNED])) {
+            if (!in_array($case->status, [SiteConstants::CASE_STATUS_DRAFT, SiteConstants::CASE_STATUS_ASSIGNED, SiteConstants::CASE_STATUS_IN_PROGRESS])) {
                 $this->Flash->error(__('This case cannot be assigned in its current status.'));
                 return $this->redirect(['action' => 'view', $id]);
             }
@@ -1785,9 +1472,27 @@ class CasesController extends AppController
                 ]);
                 
                 if ($caseAssignmentsTable->save($assignment)) {
-                    // Update case status
+                    // Get the assigned user's role to determine if assigning to scientist
+                    $usersTable = $this->fetchTable('Users');
+                    $assignedUser = $usersTable->get($data['assigned_to'], ['contain' => ['Roles']]);
+                    $assignedRole = null;
+                    if (!empty($assignedUser->roles)) {
+                        $assignedRole = strtolower($assignedUser->roles[0]->name);
+                    }
+
+                    // Handle role-based status transition
+                    if ($assignedRole === 'scientist') {
+                        $this->caseStatusService->transitionOnAssignment(
+                            $case, 
+                            'technician', 
+                            'scientist', 
+                            $user->id
+                        );
+                    }
+                    
+                    // Update case status - set to in_progress when assigning to scientist
                     $oldStatus = $case->status;
-                    $case->status = SiteConstants::CASE_STATUS_ASSIGNED;
+                    $case->status = SiteConstants::CASE_STATUS_IN_PROGRESS;
                     $case->current_user_id = $data['assigned_to'];
                     
                     if ($this->Cases->save($case)) {
@@ -1798,7 +1503,7 @@ class CasesController extends AppController
                             $case->current_version_id,
                             'status',
                             $oldStatus,
-                            SiteConstants::CASE_STATUS_ASSIGNED,
+                            SiteConstants::CASE_STATUS_IN_PROGRESS,
                             $user->id
                         );
                         
@@ -1857,15 +1562,7 @@ class CasesController extends AppController
         $this->set(compact('case', 'scientists', 'currentHospital'));
     }
 
-    /**
-     * Helper method to detect changed fields
-     *
-     * @param \App\Model\Entity\MedicalCase $original
-     * @param \App\Model\Entity\MedicalCase $updated
-     * @return array
-     */
-    private function getChangedFields($original, $updated): array
-    {
+    private function getChangedFields($original, $updated): array {
         $changes = [];
         $trackableFields = ['status', 'priority', 'patient_id', 'date', 'department_id', 'sedation_id', 'notes'];
         
@@ -1881,14 +1578,7 @@ class CasesController extends AppController
         return $changes;
     }
 
-    /**
-     * Analyze document using AI/OCR to detect type and suggest procedure
-     *
-     * @param string|null $id Case id.
-     * @return \Psr\Http\Message\ResponseInterface JSON response
-     */
-    public function analyzeDocument($id = null)
-    {
+    public function analyzeDocument($id = null) {
         $this->request->allowMethod(['post']);
         $this->viewBuilder()->setClassName('Json');
         
@@ -2022,11 +1712,7 @@ class CasesController extends AppController
             ->withStringBody(json_encode($analysis));
     }
 
-    /**
-     * AJAX endpoint to save Step 1 data and get AI recommendations
-     */
-    public function saveStep1()
-    {
+    public function saveStep1() {
         $this->request->allowMethod(['post']);
         $this->viewBuilder()->setClassName('Json');
         
@@ -2152,11 +1838,7 @@ class CasesController extends AppController
             ]));
     }
 
-    /**
-     * AJAX endpoint to save Step 2 data
-     */
-    public function saveStep2()
-    {
+    public function saveStep2() {
         $this->request->allowMethod(['post']);
         $this->viewBuilder()->setClassName('Json');
         
@@ -2206,11 +1888,8 @@ class CasesController extends AppController
             ]));
     }
 
-    /**
-     * AJAX endpoint to save Step 3 data and create the case
-     */
-    public function saveStep3()
-    {
+
+    public function saveStep3() {
         $this->request->allowMethod(['post']);
         $this->viewBuilder()->setClassName('Json');
         
@@ -2267,6 +1946,9 @@ class CasesController extends AppController
             'sedation_id' => $step2Data['sedation_id'],
             'priority' => $step2Data['priority'],
             'status' => SiteConstants::CASE_STATUS_DRAFT,
+            'technician_status' => 'draft',
+            'scientist_status' => 'draft',
+            'doctor_status' => 'draft',
             'notes' => $combinedNotes,
             'symptoms' => $step1Data['symptoms']
         ]);
@@ -2347,14 +2029,8 @@ class CasesController extends AppController
             ]));
     }
 
-    /**
-     * Download Case Report as PDF
-     *
-     * @param int|null $id Case id
-     * @return \Cake\Http\Response|null
-     */
-    public function downloadReport($id = null)
-    {
+   
+    public function downloadReport($id = null) {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
 
@@ -2483,16 +2159,7 @@ class CasesController extends AppController
         }
     }
 
-    /**
-     * Prepare report data using AI services
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @param object $hospital The hospital object
-     * @param \App\Model\Entity\User $user The current user
-     * @return array View variables
-     */
-    private function _prepareReportWithAI($case, $hospital, $user): array
-    {
+    private function _prepareReportWithAI($case, $hospital, $user): array {
         // Check if AI report generation is enabled
         $aiEnabled = env('OPENAI_ENABLED');
         $reportGenEnabled = env('OPENAI_REPORT_ENABLED');
@@ -2571,15 +2238,7 @@ class CasesController extends AppController
         }
     }
 
-    /**
-     * Prepare metadata for AI report generation (de-identified, HIPAA compliant)
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @param array $documentContents Extracted document contents
-     * @return array De-identified metadata
-     */
-    private function _prepareAiMetadata($case, array $documentContents): array
-    {
+    private function _prepareAiMetadata($case, array $documentContents): array {
         // Get patient age category (not exact age)
         $ageCategory = 'adult';
         $patient = $case->patient_user;
@@ -2629,14 +2288,7 @@ class CasesController extends AppController
         ];
     }
 
-    /**
-     * Categorize symptoms into generic medical categories
-     *
-     * @param string $symptomsText Patient symptoms text
-     * @return array Generic symptom categories
-     */
-    private function _categorizeSymptoms(string $symptomsText): array
-    {
+    private function _categorizeSymptoms(string $symptomsText): array {
         $categories = [];
         $text = strtolower($symptomsText);
 
@@ -2657,16 +2309,7 @@ class CasesController extends AppController
         return empty($categories) ? ['general_evaluation'] : $categories;
     }
 
-    /**
-     * Prepare data for case report PDF
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @param object $hospital The hospital object
-     * @param \App\Model\Entity\User $user The current user
-     * @return array View variables
-     */
-    private function _prepareReportData($case, $hospital, $user): array
-    {
+    private function _prepareReportData($case, $hospital, $user): array {
         // Get patient details
         $patient = $case->patient_user;
         $patientDetails = null;
@@ -2756,14 +2399,7 @@ class CasesController extends AppController
         ];
     }
 
-    /**
-     * Generate technical descriptions based on procedures
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @return array Technical description HTML blocks
-     */
-    private function _generateTechnicalDescriptions($case): array
-    {
+    private function _generateTechnicalDescriptions($case): array {
         $descriptions = [];
         
         if (empty($case->cases_exams_procedures)) {
@@ -2846,14 +2482,7 @@ class CasesController extends AppController
         return $descriptions;
     }
 
-    /**
-     * Generate MSI conclusions based on procedures
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @return array Conclusion statements
-     */
-    private function _generateMsiConclusions($case): array
-    {
+    private function _generateMsiConclusions($case): array {
         $conclusions = [];
         
         if (empty($case->cases_exams_procedures)) {
@@ -2887,15 +2516,7 @@ class CasesController extends AppController
         return $conclusions;
     }
 
-    /**
-     * Helper method to check if any procedure matches given keywords
-     *
-     * @param array $procedureTypes List of procedure type names
-     * @param array $keywords Keywords to match
-     * @return bool True if any keyword is found
-     */
-    private function _hasProcedureType(array $procedureTypes, array $keywords): bool
-    {
+    private function _hasProcedureType(array $procedureTypes, array $keywords): bool {
         foreach ($procedureTypes as $procedure) {
             foreach ($keywords as $keyword) {
                 if (stripos($procedure, $keyword) !== false) {
@@ -2906,14 +2527,7 @@ class CasesController extends AppController
         return false;
     }
 
-    /**
-     * Get user-friendly upload error message
-     *
-     * @param int $errorCode PHP upload error code
-     * @return string User-friendly error message
-     */
-    private function getUploadErrorMessage(int $errorCode): string
-    {
+    private function getUploadErrorMessage(int $errorCode): string {
         switch ($errorCode) {
             case UPLOAD_ERR_INI_SIZE:
                 return __('The uploaded file is too large. Maximum allowed size is determined by server configuration. Please contact your administrator or try a smaller file.');
@@ -2934,13 +2548,8 @@ class CasesController extends AppController
         }
     }
 
-    /**
-     * Get authenticated user
-     *
-     * @return \App\Model\Entity\User
-     */
-    private function getAuthUser()
-    {
+
+    private function getAuthUser() {
         $identity = $this->request->getAttribute('identity');
         return $identity->getOriginalData();
     }

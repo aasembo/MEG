@@ -4,7 +4,7 @@
  * @var \App\Model\Entity\MedicalCase $case
  */
 
-$this->setLayout('technician');
+$this->setLayout('scientist');
 $this->assign('title', 'Case #' . $case->id);
 ?>
 
@@ -17,24 +17,6 @@ $this->assign('title', 'Case #' . $case->id);
                 ['action' => 'downloadReport', $case->id],
                 ['class' => 'btn btn-success me-2', 'escape' => false, 'target' => '_blank']
             ); ?>
-            
-            <?php 
-            // Check technician's role-based status for action permissions
-            $technicianStatus = $case->technician_status ?? 'draft';
-            ?>
-            <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
-                <?php echo $this->Html->link(
-                    '<i class="fas fa-edit me-1"></i>' . __('Edit Case'),
-                    ['action' => 'edit', $case->id],
-                    ['class' => 'btn btn-primary me-2', 'escape' => false]
-                ); ?>
-                
-                <?php echo $this->Html->link(
-                    '<i class="fas fa-user-plus me-1"></i>' . __('Assign'),
-                    ['action' => 'assign', $case->id],
-                    ['class' => 'btn btn-info me-2', 'escape' => false]
-                ); ?>
-            <?php endif; ?>
             
             <?php echo $this->Html->link(
                 '<i class="fas fa-arrow-left me-1"></i>' . __('Back to Cases'),
@@ -130,7 +112,7 @@ $this->assign('title', 'Case #' . $case->id);
                                     <td class="fw-semibold">Created By:</td>
                                     <td>
                                         <?php if ($case->user_id === $user->id): ?>
-                                            <span class="text-primary fw-semibold">You</span>
+                                            <span class="text-primary fw-bold"><i class="fas fa-user me-1"></i>You</span>
                                         <?php else: ?>
                                             <?php echo h($case->user->first_name . ' ' . $case->user->last_name); ?>
                                         <?php endif; ?>
@@ -142,9 +124,7 @@ $this->assign('title', 'Case #' . $case->id);
                                     <td>
                                         <?php if ($case->current_user): ?>
                                             <?php if ($case->current_user_id === $user->id): ?>
-                                                <span class="text-success fw-semibold">
-                                                    <i class="fas fa-user-circle me-1"></i>You (Currently Assigned)
-                                                </span>
+                                                <span class="text-primary fw-bold"><i class="fas fa-user-check me-1"></i>You (Currently Assigned)</span>
                                             <?php else: ?>
                                                 <?php echo h($case->current_user->first_name . ' ' . $case->current_user->last_name); ?>
                                             <?php endif; ?>
@@ -185,15 +165,8 @@ $this->assign('title', 'Case #' . $case->id);
             <!-- Assigned Procedures -->
             <?php if (!empty($case->cases_exams_procedures)): ?>
             <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-procedures me-1"></i> Assigned Procedures</h5>
-                    <?php if (!in_array($technicianStatus, ['completed', 'cancelled'])): ?>
-                        <?php echo $this->Html->link(
-                            '<i class="fas fa-plus-circle me-1"></i>Assign Procedures',
-                            ['action' => 'assignProcedures', $case->id],
-                            ['class' => 'btn btn-sm btn-primary', 'escape' => false]
-                        ); ?>
-                    <?php endif; ?>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -245,7 +218,7 @@ $this->assign('title', 'Case #' . $case->id);
                                                         title="View Documents">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
+                                                <?php if (in_array($case->status, ['draft', 'assigned', 'in_progress'])): ?>
                                                     <button class="btn btn-outline-secondary btn-sm" 
                                                             data-bs-toggle="modal" 
                                                             data-bs-target="#uploadModal"
@@ -285,13 +258,6 @@ $this->assign('title', 'Case #' . $case->id);
                         <i class="fas fa-info-circle me-2"></i>
                         <strong>No procedures assigned</strong><br>
                         This case doesn't have any procedures assigned yet. 
-                        <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
-                            <?php echo $this->Html->link(
-                                'Edit case',
-                                ['action' => 'edit', $case->id],
-                                ['class' => 'alert-link']
-                            ); ?> to add procedures.
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -308,7 +274,7 @@ $this->assign('title', 'Case #' . $case->id);
                         <span class="badge bg-primary">
                             <?php echo count($case->documents); ?> <?php echo count($case->documents) === 1 ? 'Document' : 'Documents'; ?>
                         </span>
-                        <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
+                        <?php if (in_array($case->status, ['draft', 'assigned', 'in_progress'])): ?>
                             <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
                                 <i class="fas fa-upload me-1"></i>Upload Documents
                             </button>
@@ -411,14 +377,15 @@ $this->assign('title', 'Case #' . $case->id);
                                     <td>
                                         <div class="d-flex flex-column">
                                             <?php 
-                                                $firstName = $document->user->first_name ?? '';
-                                                $lastName = $document->user->last_name ?? '';
+                                                $uploaderFirstName = $document->user->first_name ?? '';
+                                                $uploaderLastName = $document->user->last_name ?? '';
+                                                $uploaderId = $document->user->id ?? null;
                                             ?>
                                             <span class="text-dark small fw-semibold">
-                                                <?php if ($document->user_id === $user->id): ?>
-                                                    <span class="text-primary">You</span>
+                                                <?php if ($uploaderId === $user->id): ?>
+                                                    <span class="text-primary"><i class="fas fa-user me-1"></i>You</span>
                                                 <?php else: ?>
-                                                    <?php echo h($firstName . ' ' . $lastName); ?>
+                                                    <?php echo h($uploaderFirstName . ' ' . $uploaderLastName); ?>
                                                 <?php endif; ?>
                                             </span>
                                             <span class="text-muted" style="font-size: 0.75rem;">
@@ -548,7 +515,7 @@ $this->assign('title', 'Case #' . $case->id);
                             <small class="text-muted">
                                 Updated by 
                                 <?php if ($version->user_id === $user->id): ?>
-                                    <span class="text-primary">You</span>
+                                    <span class="text-primary fw-bold">You</span>
                                 <?php else: ?>
                                     <?php echo h($version->user->first_name . ' ' . $version->user->last_name); ?>
                                 <?php endif; ?>
@@ -588,7 +555,7 @@ $this->assign('title', 'Case #' . $case->id);
                                 <small class="text-muted">
                                     By 
                                     <?php if ($assignment->user_id === $user->id): ?>
-                                        <span class="text-primary">You</span>
+                                        <span class="text-primary fw-bold">You</span>
                                     <?php else: ?>
                                         <?php echo h($assignment->user->first_name . ' ' . $assignment->user->last_name); ?>
                                     <?php endif; ?>
@@ -621,36 +588,40 @@ $this->assign('title', 'Case #' . $case->id);
                     <h6 class="mb-0"><i class="fas fa-bolt me-1"></i> Quick Actions</h6>
                 </div>
                 <div class="card-body">
-                    <?php if (!in_array($technicianStatus, ['completed', 'cancelled'])): ?>
+                    <?php 
+                    // NOTE: Using role-based status (scientist_status) not global status
+                    // Scientists can assign to doctors until global status is 'completed'
+                    // 
+                    // ROLE DETECTION: Users have role_id (belongsTo Roles)
+                    // Access via: $user->role->type (singular, not plural)
+                    // Ensure 'Roles' is contained when loading user
+                    if ($case->status !== 'completed'): 
+                    ?>
+                        <?php
+                        $quickActionCurrentUser = $case->current_user;
+                        $quickActionCurrentUserRole = null;
+                        if ($quickActionCurrentUser && isset($quickActionCurrentUser->role) && isset($quickActionCurrentUser->role->type)) {
+                            $quickActionCurrentUserRole = strtolower($quickActionCurrentUser->role->type);
+                        }
+                        $quickActionDoctorAssigned = ($quickActionCurrentUserRole === 'doctor');
+                        $quickActionScientistAssigned = ($quickActionCurrentUserRole === 'scientist');
+                        ?>
                         <div class="d-grid gap-2">
-                            <?php echo $this->Html->link(
-                                '<i class="fas fa-edit me-1"></i> Edit Case Details',
-                                ['action' => 'edit', $case->id],
-                                ['class' => 'btn btn-outline-primary', 'escape' => false]
-                            ); ?>
-                            
-                            <?php echo $this->Html->link(
-                                '<i class="fas fa-procedures me-1"></i> Assign Procedures',
-                                ['action' => 'assignProcedures', $case->id],
-                                ['class' => 'btn btn-outline-secondary', 'escape' => false]
-                            ); ?>
-                            
-                            <?php 
-                            // Check if case has an assignment
-                            $hasAssignment = !empty($case->case_assignments);
-                            $assignedUser = $hasAssignment ? $case->case_assignments[0]->assigned_to_user : null;
-                            
-                            if ($hasAssignment && $assignedUser): 
-                                // Show reassign button with current scientist name
-                            ?>
+                            <?php if ($quickActionScientistAssigned): ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-level-up-alt me-1"></i> Assign to Doctor',
+                                    ['action' => 'assign', $case->id],
+                                    ['class' => 'btn btn-outline-success', 'escape' => false]
+                                ); ?>
+                            <?php elseif ($quickActionDoctorAssigned): ?>
                                 <div class="border border-warning rounded p-2 bg-warning bg-opacity-10">
                                     <div class="small text-muted mb-1">
-                                        <i class="fas fa-user-check me-1"></i>Assigned to: 
+                                        <i class="fas fa-user-md me-1"></i>Assigned to: 
                                         <strong>
-                                            <?php if ($assignedUser->id === $user->id): ?>
+                                            <?php if ($quickActionCurrentUser->id === $user->id): ?>
                                                 <span class="text-primary">You</span>
                                             <?php else: ?>
-                                                <?php echo h($assignedUser->first_name . ' ' . $assignedUser->last_name); ?>
+                                                <?php echo h($quickActionCurrentUser->first_name . ' ' . $quickActionCurrentUser->last_name); ?>
                                             <?php endif; ?>
                                         </strong>
                                     </div>
@@ -660,19 +631,22 @@ $this->assign('title', 'Case #' . $case->id);
                                         ['class' => 'btn btn-warning btn-sm w-100', 'escape' => false]
                                     ); ?>
                                 </div>
-                            <?php else: 
-                                // Show initial promote button
-                            ?>
-                                <?php echo $this->Html->link(
-                                    '<i class="fas fa-level-up-alt me-1"></i> Promote to Scientist',
-                                    ['action' => 'assign', $case->id],
-                                    ['class' => 'btn btn-outline-success', 'escape' => false]
-                                ); ?>
                             <?php endif; ?>
-                            
                             <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#uploadModal">
                                 <i class="fas fa-upload me-1"></i> Upload Documents
                             </button>
+                        </div>
+                    <?php elseif (in_array($case->status, ['in_progress', 'review'])): ?>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                <i class="fas fa-upload me-1"></i> Upload Documents
+                            </button>
+                            
+                            <?php echo $this->Html->link(
+                                '<i class="fas fa-eye me-1"></i> View Reports',
+                                ['action' => 'reports', $case->id],
+                                ['class' => 'btn btn-outline-primary', 'escape' => false]
+                            ); ?>
                         </div>
                     <?php else: ?>
                         <p class="text-muted mb-0">
@@ -728,22 +702,8 @@ $this->assign('title', 'Case #' . $case->id);
                                     </span>
                                 </div>
                                 <div class="progress" style="height: 6px;">
-                                    <div class="progress-bar bg-<?php 
-                                        echo match($technicianStatus) {
-                                            'completed' => 'success',
-                                            'in_progress', 'review' => 'warning',
-                                            'assigned' => 'info',
-                                            default => 'secondary'
-                                        };
-                                    ?>" style="width: <?php 
-                                        echo match($technicianStatus) {
-                                            'completed' => '100',
-                                            'review' => '75',
-                                            'in_progress' => '50',
-                                            'assigned' => '25',
-                                            default => '10'
-                                        };
-                                    ?>%"></div>
+                                    <div class="progress-bar bg-<?php echo $this->Status->progressColor($technicianStatus); ?>" 
+                                         style="width: <?php echo $this->Status->progressPercent($technicianStatus); ?>%"></div>
                                 </div>
                             </div>
                             
@@ -759,22 +719,8 @@ $this->assign('title', 'Case #' . $case->id);
                                     </span>
                                 </div>
                                 <div class="progress" style="height: 6px;">
-                                    <div class="progress-bar bg-<?php 
-                                        echo match($scientistStatus) {
-                                            'completed' => 'success',
-                                            'in_progress', 'review' => 'warning',
-                                            'assigned' => 'info',
-                                            default => 'secondary'
-                                        };
-                                    ?>" style="width: <?php 
-                                        echo match($scientistStatus) {
-                                            'completed' => '100',
-                                            'review' => '75',
-                                            'in_progress' => '50',
-                                            'assigned' => '25',
-                                            default => '10'
-                                        };
-                                    ?>%"></div>
+                                    <div class="progress-bar bg-<?php echo $this->Status->progressColor($scientistStatus); ?>" 
+                                         style="width: <?php echo $this->Status->progressPercent($scientistStatus); ?>%"></div>
                                 </div>
                             </div>
                             
@@ -790,22 +736,8 @@ $this->assign('title', 'Case #' . $case->id);
                                     </span>
                                 </div>
                                 <div class="progress" style="height: 6px;">
-                                    <div class="progress-bar bg-<?php 
-                                        echo match($doctorStatus) {
-                                            'completed' => 'success',
-                                            'in_progress', 'review' => 'warning',
-                                            'assigned' => 'info',
-                                            default => 'secondary'
-                                        };
-                                    ?>" style="width: <?php 
-                                        echo match($doctorStatus) {
-                                            'completed' => '100',
-                                            'review' => '75',
-                                            'in_progress' => '50',
-                                            'assigned' => '25',
-                                            default => '10'
-                                        };
-                                    ?>%"></div>
+                                    <div class="progress-bar bg-<?php echo $this->Status->progressColor($doctorStatus); ?>" 
+                                         style="width: <?php echo $this->Status->progressPercent($doctorStatus); ?>%"></div>
                                 </div>
                             </div>
                             
@@ -1040,7 +972,7 @@ $this->assign('title', 'Case #' . $case->id);
                                         <small class="text-muted">
                                             by 
                                             <?php if ($audit->changed_by === $user->id): ?>
-                                                <span class="text-primary">You</span>
+                                                <span class="text-primary fw-bold">You</span>
                                             <?php else: ?>
                                                 <?php echo h($audit->changed_by_user->first_name . ' ' . $audit->changed_by_user->last_name); ?>
                                             <?php endif; ?>

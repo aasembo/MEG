@@ -13,6 +13,7 @@ $cakeDescription = 'Research Dashboard - Scientist Portal';
 <head>
     <?php echo $this->Html->charset() ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrfToken" content="<?php echo $this->request->getAttribute('csrfToken') ?>">
     <title>
         <?php echo $cakeDescription ?>:
         <?php echo $this->fetch('title') ?>
@@ -33,9 +34,9 @@ $cakeDescription = 'Research Dashboard - Scientist Portal';
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg scientist-navbar">
         <div class="container-fluid">
-            <a class="navbar-brand text-white fw-bold" href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'dashboard']) ?>">
+            <a class="navbar-brand text-white fw-bold" href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Dashboard', 'action' => 'index')) ?>">
                 <i class="fas fa-microscope me-2"></i>
-                Research Portal
+                Scientific Portal
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -45,22 +46,24 @@ $cakeDescription = 'Research Dashboard - Scientist Portal';
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link text-white" href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'dashboard']) ?>">
+                        <a class="nav-link text-white" href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Dashboard', 'action' => 'index')) ?>">
                             <i class="fas fa-chart-line me-1"></i>Dashboard
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-white" href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'samples']) ?>">
-                            <i class="fas fa-vial me-1"></i>Samples
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-white" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-file-medical me-1"></i>Cases
                         </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Cases', 'action' => 'index')) ?>"><i class="fas fa-list me-2"></i>My Assigned Cases</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Cases', 'action' => 'index', '?' => array('status' => 'assigned'))) ?>"><i class="fas fa-user-check me-2"></i>Assigned Cases</a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Cases', 'action' => 'index', '?' => array('status' => 'in_progress'))) ?>"><i class="fas fa-spinner me-2"></i>In Progress Cases</a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Cases', 'action' => 'index', '?' => array('status' => 'completed'))) ?>"><i class="fas fa-check-circle me-2"></i>Completed Cases</a></li>
+                        </ul>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-white" href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'research']) ?>">
-                            <i class="fas fa-flask me-1"></i>Research
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-white" href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'reports']) ?>">
+                        <a class="nav-link text-white" href="#">
                             <i class="fas fa-file-alt me-1"></i>Reports
                         </a>
                     </li>
@@ -70,17 +73,24 @@ $cakeDescription = 'Research Dashboard - Scientist Portal';
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle text-white" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user me-1"></i>
-                            <?php echo isset($authUser) ? h($authUser['username']) : 'Scientist' ?>
+                            <?php 
+                            $identity = $this->getRequest()->getAttribute('identity');
+                            if ($identity) {
+                                echo h($identity->get('email') ? $identity->get('email') : ($identity->get('username') ? $identity->get('username') : 'Scientist'));
+                            } else {
+                                echo 'Scientist';
+                            }
+                            ?>
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'profile']) ?>">
+                            <li><a class="dropdown-item" href="#">
                                 <i class="fas fa-user-cog me-2"></i>Profile
                             </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'settings']) ?>">
+                            <li><a class="dropdown-item" href="#">
                                 <i class="fas fa-cog me-2"></i>Settings
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['controller' => 'Pages', 'action' => 'logout']) ?>">
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Login', 'action' => 'logout')) ?>">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
                             </a></li>
                         </ul>
@@ -102,29 +112,17 @@ $cakeDescription = 'Research Dashboard - Scientist Portal';
                         </h6>
                     </div>
                     <div class="list-group list-group-flush">
-                        <a href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'dashboard']) ?>" 
+                        <a href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Dashboard', 'action' => 'index')) ?>" 
                            class="list-group-item list-group-item-action">
                             <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                         </a>
-                        <a href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'samples']) ?>" 
+                        <a href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Cases', 'action' => 'index')) ?>" 
                            class="list-group-item list-group-item-action">
-                            <i class="fas fa-vial me-2"></i>Sample Management
+                            <i class="fas fa-file-medical me-2"></i>My Cases
                         </a>
-                        <a href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'research']) ?>" 
-                           class="list-group-item list-group-item-action">
-                            <i class="fas fa-flask me-2"></i>Research Data
-                        </a>
-                        <a href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'analysis']) ?>" 
-                           class="list-group-item list-group-item-action">
-                            <i class="fas fa-chart-bar me-2"></i>Data Analysis
-                        </a>
-                        <a href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'reports']) ?>" 
+                        <a href="#" 
                            class="list-group-item list-group-item-action">
                             <i class="fas fa-file-alt me-2"></i>Reports
-                        </a>
-                        <a href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'collaboration']) ?>" 
-                           class="list-group-item list-group-item-action">
-                            <i class="fas fa-users me-2"></i>Collaboration
                         </a>
                     </div>
                 </div>
@@ -151,8 +149,8 @@ $cakeDescription = 'Research Dashboard - Scientist Portal';
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item">
-                            <a href="<?php echo $this->Url->build(['controller' => 'Scientist', 'action' => 'dashboard']) ?>">
-                                <i class="fas fa-home"></i> Research Portal
+                            <a href="<?php echo $this->Url->build(array('prefix' => 'Scientist', 'controller' => 'Dashboard', 'action' => 'index')) ?>">
+                                <i class="fas fa-home"></i> Scientific Portal
                             </a>
                         </li>
                         <?php echo $this->fetch('breadcrumb') ?>

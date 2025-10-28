@@ -407,4 +407,13 @@ class S3DocumentService {
     public function getS3Client(): ?S3Client {
         return $this->s3Client;
     }
+    
+    /**
+     * Get S3 bucket name
+     *
+     * @return string|null
+     */
+    public function getBucket(): ?string {
+        return $this->bucket;
+    }
 }

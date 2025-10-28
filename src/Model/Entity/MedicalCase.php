@@ -16,6 +16,9 @@ class MedicalCase extends Entity {
         'current_version_id' => true,
         'date' => true,
         'status' => true,
+        'technician_status' => true,
+        'scientist_status' => true,
+        'doctor_status' => true,
         'priority' => true,
         'notes' => true,
         'symptoms' => true,
@@ -35,7 +38,22 @@ class MedicalCase extends Entity {
         'documents' => true,
     ];
 
-    public function getStatusLabel(): string {
+    protected array $_virtual = [
+        'overall_status',
+        'technician_status_label',
+        'scientist_status_label',
+        'doctor_status_label'
+    ];
+
+    /**
+     * Get status label for a specific status value or the entity's status
+     *
+     * @param string|null $status Status value (null to use entity's status)
+     * @return string
+     */
+    public function getStatusLabel(?string $status = null): string {
+        $status = $status ?? $this->status;
+        
         $statusLabels = [
             'draft' => 'Draft',
             'assigned' => 'Assigned',
@@ -45,7 +63,7 @@ class MedicalCase extends Entity {
             'cancelled' => 'Cancelled'
         ];
 
-        return $statusLabels[$this->status] ?? 'Unknown';
+        return $statusLabels[$status] ?? 'Unknown';
     }
 
     public function getPriorityLabel(): string {
@@ -105,5 +123,120 @@ class MedicalCase extends Entity {
         ];
 
         return $badgeClasses[$this->priority] ?? 'bg-secondary';
+    }
+
+    /**
+     * Get the overall status (most advanced of all role statuses)
+     * Priority: completed > assigned > in_progress > draft
+     *
+     * @return string
+     */
+    protected function _getOverallStatus(): string
+    {
+        $statuses = [
+            $this->technician_status ?? 'draft',
+            $this->scientist_status ?? 'draft',
+            $this->doctor_status ?? 'draft'
+        ];
+
+        // Priority order
+        if (in_array('completed', $statuses)) {
+            return 'completed';
+        }
+        if (in_array('assigned', $statuses)) {
+            return 'assigned';
+        }
+        if (in_array('in_progress', $statuses)) {
+            return 'in_progress';
+        }
+        return 'draft';
+    }
+
+    /**
+     * Get technician status label
+     *
+     * @return string
+     */
+    protected function _getTechnicianStatusLabel(): string
+    {
+        return $this->getStatusLabel($this->technician_status ?? 'draft');
+    }
+
+    /**
+     * Get scientist status label
+     *
+     * @return string
+     */
+    protected function _getScientistStatusLabel(): string
+    {
+        return $this->getStatusLabel($this->scientist_status ?? 'draft');
+    }
+
+    /**
+     * Get doctor status label
+     *
+     * @return string
+     */
+    protected function _getDoctorStatusLabel(): string
+    {
+        return $this->getStatusLabel($this->doctor_status ?? 'draft');
+    }
+
+    public function getStatusLabelForRole(string $role): string
+    {
+        $statusColumn = match($role) {
+            'technician' => 'technician_status',
+            'scientist' => 'scientist_status',
+            'doctor' => 'doctor_status',
+            default => 'status'
+        };
+
+        return $this->getStatusLabel($this->{$statusColumn} ?? 'draft');
+    }
+
+    public function getStatusColorClassForRole(string $role): string
+    {
+        $statusColumn = match($role) {
+            'technician' => 'technician_status',
+            'scientist' => 'scientist_status',
+            'doctor' => 'doctor_status',
+            default => 'status'
+        };
+
+        $status = $this->{$statusColumn} ?? 'draft';
+        
+        $colorClasses = [
+            'draft' => 'text-muted',
+            'assigned' => 'text-info',
+            'in_progress' => 'text-warning',
+            'review' => 'text-primary',
+            'completed' => 'text-success',
+            'cancelled' => 'text-secondary'
+        ];
+
+        return $colorClasses[$status] ?? 'text-muted';
+    }
+
+    public function getStatusClassForRole(string $role): string
+    {
+        $statusColumn = match($role) {
+            'technician' => 'technician_status',
+            'scientist' => 'scientist_status',
+            'doctor' => 'doctor_status',
+            default => 'status'
+        };
+
+        $status = $this->{$statusColumn} ?? 'draft';
+        
+        $badgeClasses = [
+            'draft' => 'bg-secondary',
+            'assigned' => 'bg-info',
+            'in_progress' => 'bg-warning text-dark',
+            'review' => 'bg-primary',
+            'completed' => 'bg-success',
+            'cancelled' => 'bg-dark'
+        ];
+
+        return $badgeClasses[$status] ?? 'bg-secondary';
     }
 }

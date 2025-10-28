@@ -39,5 +39,6 @@ class AppView extends View
     {
         $this->addHelper('CustomFlash');
         $this->addHelper('DateTime');
+        $this->addHelper('Status');
     }
 }

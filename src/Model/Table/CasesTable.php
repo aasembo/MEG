@@ -157,6 +157,21 @@ class CasesTable extends Table
             ->notEmptyString('status');
 
         $validator
+            ->scalar('technician_status')
+            ->maxLength('technician_status', 50)
+            ->notEmptyString('technician_status');
+
+        $validator
+            ->scalar('scientist_status')
+            ->maxLength('scientist_status', 50)
+            ->notEmptyString('scientist_status');
+
+        $validator
+            ->scalar('doctor_status')
+            ->maxLength('doctor_status', 50)
+            ->notEmptyString('doctor_status');
+
+        $validator
             ->scalar('priority')
             ->maxLength('priority', 10)
             ->notEmptyString('priority');
@@ -202,6 +217,7 @@ class CasesTable extends Table
             'allowNullableNulls' => true
         ]);
         
+        
         // Only validate department_id if it's not empty  
         $rules->add($rules->existsIn(['department_id'], 'Departments'), [
             'errorField' => 'department_id',
@@ -210,10 +226,54 @@ class CasesTable extends Table
         
         // Only validate sedation_id if it's not empty
         $rules->add($rules->existsIn(['sedation_id'], 'Sedations'), [
-            'errorField' => 'sedation_id', 
+            'errorField' => 'sedation_id',
             'allowNullableNulls' => true
         ]);
 
         return $rules;
+    }
+
+    /**
+     * Get role-specific status for a case
+     *
+     * @param \App\Model\Entity\MedicalCase $case The case entity
+     * @param string $role Role type: 'technician', 'scientist', or 'doctor'
+     * @return string Status value
+     */
+    public function getRoleStatus($case, string $role): string
+    {
+        $statusColumn = $this->getRoleStatusColumn($role);
+        return $case->{$statusColumn} ?? 'draft';
+    }
+
+    /**
+     * Set role-specific status for a case
+     *
+     * @param \App\Model\Entity\MedicalCase $case The case entity
+     * @param string $role Role type: 'technician', 'scientist', or 'doctor'
+     * @param string $status New status value
+     * @return \App\Model\Entity\MedicalCase Modified case entity
+     */
+    public function setRoleStatus($case, string $role, string $status)
+    {
+        $statusColumn = $this->getRoleStatusColumn($role);
+        $case->{$statusColumn} = $status;
+        return $case;
+    }
+
+    /**
+     * Get the status column name for a role
+     *
+     * @param string $role Role type
+     * @return string Column name
+     */
+    private function getRoleStatusColumn(string $role): string
+    {
+        return match($role) {
+            'technician' => 'technician_status',
+            'scientist' => 'scientist_status',
+            'doctor' => 'doctor_status',
+            default => 'status'
+        };
     }
 }

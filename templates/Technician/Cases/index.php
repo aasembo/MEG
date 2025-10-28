@@ -186,14 +186,16 @@ $this->assign('title', 'Case Management');
                             <!-- Status -->
                             <td>
                                 <?php 
-                                $statusConfig = match($case->status) {
-                                    'draft' => ['class' => 'secondary', 'icon' => 'file', 'label' => $case->getStatusLabel()],
-                                    'assigned' => ['class' => 'info', 'icon' => 'user-check', 'label' => $case->getStatusLabel()],
-                                    'in_progress' => ['class' => 'warning', 'icon' => 'spinner', 'label' => $case->getStatusLabel()],
-                                    'review' => ['class' => 'primary', 'icon' => 'search', 'label' => $case->getStatusLabel()],
-                                    'completed' => ['class' => 'success', 'icon' => 'check-circle', 'label' => $case->getStatusLabel()],
-                                    'cancelled' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => $case->getStatusLabel()],
-                                    default => ['class' => 'secondary', 'icon' => 'circle', 'label' => $case->getStatusLabel()]
+                                // Get technician-specific status
+                                $roleStatus = $case->technician_status ?? 'draft';
+                                $statusConfig = match($roleStatus) {
+                                    'draft' => ['class' => 'secondary', 'icon' => 'file', 'label' => $case->getStatusLabelForRole('technician')],
+                                    'assigned' => ['class' => 'info', 'icon' => 'user-check', 'label' => $case->getStatusLabelForRole('technician')],
+                                    'in_progress' => ['class' => 'warning', 'icon' => 'spinner', 'label' => $case->getStatusLabelForRole('technician')],
+                                    'review' => ['class' => 'primary', 'icon' => 'search', 'label' => $case->getStatusLabelForRole('technician')],
+                                    'completed' => ['class' => 'success', 'icon' => 'check-circle', 'label' => $case->getStatusLabelForRole('technician')],
+                                    'cancelled' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => $case->getStatusLabelForRole('technician')],
+                                    default => ['class' => 'secondary', 'icon' => 'circle', 'label' => $case->getStatusLabelForRole('technician')]
                                 };
                                 ?>
                                 <span class="badge badge-status badge-status-<?php echo $statusConfig['class'] ?>">
@@ -233,7 +235,12 @@ $this->assign('title', 'Case Management');
                                 <?php if ($case->current_user): ?>
                                     <div class="assigned-info">
                                         <div class="fw-semibold">
-                                            <i class="fas fa-user-circle me-1 text-primary"></i><?php echo h($case->current_user->first_name . ' ' . $case->current_user->last_name) ?>
+                                            <i class="fas fa-user-circle me-1 text-primary"></i>
+                                            <?php if ($case->current_user_id === $user->id): ?>
+                                                <span class="text-success">You</span>
+                                            <?php else: ?>
+                                                <?php echo h($case->current_user->first_name . ' ' . $case->current_user->last_name) ?>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="text-muted" style="font-size: 0.75rem;">
                                             <i class="fas fa-envelope me-1"></i><?php echo h($case->current_user->email) ?>
@@ -249,7 +256,14 @@ $this->assign('title', 'Case Management');
                             <!-- Created -->
                             <td>
                                 <div class="text-muted small">
-                                    <div><i class="fas fa-user me-1"></i><?php echo h($case->user->first_name . ' ' . $case->user->last_name) ?></div>
+                                    <div>
+                                        <i class="fas fa-user me-1"></i>
+                                        <?php if ($case->user_id === $user->id): ?>
+                                            <span class="text-primary">You</span>
+                                        <?php else: ?>
+                                            <?php echo h($case->user->first_name . ' ' . $case->user->last_name) ?>
+                                        <?php endif; ?>
+                                    </div>
                                     <div><i class="fas fa-clock me-1"></i><?php echo $case->created->format('M d, Y') ?></div>
                                 </div>
                             </td>
@@ -267,7 +281,11 @@ $this->assign('title', 'Case Management');
                                             'data-bs-toggle' => 'tooltip'
                                         ]
                                     ); ?>
-                                    <?php if (in_array($case->status, ['draft', 'assigned'])): ?>
+                                    <?php 
+                                    // Check technician's role-specific status for permissions
+                                    $technicianStatus = $case->technician_status ?? 'draft';
+                                    if (!in_array($technicianStatus, ['completed', 'cancelled'])): 
+                                    ?>
                                         <?php echo $this->Html->link(
                                             '<i class="fas fa-edit"></i>',
                                             ['action' => 'edit', $case->id],
@@ -279,7 +297,7 @@ $this->assign('title', 'Case Management');
                                             ]
                                         ); ?>
                                     <?php endif; ?>
-                                    <?php if (in_array($case->status, ['draft', 'assigned'])): ?>
+                                    <?php if (!in_array($technicianStatus, ['completed', 'cancelled'])): ?>
                                         <?php echo $this->Html->link(
                                             '<i class="fas fa-user-plus"></i>',
                                             ['action' => 'assign', $case->id],

@@ -57,6 +57,12 @@ $cakeDescription = 'Hospital Admin Panel';
                         </ul>
                     </li>
 
+                    <li class="nav-item">
+                        <a class="nav-link" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Cases', 'action' => 'index']) ?>">
+                            <i class="fas fa-briefcase-medical me-1"></i>Cases
+                        </a>
+                    </li>
+
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-stethoscope me-1"></i>Medical Data
@@ -128,6 +134,10 @@ $cakeDescription = 'Hospital Admin Panel';
                             <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Dashboard', 'action' => 'index']) ?>" 
                                class="list-group-item list-group-item-action border-0">
                                 <i class="fas fa-home me-2 text-primary"></i>Dashboard
+                            </a>
+                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Cases', 'action' => 'index']) ?>" 
+                               class="list-group-item list-group-item-action border-0">
+                                <i class="fas fa-briefcase-medical me-2 text-primary"></i>Cases
                             </a>
                             <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Users', 'action' => 'index']) ?>" class="list-group-item list-group-item-action border-0">
                                 <i class="fas fa-users me-2 text-success"></i>Manage Users

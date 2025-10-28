@@ -167,8 +167,15 @@ class LoginController extends AppController
             $userId = $user ? $user->id : null;
             
             // Check if user logged in via Okta (has ID token) or form
+            // IMPORTANT: Check this BEFORE calling Authentication->logout() which clears session
             $idToken = $this->request->getSession()->read('oauth_id_token');
             $loginMethod = $idToken ? 'okta' : 'form';
+            
+            // Build Okta logout URL BEFORE clearing session (if needed)
+            $oktaLogoutUrl = null;
+            if ($loginMethod === 'okta' && \Cake\Core\Configure::read('Okta.enabled', false)) {
+                $oktaLogoutUrl = $this->buildOktaLogoutUrl();
+            }
             
             // Log logout event BEFORE clearing session
             if ($loginMethod === 'okta') {
@@ -196,25 +203,18 @@ class LoginController extends AppController
             // Logout from local CakePHP session
             $this->Authentication->logout();
             
+            // Clear OAuth tokens from session
+            $this->request->getSession()->delete('oauth_id_token');
+            $this->request->getSession()->delete('oauth_access_token');
+            $this->request->getSession()->delete('okta_last_validation');
+            
             $this->Flash->success(__('You have been logged out.'));
             
             // Redirect based on login method
-            if ($loginMethod === 'okta' && \Cake\Core\Configure::read('Okta.enabled', false)) {
-                // Build Okta logout URL and redirect to complete Okta logout
-                $oktaLogoutUrl = $this->buildOktaLogoutUrl();
-                
-                // Clear OAuth tokens from session AFTER building logout URL
-                $this->request->getSession()->delete('oauth_id_token');
-                $this->request->getSession()->delete('oauth_access_token');
-                $this->request->getSession()->delete('okta_last_validation');
-                
+            if ($oktaLogoutUrl) {
+                // Okta login - redirect to Okta logout endpoint
                 return $this->redirect($oktaLogoutUrl);
             } else {
-                // Clear OAuth tokens from session if they exist
-                $this->request->getSession()->delete('oauth_id_token');
-                $this->request->getSession()->delete('oauth_access_token');
-                $this->request->getSession()->delete('okta_last_validation');
-                
                 // Form-based login or Okta disabled - redirect to login page
                 return $this->redirect(['action' => 'login']);
             }
