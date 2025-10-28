@@ -5,14 +5,19 @@ namespace App\Service;
 
 use Cake\Log\Log;
 use Cake\Core\Configure;
+use Cake\ORM\TableRegistry;
+use App\Service\AiProviderRouter;
 
 /**
  * AI Report Generation Service
  * 
- * Generates report structures using OpenAI with COMPLIANCE-SAFE metadata only
- * NO PHI/PII is ever sent to OpenAI
+ * Generates report structures using AI (OpenAI or Google Gemini) with COMPLIANCE-SAFE metadata only
+ * NO PHI/PII is ever sent to AI providers
  * 
- * Includes fallback for when OpenAI is disabled
+ * Now supports dual AI providers via AiProviderRouter:
+ * - OpenAI GPT ($0.03 per 1K tokens)
+ * - Google Gemini ($0.00125 per 1K tokens - 96% cheaper!)
+ * - Fallback (no AI)
  */
 class AiReportGenerationService
 {
@@ -20,13 +25,50 @@ class AiReportGenerationService
     private ?string $apiKey;
     private string $model;
     private float $temperature;
+    private string $provider;
+    private int $hospitalId;
+    private ?int $userId;
 
-    public function __construct()
+    /**
+     * AI Provider Router instance
+     *
+     * @var \App\Service\AiProviderRouter|null
+     */
+    private $aiRouter;
+
+    public function __construct(?int $hospitalId = null, ?int $userId = null)
     {
-        $this->enabled = (bool) env('OPENAI_REPORT_ENABLED');
-        $this->apiKey = env('OPENAI_API_KEY');
-        $this->model = env('OPENAI_REPORT_MODEL');
-        $this->temperature = (float) env('OPENAI_REPORT_TEMPERATURE');
+        $this->hospitalId = $hospitalId ?? 1;
+        $this->userId = $userId;
+
+        // Initialize AI Provider Router
+        $this->aiRouter = new AiProviderRouter();
+
+        // Determine active provider for this hospital
+        $this->provider = $this->aiRouter->determineProvider($this->hospitalId);
+
+        if ($this->provider === AiProviderRouter::PROVIDER_FALLBACK) {
+            // Fallback mode - no AI provider available
+            $this->enabled = false;
+            $this->apiKey = null;
+            $this->model = 'fallback';
+            $this->temperature = 0.7;
+
+            Log::info('AI Report Service: Using fallback mode (no AI provider available)');
+        } else {
+            // Get provider configuration
+            $config = $this->aiRouter->getProviderConfig($this->hospitalId, $this->provider);
+
+            $this->enabled = $config['enabled'];
+            $this->apiKey = $config['api_key'];
+            $this->model = $config['model'];
+            $this->temperature = $config['temperature'];
+
+            Log::info('AI Report Service: Using provider: ' . strtoupper($this->provider), array(
+                'hospital_id' => $this->hospitalId,
+                'model' => $this->model,
+            ));
+        }
     }
 
     /**
@@ -36,11 +78,21 @@ class AiReportGenerationService
      */
     public function isEnabled(): bool
     {
-        return $this->enabled && !empty($this->apiKey);
+        return $this->enabled && !empty($this->apiKey) && $this->provider !== AiProviderRouter::PROVIDER_FALLBACK;
     }
 
     /**
-     * Generate report structure using OpenAI
+     * Get active AI provider name
+     *
+     * @return string Provider name (openai, gemini, or fallback)
+     */
+    public function getProvider(): string
+    {
+        return $this->provider;
+    }
+
+    /**
+     * Generate report structure using AI (OpenAI or Gemini)
      * IMPORTANT: Only sends de-identified metadata - NO PHI/PII
      *
      * @param array $caseMetadata De-identified case metadata
@@ -49,6 +101,7 @@ class AiReportGenerationService
     public function generateReportStructure(array $caseMetadata): array
     {
         if (!$this->isEnabled()) {
+            Log::info('AI disabled or unavailable, using local generation');
             return $this->generateReportLocal($caseMetadata);
         }
 
@@ -56,19 +109,47 @@ class AiReportGenerationService
             // Validate no PHI/PII in metadata
             $this->validateMetadata($caseMetadata);
 
-            // Generate report structure from OpenAI
+            // Generate report structure from AI provider
             $prompt = $this->buildPrompt($caseMetadata);
-            $response = $this->callOpenAI($prompt);
+            
+            // Call appropriate AI provider
+            $startTime = microtime(true);
+            $response = $this->callAiProvider($prompt);
+            $endTime = microtime(true);
 
             // Parse and structure the response
-            $structure = $this->parseOpenAIResponse($response);
+            $structure = $this->parseAiResponse($response);
 
-            Log::write('info', 'AI report structure generated successfully');
+            // Estimate tokens used (rough approximation: 1 token ≈ 4 characters)
+            $promptTokens = (int)ceil(strlen($prompt) / 4);
+            $responseTokens = (int)ceil(strlen($response) / 4);
+            $totalTokens = $promptTokens + $responseTokens;
+
+            // Log usage via AI Router
+            $this->aiRouter->logUsage(
+                $this->hospitalId,
+                $this->provider,
+                'report_generation',
+                $totalTokens,
+                $this->userId
+            );
+
+            $cost = $this->aiRouter->calculateCost($this->provider, $totalTokens);
+
+            Log::info('AI report structure generated successfully', array(
+                'provider' => $this->provider,
+                'tokens' => $totalTokens,
+                'cost' => sprintf('$%.4f', $cost),
+                'duration' => sprintf('%.2fs', $endTime - $startTime),
+            ));
             
             return $structure;
 
         } catch (\Exception $e) {
-            Log::error('AI report generation failed: ' . $e->getMessage());
+            Log::error('AI report generation failed: ' . $e->getMessage(), array(
+                'provider' => $this->provider,
+                'hospital_id' => $this->hospitalId,
+            ));
             
             // Fallback to local generation
             return $this->generateReportLocal($caseMetadata);
@@ -194,6 +275,23 @@ class AiReportGenerationService
     }
 
     /**
+     * Call AI Provider (OpenAI or Gemini)
+     *
+     * @param string $prompt Prompt to send
+     * @return string Raw response
+     */
+    private function callAiProvider(string $prompt): string
+    {
+        if ($this->provider === AiProviderRouter::PROVIDER_OPENAI) {
+            return $this->callOpenAI($prompt);
+        } elseif ($this->provider === AiProviderRouter::PROVIDER_GEMINI) {
+            return $this->callGemini($prompt);
+        } else {
+            throw new \Exception('Invalid AI provider: ' . $this->provider);
+        }
+    }
+
+    /**
      * Call OpenAI API
      *
      * @param string $prompt Prompt to send
@@ -203,36 +301,37 @@ class AiReportGenerationService
     {
         $url = 'https://api.openai.com/v1/chat/completions';
         
-        $data = [
+        $data = array(
             'model' => $this->model,
-            'messages' => [
-                [
+            'messages' => array(
+                array(
                     'role' => 'system',
                     'content' => 'You are a medical report formatting assistant. Generate report structures only, never include patient data. Return valid JSON only.'
-                ],
-                [
+                ),
+                array(
                     'role' => 'user',
                     'content' => $prompt
-                ]
-            ],
+                )
+            ),
             'temperature' => $this->temperature,
             'max_tokens' => 2000
-        ];
+        );
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
             'Content-Type: application/json',
             'Authorization: Bearer ' . $this->apiKey
-        ]);
+        ));
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
         if ($httpCode !== 200) {
+            Log::error('OpenAI API error', array('http_code' => $httpCode, 'response' => $response));
             throw new \Exception('OpenAI API error: HTTP ' . $httpCode);
         }
 
@@ -246,12 +345,68 @@ class AiReportGenerationService
     }
 
     /**
-     * Parse OpenAI response into structured format
+     * Call Google Gemini API
      *
-     * @param string $response Raw response from OpenAI
+     * @param string $prompt Prompt to send
+     * @return string Raw response
+     */
+    private function callGemini(string $prompt): string
+    {
+        // Use official Google API format (no key in URL)
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . $this->model . ':generateContent';
+        
+        $data = array(
+            'contents' => array(
+                array(
+                    'role' => 'user',
+                    'parts' => array(
+                        array(
+                            'text' => "You are a medical report formatting assistant. Generate report structures only, never include patient data. Return valid JSON only.\n\n" . $prompt
+                        )
+                    )
+                )
+            ),
+            'generationConfig' => array(
+                'temperature' => $this->temperature,
+                'maxOutputTokens' => 2000,
+            )
+        );
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'x-goog-api-key: ' . $this->apiKey,
+            'Content-Type: application/json'
+        ));
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200) {
+            Log::error('Gemini API error', array('http_code' => $httpCode, 'response' => $response));
+            throw new \Exception('Gemini API error: HTTP ' . $httpCode);
+        }
+
+        $result = json_decode($response, true);
+        
+        if (empty($result['candidates'][0]['content']['parts'][0]['text'])) {
+            throw new \Exception('Empty response from Gemini');
+        }
+
+        return $result['candidates'][0]['content']['parts'][0]['text'];
+    }
+
+    /**
+     * Parse AI response into structured format
+     * Works for both OpenAI and Gemini responses
+     *
+     * @param string $response Raw response from AI provider
      * @return array Structured report format
      */
-    private function parseOpenAIResponse(string $response): array
+    private function parseAiResponse(string $response): array
     {
         // Extract JSON from response (may have markdown formatting)
         $response = preg_replace('/^```json\s*/m', '', $response);
@@ -261,12 +416,17 @@ class AiReportGenerationService
         $structure = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \Exception('Failed to parse OpenAI response as JSON');
+            Log::error('Failed to parse AI response as JSON', array(
+                'provider' => $this->provider,
+                'error' => json_last_error_msg(),
+                'response_preview' => substr($response, 0, 200)
+            ));
+            throw new \Exception('Failed to parse AI response as JSON: ' . json_last_error_msg());
         }
 
         // Validate required fields
         if (empty($structure['sections'])) {
-            throw new \Exception('Invalid report structure from OpenAI');
+            throw new \Exception('Invalid report structure from AI provider');
         }
 
         // Normalize the structure to match expected format

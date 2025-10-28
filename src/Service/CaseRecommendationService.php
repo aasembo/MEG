@@ -5,11 +5,12 @@ namespace App\Service;
 
 use Cake\Http\Client;
 use Cake\Log\Log;
+use App\Service\AiProviderRouter;
 
 /**
  * Case Recommendation Service
  * 
- * Uses OpenAI to analyze patient symptoms and recommend:
+ * Uses AI (OpenAI or Google Gemini) to analyze patient symptoms and recommend:
  * - Exams and procedures
  * - Department
  * - Sedation level
@@ -18,36 +19,63 @@ use Cake\Log\Log;
  */
 class CaseRecommendationService
 {
-    private $openaiApiKey;
-    private $openaiModel;
-    private $maxTokens;
-    private $temperature;
-    private $enabled;
+    private ?int $hospitalId;
+    private ?int $userId;
+    private AiProviderRouter $aiRouter;
+    private string $provider;
+    private bool $enabled;
+    private string $apiKey;
+    private string $model;
+    private int $maxTokens;
+    private float $temperature;
 
-    public function __construct()
+    public function __construct(?int $hospitalId = null, ?int $userId = null)
     {
-        // Safely access nested array values with additional validation
-        $this->openaiApiKey = env('OPENAI_API_KEY');
-        $this->openaiModel = env('OPENAI_MODEL', 'gpt-3.5-turbo');
-        $this->maxTokens = (int)env('OPENAI_MAX_TOKENS', 500);
-        $this->temperature = (float)env('OPENAI_TEMPERATURE', 0.3);
+        $this->hospitalId = $hospitalId ?? 1;
+        $this->userId = $userId;
         
-        // Convert string 'true'/'false' to boolean
-        $enabledValue = env('OPENAI_ENABLED', 'false');
-        $this->enabled = filter_var($enabledValue, FILTER_VALIDATE_BOOLEAN) && !empty($this->openaiApiKey);
+        // Initialize AI Provider Router
+        $this->aiRouter = new AiProviderRouter();
+        
+        // Determine which provider to use for this hospital
+        $this->provider = $this->aiRouter->determineProvider($this->hospitalId);
+        
+        // Get provider configuration from database
+        $config = $this->aiRouter->getProviderConfig($this->hospitalId, $this->provider);
+        
+        $this->enabled = $config['enabled'];
+        $this->apiKey = $config['api_key'];
+        $this->model = $config['model'];
+        $this->maxTokens = (int)$config['max_tokens']; // Use configured value (no artificial cap)
+        $this->temperature = $config['temperature'];
         
         // Log initialization status
-        Log::debug('CaseRecommendationService initialized. Enabled: ' . ($this->enabled ? 'true' : 'false') . ', API Key present: ' . (!empty($this->openaiApiKey) ? 'yes' : 'no'));
+        Log::debug('CaseRecommendationService initialized', [
+            'hospital_id' => $this->hospitalId,
+            'provider' => $this->provider,
+            'enabled' => $this->enabled,
+            'model' => $this->model
+        ]);
     }
 
     /**
-     * Check if OpenAI integration is enabled
+     * Check if AI integration is enabled
      * 
      * @return bool
      */
     public function isEnabled(): bool
     {
         return $this->enabled;
+    }
+
+    /**
+     * Get active AI provider name
+     * 
+     * @return string
+     */
+    public function getProvider(): string
+    {
+        return $this->provider;
     }
 
     /**
@@ -80,16 +108,34 @@ class CaseRecommendationService
                 $availableSedations
             );
 
-            $response = $this->callOpenAI($prompt);
+            // Estimate tokens for the prompt (rough estimate)
+            $estimatedPromptTokens = (int)(strlen($prompt) / 4);
+            $estimatedTotalTokens = $estimatedPromptTokens + $this->maxTokens;
+
+            $response = $this->callAiProvider($prompt);
             
             if ($response && isset($response['choices'][0]['message']['content'])) {
                 $content = $response['choices'][0]['message']['content'];
-                return $this->parseRecommendations($content, $availableExamsProcedures, $availableDepartments, $availableSedations);
+                $recommendations = $this->parseRecommendations($content, $availableExamsProcedures, $availableDepartments, $availableSedations);
+                
+                // Log usage
+                $this->aiRouter->logUsage(
+                    $this->hospitalId,
+                    $this->provider,
+                    'case_recommendations',
+                    $estimatedTotalTokens,
+                    $this->userId
+                );
+                
+                return $recommendations;
             }
 
             return $this->getFallbackRecommendations();
         } catch (\Exception $e) {
-            Log::error('OpenAI API Error: ' . $e->getMessage());
+            Log::error('AI API Error in case recommendations', [
+                'provider' => $this->provider,
+                'error' => $e->getMessage()
+            ]);
             return $this->getFallbackRecommendations();
         }
     }
@@ -162,6 +208,23 @@ PROMPT;
     }
 
     /**
+     * Call appropriate AI provider based on configuration
+     * 
+     * @param string $prompt
+     * @return array|null
+     */
+    private function callAiProvider(string $prompt): ?array
+    {
+        if ($this->provider === 'openai') {
+            return $this->callOpenAI($prompt);
+        } elseif ($this->provider === 'gemini') {
+            return $this->callGemini($prompt);
+        }
+        
+        return null;
+    }
+
+    /**
      * Call OpenAI API
      * 
      * @param string $prompt
@@ -171,33 +234,144 @@ PROMPT;
     {
         $http = new Client();
         
-        $response = $http->post('https://api.openai.com/v1/chat/completions', json_encode([
-            'model' => $this->openaiModel,
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'You are a medical assistant that provides case recommendations in JSON format.'
+        try {
+            $response = $http->post('https://api.openai.com/v1/chat/completions', json_encode([
+                'model' => $this->model,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'You are a medical assistant that provides case recommendations in JSON format.'
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $prompt
+                    ]
                 ],
-                [
-                    'role' => 'user',
-                    'content' => $prompt
+                'max_tokens' => $this->maxTokens,
+                'temperature' => $this->temperature,
+            ]), [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json',
                 ]
-            ],
-            'max_tokens' => $this->maxTokens,
-            'temperature' => $this->temperature,
-        ]), [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $this->openaiApiKey,
-                'Content-Type' => 'application/json',
-            ]
-        ]);
+            ]);
 
-        if ($response->isOk()) {
-            return $response->getJson();
+            if ($response->isOk()) {
+                return $response->getJson();
+            }
+
+            Log::error('OpenAI API request failed', [
+                'status_code' => $response->getStatusCode(),
+                'body' => $response->getStringBody()
+            ]);
+            return null;
+        } catch (\Exception $e) {
+            Log::error('OpenAI API exception', ['error' => $e->getMessage()]);
+            return null;
         }
+    }
 
-        Log::error('OpenAI API request failed: ' . $response->getStatusCode());
-        return null;
+    /**
+     * Call Google Gemini API
+     * 
+     * @param string $prompt
+     * @return array|null
+     */
+    private function callGemini(string $prompt): ?array
+    {
+        $http = new Client();
+        
+        try {
+            // Follow Google's official API format
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . $this->model . ':generateContent';
+            
+            Log::debug('Calling Gemini API', [
+                'url' => $url,
+                'model' => $this->model,
+                'max_output_tokens' => $this->maxTokens,
+                'api_key_length' => strlen($this->apiKey),
+                'api_key_preview' => substr($this->apiKey, 0, 4) . '...' . substr($this->apiKey, -4),
+            ]);
+            
+            // Prepare request body following Google's format
+            $requestBody = [
+                'contents' => [
+                    [
+                        'role' => 'user',
+                        'parts' => [
+                            ['text' => 'You are a medical assistant that provides case recommendations in JSON format.']
+                        ]
+                    ],
+                    [
+                        'role' => 'user',
+                        'parts' => [
+                            ['text' => $prompt]
+                        ]
+                    ]
+                ],
+                'generationConfig' => [
+                    'temperature' => $this->temperature,
+                    'maxOutputTokens' => $this->maxTokens,
+                ]
+            ];
+            
+            $response = $http->post($url, json_encode($requestBody), [
+                'headers' => [
+                    'x-goog-api-key' => $this->apiKey,
+                    'Content-Type' => 'application/json',
+                ]
+            ]);
+
+            if ($response->isOk()) {
+                $data = $response->getJson();
+                
+                Log::debug('Gemini API response received', [
+                    'has_candidates' => isset($data['candidates']),
+                    'candidate_count' => isset($data['candidates']) ? count($data['candidates']) : 0,
+                    'finish_reason' => $data['candidates'][0]['finishReason'] ?? 'unknown',
+                    'usage_metadata' => $data['usageMetadata'] ?? []
+                ]);
+                
+                // Check if we have a valid response with content
+                if (isset($data['candidates'][0]['content']['parts'][0]['text'])) {
+                    $text = $data['candidates'][0]['content']['parts'][0]['text'];
+                    
+                    // Convert Gemini response format to OpenAI format for consistency
+                    return [
+                        'choices' => [
+                            [
+                                'message' => [
+                                    'content' => $text
+                                ]
+                            ]
+                        ]
+                    ];
+                }
+                
+                // Check for incomplete response (MAX_TOKENS)
+                if (isset($data['candidates'][0]['finishReason']) && 
+                    $data['candidates'][0]['finishReason'] === 'MAX_TOKENS') {
+                    Log::warning('Gemini response incomplete - MAX_TOKENS reached', [
+                        'max_tokens' => $this->maxTokens,
+                        'tokens_used' => $data['usageMetadata']['totalTokenCount'] ?? 'unknown'
+                    ]);
+                }
+                
+                // Log the full response for debugging
+                Log::error('Gemini API response missing content', [
+                    'full_response' => $data
+                ]);
+            }
+
+            Log::error('Gemini API request failed', [
+                'status_code' => $response->getStatusCode(),
+                'body' => $response->getStringBody()
+            ]);
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Gemini API exception', ['error' => $e->getMessage()]);
+            return null;
+        }
     }
 
     /**
@@ -225,7 +399,10 @@ PROMPT;
         $data = json_decode($content, true);
         
         if (!$data) {
-            Log::error('Failed to parse OpenAI JSON response: ' . $content);
+            Log::error('Failed to parse AI JSON response', [
+                'provider' => $this->provider,
+                'content' => $content
+            ]);
             return $this->getFallbackRecommendations();
         }
 

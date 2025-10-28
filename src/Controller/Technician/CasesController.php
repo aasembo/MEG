@@ -1758,9 +1758,17 @@ class CasesController extends AppController {
 
         // Get AI recommendations if enabled
         $aiRecommendations = [];
-        $recommendationService = new \App\Service\CaseRecommendationService();
+        $hospitalId = $currentHospital->id ?? 1;
+        $userId = $this->Authentication->getIdentity()->getIdentifier() ?? null;
+        
+        $recommendationService = new \App\Service\CaseRecommendationService($hospitalId, $userId);
         
         if ($recommendationService->isEnabled()) {
+            Log::info('Case recommendations using AI', [
+                'hospital_id' => $hospitalId,
+                'provider' => $recommendationService->getProvider()
+            ]);
+            
             // Get patient data
             $patientsTable = $this->fetchTable('Users');
             $patient = $patientsTable->get($data['patient_id']);
@@ -2160,14 +2168,28 @@ class CasesController extends AppController {
     }
 
     private function _prepareReportWithAI($case, $hospital, $user): array {
-        // Check if AI report generation is enabled
-        $aiEnabled = env('OPENAI_ENABLED');
-        $reportGenEnabled = env('OPENAI_REPORT_ENABLED');
+        // Get hospital and user IDs for AI provider routing
+        $hospitalId = $hospital->id ?? 1;
+        $userId = $user->id ?? null;
 
-        if (!$aiEnabled || !$reportGenEnabled) {
+        // Initialize AI service with hospital context
+        $aiReportService = new AiReportGenerationService($hospitalId, $userId);
+
+        // Check if AI report generation is enabled for this hospital
+        if (!$aiReportService->isEnabled()) {
+            Log::info('AI disabled for hospital, using traditional report method', array(
+                'hospital_id' => $hospitalId,
+                'provider' => $aiReportService->getProvider(),
+            ));
             // Fallback to traditional method
             return $this->_prepareReportData($case, $hospital, $user);
         }
+
+        Log::info('Generating AI report', array(
+            'case_id' => $case->id,
+            'hospital_id' => $hospitalId,
+            'ai_provider' => $aiReportService->getProvider(),
+        ));
 
         try {
             // Step 1: Extract content from attached documents
@@ -2270,11 +2292,10 @@ class CasesController extends AppController {
         // Get symptoms/indications (generic categories only, not patient-specific text)
         $symptomCategories = $this->_categorizeSymptoms($case->symptoms ?? '');
 
-        // Determine report type
-        $aiReportService = new AiReportGenerationService();
+        // Determine report type (reuse the AI service instance)
         $reportType = $aiReportService->determineReportType($procedureTypes);
 
-        return [
+        return array(
             'procedures' => $procedureTypes, // Use 'procedures' for consistency
             'procedure_types' => $procedureTypes, // Keep for backwards compatibility
             'report_type' => $reportType,
@@ -2285,7 +2306,7 @@ class CasesController extends AppController {
             'department' => $case->department->name ?? 'general',
             'document_count' => count($documentContents),
             'has_prior_studies' => false, // Could be enhanced to check for prior cases
-        ];
+        );
     }
 
     private function _categorizeSymptoms(string $symptomsText): array {

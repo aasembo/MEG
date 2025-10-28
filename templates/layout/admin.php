@@ -86,7 +86,7 @@ $cakeDescription = 'Hospital Admin Panel';
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
+                        <a class="nav-link" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Settings', 'action' => 'index']) ?>">
                             <i class="fas fa-cog me-1"></i>Settings
                         </a>
                     </li>
@@ -154,8 +154,8 @@ $cakeDescription = 'Hospital Admin Panel';
                             <a href="#" class="list-group-item list-group-item-action border-0">
                                 <i class="fas fa-chart-bar me-2 text-info"></i>Reports
                             </a>
-                            <a href="#" class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-cogs me-2 text-warning"></i>System Settings
+                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Settings', 'action' => 'index']) ?>" class="list-group-item list-group-item-action border-0">
+                                <i class="fas fa-cog me-2 text-warning"></i>Settings
                             </a>
                         </div>
                     </div>
