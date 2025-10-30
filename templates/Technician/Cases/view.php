@@ -4,75 +4,99 @@
  * @var \App\Model\Entity\MedicalCase $case
  */
 
-$this->setLayout('technician');
 $this->assign('title', 'Case #' . $case->id);
 ?>
 
-<div class="cases view content" id="caseView<?php echo $case->id; ?>">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Case #<?php echo h($case->id); ?></h2>
-        <div>
-            <?php echo $this->Html->link(
-                '<i class="fas fa-file-pdf me-1"></i>' . __('Download Report'),
-                ['action' => 'downloadReport', $case->id],
-                ['class' => 'btn btn-success me-2', 'escape' => false, 'target' => '_blank']
-            ); ?>
-            
-            <?php 
-            // Check technician's role-based status for action permissions
-            $technicianStatus = $case->technician_status ?? 'draft';
-            ?>
-            <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
-                <?php echo $this->Html->link(
-                    '<i class="fas fa-edit me-1"></i>' . __('Edit Case'),
-                    ['action' => 'edit', $case->id],
-                    ['class' => 'btn btn-primary me-2', 'escape' => false]
-                ); ?>
-                
-                <?php echo $this->Html->link(
-                    '<i class="fas fa-user-plus me-1"></i>' . __('Assign'),
-                    ['action' => 'assign', $case->id],
-                    ['class' => 'btn btn-info me-2', 'escape' => false]
-                ); ?>
-            <?php endif; ?>
-            
-            <?php echo $this->Html->link(
-                '<i class="fas fa-arrow-left me-1"></i>' . __('Back to Cases'),
-                ['action' => 'index'],
-                ['class' => 'btn btn-outline-secondary', 'escape' => false]
-            ); ?>
+<div class="container-fluid px-4 py-4" id="caseView<?php echo $case->id; ?>">
+    <!-- Page Header -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-primary text-white p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-2 fw-bold">
+                        <i class="fas fa-file-medical me-2"></i>Case #<?php echo h($case->id); ?>
+                    </h2>
+                    <p class="mb-0">
+                        <?php if ($case->patient_user): ?>
+                            <i class="fas fa-user-injured me-2"></i><?php echo h($case->patient_user->first_name . ' ' . $case->patient_user->last_name); ?>
+                        <?php endif; ?>
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <div class="btn-group" role="group">
+                        <?php if (!empty($existingReports)): ?>
+                            <?php $firstReport = $existingReports->first(); ?>
+                            <?php if ($firstReport): ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-file-medical-alt me-1"></i>View Report',
+                                    ['controller' => 'Reports', 'action' => 'view', $firstReport->id],
+                                    ['class' => 'btn btn-light', 'escape' => false]
+                                ); ?>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        
+                        <?php 
+                        // Check technician's role-based status for action permissions
+                        $technicianStatus = $case->technician_status ?? 'draft';
+                        ?>
+                        <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
+                            <?php echo $this->Html->link(
+                                '<i class="fas fa-edit me-1"></i>Edit',
+                                ['action' => 'edit', $case->id],
+                                ['class' => 'btn btn-light', 'escape' => false]
+                            ); ?>
+                            
+                            <?php echo $this->Html->link(
+                                '<i class="fas fa-user-plus me-1"></i>Assign',
+                                ['action' => 'assign', $case->id],
+                                ['class' => 'btn btn-light', 'escape' => false]
+                            ); ?>
+                        <?php endif; ?>
+                        
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-arrow-left me-1"></i>Back',
+                            ['action' => 'index'],
+                            ['class' => 'btn btn-outline-light', 'escape' => false]
+                        ); ?>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="row">
         <!-- Case Details -->
         <div class="col-lg-8">
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-file-medical me-1"></i> Case Information</h5>
-                    <div class="d-flex flex-wrap gap-2 align-items-center">
-                        <?php 
-                        // Get all role-specific statuses for permission checks
-                        $technicianStatus = $case->technician_status ?? 'draft';
-                        $scientistStatus = $case->scientist_status ?? 'draft';
-                        $doctorStatus = $case->doctor_status ?? 'draft';
-                        ?>
-                        
-                        <!-- Role-Based Statuses -->
-                        <div class="d-flex flex-wrap gap-1">
-                            <?php echo $this->Status->roleBadge($case, 'technician', $user); ?>
-                            <?php echo $this->Status->roleBadge($case, 'scientist', $user); ?>
-                            <?php echo $this->Status->roleBadge($case, 'doctor', $user); ?>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light py-3">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h5 class="mb-0 fw-bold text-dark">
+                            <i class="fas fa-file-medical me-2 text-primary"></i>Case Information
+                        </h5>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <?php 
+                            // Get all role-specific statuses for permission checks
+                            $technicianStatus = $case->technician_status ?? 'draft';
+                            $scientistStatus = $case->scientist_status ?? 'draft';
+                            $doctorStatus = $case->doctor_status ?? 'draft';
+                            ?>
+                            
+                            <!-- Role-Based Statuses -->
+                            <div class="d-flex flex-wrap gap-1">
+                                <?php echo $this->Status->roleBadge($case, 'technician', $user); ?>
+                                <?php echo $this->Status->roleBadge($case, 'scientist', $user); ?>
+                                <?php echo $this->Status->roleBadge($case, 'doctor', $user); ?>
+                            </div>
+                            
+                            <!-- Divider -->
+                            <span class="text-muted">|</span>
+                            
+                            <!-- Priority Badge -->
+                            <?php echo $this->Status->priorityBadge($case->priority); ?>
                         </div>
-                        
-                        <!-- Divider -->
-                        <span class="text-muted">|</span>
-                        
-                        <!-- Priority Badge -->
-                        <?php echo $this->Status->priorityBadge($case->priority); ?>
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <div class="row">
                         <div class="col-md-6">
                             <table class="table table-borderless table-sm">
@@ -184,26 +208,28 @@ $this->assign('title', 'Case #' . $case->id);
 
             <!-- Assigned Procedures -->
             <?php if (!empty($case->cases_exams_procedures)): ?>
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-procedures me-1"></i> Assigned Procedures</h5>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-procedures me-2 text-primary"></i>Assigned Procedures
+                    </h5>
                     <?php if (!in_array($technicianStatus, ['completed', 'cancelled'])): ?>
                         <?php echo $this->Html->link(
-                            '<i class="fas fa-plus-circle me-1"></i>Assign Procedures',
+                            '<i class="fas fa-plus-circle me-2"></i>Assign Procedures',
                             ['action' => 'assignProcedures', $case->id],
-                            ['class' => 'btn btn-sm btn-primary', 'escape' => false]
+                            ['class' => 'btn btn-sm btn-primary d-flex align-items-center gap-2', 'escape' => false]
                         ); ?>
                     <?php endif; ?>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white p-0">
                     <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>Procedure & Modality</th>
-                                    <th>Status</th>
-                                    <th>Documents</th>
-                                    <th>Actions</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Procedure & Modality</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Status</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Documents</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -212,7 +238,7 @@ $this->assign('title', 'Case #' . $case->id);
                                         <td>
                                             <div>
                                                 <strong><?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?></strong>
-                                                <span class="badge bg-info ms-2">
+                                                <span class="badge rounded-pill bg-info text-white ms-2">
                                                     <i class="fas fa-microscope me-1"></i>
                                                     <?php echo h($cep->exams_procedure->exam->modality->name ?? 'N/A'); ?>
                                                 </span>
@@ -223,13 +249,13 @@ $this->assign('title', 'Case #' . $case->id);
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="badge <?php echo $cep->getStatusBadgeClass(); ?>">
+                                            <span class="badge rounded-pill <?php echo $cep->getStatusBadgeClass(); ?>">
                                                 <?php echo h($cep->getStatusLabel()); ?>
                                             </span>
                                         </td>
                                         <td>
                                             <?php if ($cep->hasDocuments()): ?>
-                                                <span class="badge bg-success">
+                                                <span class="badge rounded-pill bg-success text-white">
                                                     <i class="fas fa-file me-1"></i>
                                                     <?php echo $cep->getDocumentCount(); ?> files
                                                 </span>
@@ -239,14 +265,14 @@ $this->assign('title', 'Case #' . $case->id);
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <button class="btn btn-outline-primary btn-sm" 
+                                                <button class="btn btn-outline-primary" 
                                                         data-bs-toggle="modal" 
                                                         data-bs-target="#documentsModal"
                                                         title="View Documents">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                                 <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
-                                                    <button class="btn btn-outline-secondary btn-sm" 
+                                                    <button class="btn btn-outline-secondary" 
                                                             data-bs-toggle="modal" 
                                                             data-bs-target="#uploadModal"
                                                             data-procedure-id="<?php echo $cep->id; ?>"
@@ -276,12 +302,14 @@ $this->assign('title', 'Case #' . $case->id);
                 </div>
             </div>
             <?php else: ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-procedures me-1"></i> Assigned Procedures</h5>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-procedures me-2 text-primary"></i>Assigned Procedures
+                    </h5>
                 </div>
-                <div class="card-body">
-                    <div class="alert alert-info">
+                <div class="card-body bg-white">
+                    <div class="alert alert-info mb-0">
                         <i class="fas fa-info-circle me-2"></i>
                         <strong>No procedures assigned</strong><br>
                         This case doesn't have any procedures assigned yet. 
@@ -299,55 +327,56 @@ $this->assign('title', 'Case #' . $case->id);
 
             <!-- Documents -->
             <?php if (!empty($case->documents)): ?>
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-folder-open me-2"></i>Case Documents
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-folder-open me-2 text-primary"></i>Case Documents
                     </h5>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary">
+                        <span class="badge rounded-pill bg-primary">
                             <?php echo count($case->documents); ?> <?php echo count($case->documents) === 1 ? 'Document' : 'Documents'; ?>
                         </span>
                         <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
-                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                <i class="fas fa-upload me-1"></i>Upload Documents
+                            <button class="btn btn-sm btn-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                <i class="fas fa-upload"></i>Upload Documents
                             </button>
                         <?php endif; ?>
                     </div>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body bg-white p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="border-0 ps-4" style="width: 50px;"><i class="fas fa-file"></i></th>
-                                    <th class="border-0" style="width: 250px;">Document Name</th>
-                                    <th class="border-0" style="width: 200px;">Procedure</th>
-                                    <th class="border-0">Uploaded</th>
-                                    <th class="border-0 text-center" style="width: 130px;">Actions</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted ps-4" style="width: 50px;"><i class="fas fa-file"></i></th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 250px;">Document Name</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 200px;">Procedure</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Uploaded</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted text-center" style="width: 130px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($case->documents as $index => $document): ?>
-                                <tr class="document-row" style="transition: all 0.2s;">
+                                <tr>
                                     <td class="ps-4">
                                         <?php 
                                             // Get file extension from original_filename
                                             $ext = !empty($document->original_filename) ? strtolower(pathinfo($document->original_filename, PATHINFO_EXTENSION)) : '';
+                                            
+                                            // Determine background color based on file type
+                                            $bgClass = match($ext) {
+                                                'pdf' => 'bg-danger',
+                                                'doc', 'docx' => 'bg-primary',
+                                                'ppt', 'pptx' => 'bg-warning',
+                                                'xls', 'xlsx' => 'bg-success',
+                                                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bg-info',
+                                                'txt', 'log', 'csv' => 'bg-secondary',
+                                                'zip', 'rar', '7z' => 'bg-dark',
+                                                default => 'bg-secondary'
+                                            };
                                         ?>
-                                        <div class="document-icon-wrapper d-flex align-items-center justify-content-center" 
-                                             style="width: 40px; height: 40px; border-radius: 8px; background: <?php 
-                                                echo match($ext) {
-                                                    'pdf' => 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
-                                                    'doc', 'docx' => 'linear-gradient(135deg, #4e73df 0%, #224abe 100%)',
-                                                    'ppt', 'pptx' => 'linear-gradient(135deg, #fd7e14 0%, #e56b0f 100%)',
-                                                    'xls', 'xlsx' => 'linear-gradient(135deg, #1cc88a 0%, #17a673 100%)',
-                                                    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'linear-gradient(135deg, #36b9cc 0%, #2c9faf 100%)',
-                                                    'txt', 'log', 'csv' => 'linear-gradient(135deg, #858796 0%, #60616f 100%)',
-                                                    'zip', 'rar', '7z' => 'linear-gradient(135deg, #f6c23e 0%, #dda20a 100%)',
-                                                    default => 'linear-gradient(135deg, #858796 0%, #60616f 100%)'
-                                                };
-                                        ?>;">
+                                        <div class="d-flex align-items-center justify-content-center rounded <?php echo $bgClass; ?>" 
+                                             style="width: 40px; height: 40px;">
                                             <i class="<?php 
                                                 echo match($ext) {
                                                     'pdf' => 'fas fa-file-pdf',
@@ -390,20 +419,20 @@ $this->assign('title', 'Case #' . $case->id);
                                     </td>
                                     <td style="max-width: 200px;">
                                         <?php if (!empty($document->cases_exams_procedure) && !empty($document->cases_exams_procedure->exams_procedure)): ?>
-                                            <div class="d-flex flex-column">
-                                                <span class="badge bg-primary-subtle text-primary border border-primary" style="width: fit-content;">
+                                            <div class="d-flex flex-column gap-1">
+                                                <span class="badge rounded-pill bg-primary" style="width: fit-content;">
                                                     <i class="fas fa-stethoscope me-1"></i>
                                                     <?php echo h($document->cases_exams_procedure->exams_procedure->exam->name ?? ''); ?>
                                                 </span>
                                                 <?php if (!empty($document->cases_exams_procedure->exams_procedure->procedure->name)): ?>
-                                                    <span class="badge bg-info-subtle text-info border border-info mt-1" style="width: fit-content;">
+                                                    <span class="badge rounded-pill bg-info text-white" style="width: fit-content;">
                                                         <i class="fas fa-procedures me-1"></i>
                                                         <?php echo h($document->cases_exams_procedure->exams_procedure->procedure->name); ?>
                                                     </span>
                                                 <?php endif; ?>
                                             </div>
                                         <?php else: ?>
-                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary">
+                                            <span class="badge rounded-pill bg-secondary">
                                                 <i class="fas fa-file-medical me-1"></i> General
                                             </span>
                                         <?php endif; ?>
@@ -463,86 +492,23 @@ $this->assign('title', 'Case #' . $case->id);
                     </div>
                 </div>
             </div>
-            
-            <style>
-                .document-row:hover {
-                    background-color: #f8f9fc !important;
-                    transform: translateX(2px);
-                }
-                
-                .document-icon-wrapper {
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    transition: transform 0.2s ease;
-                }
-                
-                .document-row:hover .document-icon-wrapper {
-                    transform: scale(1.05);
-                }
-                
-                .avatar-circle {
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }
-                
-                .badge.bg-primary-subtle {
-                    font-weight: 500;
-                    padding: 0.35rem 0.65rem;
-                }
-                
-                .badge.bg-info-subtle {
-                    font-weight: 500;
-                    padding: 0.35rem 0.65rem;
-                }
-                
-                .badge.bg-secondary-subtle {
-                    font-weight: 500;
-                    padding: 0.35rem 0.65rem;
-                }
-                
-                .btn-group .btn {
-                    padding: 0.375rem 0.75rem;
-                }
-                
-                /* Text truncation for long filenames */
-                .text-truncate {
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    display: block;
-                }
-                
-                /* Ensure table cells respect max-width */
-                .table td {
-                    white-space: nowrap;
-                }
-                
-                .table td > div {
-                    max-width: 100%;
-                }
-                
-                /* File type specific colors - for reference */
-                /* PDF: Red (#ff6b6b → #ee5a6f) */
-                /* Word: Blue (#4e73df → #224abe) */
-                /* PowerPoint: Orange (#fd7e14 → #e56b0f) */
-                /* Excel: Green (#1cc88a → #17a673) */
-                /* Images: Cyan (#36b9cc → #2c9faf) */
-                /* Text: Gray (#858796 → #60616f) */
-                /* Archive: Yellow (#f6c23e → #dda20a) */
-            </style>
             <?php endif; ?>
 
             <!-- Case Versions -->
             <?php if (!empty($case->case_versions)): ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-history me-1"></i> Version History</h5>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-history me-2 text-primary"></i>Version History
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <?php foreach ($case->case_versions as $version): ?>
                     <div class="d-flex align-items-center mb-2 <?php echo $version->id === $case->current_version_id ? 'bg-light p-2 rounded' : ''; ?>">
                         <div class="flex-grow-1">
                             <strong>Version <?php echo $version->version_number; ?></strong>
                             <?php if ($version->id === $case->current_version_id): ?>
-                                <span class="badge bg-primary ms-2">Current</span>
+                                <span class="badge rounded-pill bg-primary ms-2">Current</span>
                             <?php endif; ?>
                             <br>
                             <small class="text-muted">
@@ -563,11 +529,13 @@ $this->assign('title', 'Case #' . $case->id);
 
             <!-- Assignments -->
             <?php if (!empty($case->case_assignments)): ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-user-friends me-1"></i> Assignment History</h5>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-user-friends me-2 text-primary"></i>Assignment History
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <?php foreach ($case->case_assignments as $assignment): ?>
                     <div class="border-start border-3 border-info ps-3 mb-3">
                         <div class="d-flex justify-content-between">
@@ -580,7 +548,7 @@ $this->assign('title', 'Case #' . $case->id);
                                     <?php endif; ?>
                                 </strong>
                                 <?php if (isset($assignment->assigned_to_user->role) && $assignment->assigned_to_user->role): ?>
-                                    <span class="badge bg-info ms-2">
+                                    <span class="badge rounded-pill bg-info ms-2">
                                         <?php echo h($this->Role->label($assignment->assigned_to_user->role->type)); ?>
                                     </span>
                                 <?php endif; ?>
@@ -593,7 +561,7 @@ $this->assign('title', 'Case #' . $case->id);
                                         <?php echo h($assignment->user->first_name . ' ' . $assignment->user->last_name); ?>
                                     <?php endif; ?>
                                     <?php if (isset($assignment->user->role) && $assignment->user->role): ?>
-                                        <span class="badge bg-secondary ms-1">
+                                        <span class="badge rounded-pill bg-secondary ms-1">
                                             <?php echo h($this->Role->label($assignment->user->role->type)); ?>
                                         </span>
                                     <?php endif; ?>
@@ -616,24 +584,57 @@ $this->assign('title', 'Case #' . $case->id);
         <!-- Sidebar -->
         <div class="col-lg-4">
             <!-- Quick Actions -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-bolt me-1"></i> Quick Actions</h6>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-bolt me-2 text-primary"></i>Quick Actions
+                    </h6>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <?php if (!in_array($technicianStatus, ['completed', 'cancelled'])): ?>
                         <div class="d-grid gap-2">
                             <?php echo $this->Html->link(
-                                '<i class="fas fa-edit me-1"></i> Edit Case Details',
+                                '<i class="fas fa-edit me-2"></i>Edit Case Details',
                                 ['action' => 'edit', $case->id],
-                                ['class' => 'btn btn-outline-primary', 'escape' => false]
+                                ['class' => 'btn btn-outline-primary d-flex align-items-center justify-content-center', 'escape' => false]
                             ); ?>
                             
                             <?php echo $this->Html->link(
-                                '<i class="fas fa-procedures me-1"></i> Assign Procedures',
+                                '<i class="fas fa-procedures me-2"></i>Assign Procedures',
                                 ['action' => 'assignProcedures', $case->id],
-                                ['class' => 'btn btn-outline-secondary', 'escape' => false]
+                                ['class' => 'btn btn-outline-secondary d-flex align-items-center justify-content-center', 'escape' => false]
                             ); ?>
+                            
+                            <?php if (empty($existingReports)): ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-file-medical-alt me-2"></i>Create Report',
+                                    ['action' => 'createReport', $case->id],
+                                    [
+                                        'class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 
+                                        'escape' => false,
+                                        'confirm' => 'Are you sure you want to create a report for this case?'
+                                    ]
+                                ); ?>
+                            <?php else: ?>
+                                <?php $firstReport = $existingReports->first(); ?>
+                                <?php if ($firstReport): ?>
+                                    <?php echo $this->Html->link(
+                                        '<i class="fas fa-eye me-2"></i>View Report',
+                                        ['controller' => 'Reports', 'action' => 'view', $firstReport->id],
+                                        ['class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 'escape' => false]
+                                    ); ?>
+                                <?php else: ?>
+                                    <?php echo $this->Html->link(
+                                        '<i class="fas fa-file-medical-alt me-2"></i>Create Report',
+                                        ['action' => 'createReport', $case->id],
+                                        [
+                                            'class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 
+                                            'escape' => false,
+                                            'confirm' => 'Are you sure you want to create a report for this case?'
+                                        ]
+                                    ); ?>
+                                <?php endif; ?>
+                            <?php endif; ?>
                             
                             <?php 
                             // Check if case has an assignment
@@ -655,23 +656,23 @@ $this->assign('title', 'Case #' . $case->id);
                                         </strong>
                                     </div>
                                     <?php echo $this->Html->link(
-                                        '<i class="fas fa-exchange-alt me-1"></i> Change Assignment',
+                                        '<i class="fas fa-exchange-alt me-2"></i>Change Assignment',
                                         ['action' => 'assign', $case->id],
-                                        ['class' => 'btn btn-warning btn-sm w-100', 'escape' => false]
+                                        ['class' => 'btn btn-warning btn-sm w-100 d-flex align-items-center justify-content-center', 'escape' => false]
                                     ); ?>
                                 </div>
                             <?php else: 
                                 // Show initial promote button
                             ?>
                                 <?php echo $this->Html->link(
-                                    '<i class="fas fa-level-up-alt me-1"></i> Promote to Scientist',
+                                    '<i class="fas fa-level-up-alt me-2"></i>Promote to Scientist',
                                     ['action' => 'assign', $case->id],
-                                    ['class' => 'btn btn-outline-success', 'escape' => false]
+                                    ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false]
                                 ); ?>
                             <?php endif; ?>
                             
-                            <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                <i class="fas fa-upload me-1"></i> Upload Documents
+                            <button class="btn btn-outline-success d-flex align-items-center justify-content-center gap-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                <i class="fas fa-upload"></i>Upload Documents
                             </button>
                         </div>
                     <?php else: ?>
@@ -684,11 +685,13 @@ $this->assign('title', 'Case #' . $case->id);
             </div>
 
             <!-- Case Overview -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-chart-pie me-1"></i> Case Overview</h6>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-chart-pie me-2 text-primary"></i>Case Overview
+                    </h6>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <!-- Role-Based Status Workflow -->
                     <div class="mb-4">
                         <div class="d-flex align-items-center mb-3">
@@ -697,7 +700,7 @@ $this->assign('title', 'Case #' . $case->id);
                         </div>
                         <div class="ps-4">
                             <!-- Global Case Status -->
-                            <div class="mb-4 p-3 rounded" style="background: linear-gradient(135deg, rgba(78, 115, 223, 0.1) 0%, rgba(78, 115, 223, 0.05) 100%); border-left: 4px solid #4e73df;">
+                            <div class="mb-4 p-3 rounded bg-light border-start border-4 border-primary">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
                                     <span class="small">
                                         <i class="fas fa-stream me-1 text-primary"></i>
@@ -723,7 +726,7 @@ $this->assign('title', 'Case #' . $case->id);
                                         <i class="<?php echo $this->Status->roleIcon('technician'); ?> me-1 text-secondary"></i>
                                         <strong>Technician</strong>
                                     </span>
-                                    <span class="badge bg-<?php echo $this->Status->colorClass($technicianStatus); ?>">
+                                    <span class="badge rounded-pill bg-<?php echo $this->Status->colorClass($technicianStatus); ?>">
                                         <?php echo h($case->getStatusLabelForRole('technician')); ?>
                                     </span>
                                 </div>
@@ -754,7 +757,7 @@ $this->assign('title', 'Case #' . $case->id);
                                         <i class="<?php echo $this->Status->roleIcon('scientist'); ?> me-1 text-primary"></i>
                                         <strong>Scientist</strong>
                                     </span>
-                                    <span class="badge bg-<?php echo $this->Status->colorClass($scientistStatus); ?>">
+                                    <span class="badge rounded-pill bg-<?php echo $this->Status->colorClass($scientistStatus); ?>">
                                         <?php echo h($case->getStatusLabelForRole('scientist')); ?>
                                     </span>
                                 </div>
@@ -785,7 +788,7 @@ $this->assign('title', 'Case #' . $case->id);
                                         <i class="<?php echo $this->Status->roleIcon('doctor'); ?> me-1 text-info"></i>
                                         <strong>Doctor</strong>
                                     </span>
-                                    <span class="badge bg-<?php echo $this->Status->colorClass($doctorStatus); ?>">
+                                    <span class="badge rounded-pill bg-<?php echo $this->Status->colorClass($doctorStatus); ?>">
                                         <?php echo h($case->getStatusLabelForRole('doctor')); ?>
                                     </span>
                                 </div>
@@ -851,7 +854,7 @@ $this->assign('title', 'Case #' . $case->id);
                         </div>
                         <div class="ps-4">
                             <?php if ($case->sedation): ?>
-                                <span class="badge bg-warning text-dark">
+                                <span class="badge rounded-pill bg-warning text-dark">
                                     <?php echo h($case->sedation->level); ?>
                                 </span>
                                 <?php if ($case->sedation->type): ?>
@@ -942,7 +945,7 @@ $this->assign('title', 'Case #' . $case->id);
                             }
                             ?>
                             <?php foreach ($modalities as $modalityName): ?>
-                                <span class="badge bg-info me-1 mb-1">
+                                <span class="badge rounded-pill bg-info text-white me-1 mb-1">
                                     <i class="fas fa-microscope me-1"></i><?php echo h($modalityName); ?>
                                 </span>
                             <?php endforeach; ?>
@@ -953,11 +956,13 @@ $this->assign('title', 'Case #' . $case->id);
             </div>
 
             <!-- Case Statistics -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-chart-bar me-1"></i> Case Stats</h6>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-chart-bar me-2 text-primary"></i>Case Stats
+                    </h6>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <div class="row text-center">
                         <div class="col-6 border-end">
                             <div class="h5 mb-1"><?php echo count($case->case_versions ?? []); ?></div>
@@ -985,11 +990,13 @@ $this->assign('title', 'Case #' . $case->id);
             </div>
 
             <!-- Status Flow -->
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-route me-1"></i> Status Flow</h6>
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-route me-2 text-primary"></i>Status Flow
+                    </h6>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <div class="small">
                         <?php 
                         $statuses = ['draft', 'assigned', 'in_progress', 'review', 'completed'];
@@ -1023,11 +1030,13 @@ $this->assign('title', 'Case #' . $case->id);
     <?php if (!empty($case->case_audits)): ?>
     <div class="row mt-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-clipboard-list me-1"></i> Change History</h5>
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-clipboard-list me-2 text-primary"></i>Change History
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <div class="timeline">
                         <?php foreach ($case->case_audits as $audit): ?>
                         <div class="timeline-item">
@@ -1305,7 +1314,7 @@ $this->assign('title', 'Case #' . $case->id);
                                             <?php echo h($document->original_filename ?: 'Unknown file'); ?>
                                         </td>
                                         <td>
-                                            <span class="badge bg-secondary">
+                                            <span class="badge rounded-pill bg-secondary">
                                                 <?php echo h($document->getDocumentTypeLabel()); ?>
                                             </span>
                                         </td>
@@ -2168,11 +2177,6 @@ document.addEventListener('DOMContentLoaded', function() {
     border-radius: 50%;
     border: 2px solid #fff;
     box-shadow: 0 0 0 2px #dee2e6;
-}
-
-.card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border: 1px solid rgba(0, 0, 0, 0.125);
 }
 
 .table-borderless td {

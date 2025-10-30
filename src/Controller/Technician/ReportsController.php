@@ -1,0 +1,271 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Controller\Technician;
+
+use App\Controller\AppController;
+use Cake\Http\Exception\NotFoundException;
+
+/**
+ * Reports Controller
+ *
+ * @property \App\Model\Table\ReportsTable $Reports
+ */
+class ReportsController extends AppController
+{
+    /**
+     * Index method - List all reports for technician's cases
+     *
+     * @return \Cake\Http\Response|null|void Renders view
+     */
+    public function index()
+    {
+        $user = $this->request->getAttribute('identity');
+        
+        $reports = $this->Reports->find()
+            ->contain(['Cases' => ['PatientUsers'], 'Hospitals'])
+            ->order(['Reports.created' => 'DESC'])
+            ->all();
+
+        $this->set(compact('reports'));
+    }
+
+    /**
+     * View method - View a single report
+     *
+     * @param string|null $id Report id.
+     * @return \Cake\Http\Response|null|void Renders view
+     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
+     */
+    public function view($id = null)
+    {
+        $report = $this->Reports->get($id, contain: [
+            'Cases' => ['PatientUsers'],
+            'Hospitals'
+        ]);
+
+        $this->set(compact('report'));
+    }
+
+    /**
+     * Add method - Create a new report for a case or edit existing one
+     *
+     * @param int|null $caseId Case ID to create report for
+     * @return \Cake\Http\Response|null|void Redirects on successful add, renders view otherwise.
+     */
+    public function add($caseId = null)
+    {
+        $user = $this->request->getAttribute('identity');
+        
+        // Load the case
+        if (!$caseId) {
+            $this->Flash->error(__('Invalid case specified.'));
+            return $this->redirect(['controller' => 'Cases', 'action' => 'index']);
+        }
+
+        // Check if report already exists for this case
+        $existingReport = $this->Reports->find()
+            ->where(['case_id' => $caseId])
+            ->first();
+            
+        if ($existingReport) {
+            // Redirect to edit existing report
+            return $this->redirect(['action' => 'edit', $existingReport->id]);
+        }
+
+        // Load case with all related data for report generation
+        $case = $this->fetchTable('Cases')->get($caseId, [
+            'contain' => [
+                'PatientUsers',
+                'Hospitals',
+                'Departments',
+                'Sedations',
+                'CasesExamsProcedures' => [
+                    'ExamsProcedures' => [
+                        'Exams' => ['Modalities'],
+                        'Procedures'
+                    ]
+                ],
+                'Documents'
+            ]
+        ]);
+        
+        $report = $this->Reports->newEmptyEntity();
+        
+        // Generate formatted report content from database data using dynamic template
+        $reportContent = $this->generateReportContent($case);
+        
+        if ($this->request->is('post')) {
+            $data = $this->request->getData();
+            
+            // Store the single editor content as report_data
+            $reportDataStructure = [
+                'content' => $data['report_content'] ?? ''
+            ];
+            
+            $data['report_data'] = json_encode($reportDataStructure);
+            $data['case_id'] = $caseId;
+            $data['hospital_id'] = $case->hospital_id;
+            $data['status'] = $data['status'] ?? 'pending';
+            $data['created_by'] = $user->getIdentifier();
+            
+            $report = $this->Reports->patchEntity($report, $data);
+            
+            if ($this->Reports->save($report)) {
+                $this->Flash->success(__('The report has been saved.'));
+                return $this->redirect(['action' => 'view', $report->id]);
+            }
+            $this->Flash->error(__('The report could not be saved. Please, try again.'));
+        }
+
+        $this->set(compact('report', 'case', 'reportContent'));
+    }
+    
+    /**
+     * Generate report content using database data and template
+     * @param $case
+     * @return string
+     */
+    private function generateReportContent($case): string
+    {
+        // Create a new view instance to render the element
+        $view = new \Cake\View\View($this->request, $this->response);
+        return $view->element('Reports/report_content', ['case' => $case]);
+    }
+
+        /**
+     * Edit method - Edit an existing report
+     *
+     * @param string|null $id Report id.
+     * @return \Cake\Http\Response|null|void Redirects on successful edit, renders view otherwise.
+     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
+     */
+    public function edit($id = null)
+    {
+        $report = $this->Reports->get($id, contain: [
+            'Cases' => [
+                'PatientUsers',
+                'Hospitals',
+                'Departments',
+                'Sedations',
+                'CasesExamsProcedures' => ['ExamsProcedures' => ['Exams', 'Procedures']],
+                'Documents'
+            ]
+        ]);
+        
+        if ($this->request->is(['patch', 'post', 'put'])) {
+            $data = $this->request->getData();
+            
+            // Update report_data structure with single content
+            $reportDataStructure = [
+                'content' => $data['report_content'] ?? ''
+            ];
+            
+            $data['report_data'] = json_encode($reportDataStructure);
+            
+            $report = $this->Reports->patchEntity($report, $data);
+            
+            if ($this->Reports->save($report)) {
+                $this->Flash->success(__('The report has been updated.'));
+                return $this->redirect(['action' => 'view', $report->id]);
+            }
+            $this->Flash->error(__('The report could not be updated. Please, try again.'));
+        }
+
+        // Set case data for the template
+        $case = $report->case;
+        
+        // Parse existing report_data JSON
+        $reportData = json_decode($report->report_data, true) ?? [];
+        $existingContent = $reportData['content'] ?? '';
+        
+        // Only generate fresh dynamic content if existing content is blank
+        if (empty(trim($existingContent))) {
+            $reportContent = $this->generateReportContent($case);
+        } else {
+            $reportContent = $existingContent;
+        }
+        
+        // Render the add template for edit (reuse the same form)
+        $this->set(compact('report', 'case', 'reportContent'));
+        $this->render('add');
+    }
+
+    /**
+     * Preview method - Preview report before downloading
+     *
+     * @param string|null $id Report id.
+     * @return \Cake\Http\Response|null|void Renders view
+     */
+    public function preview($id = null)
+    {
+        $report = $this->Reports->get($id, contain: [
+            'Cases' => ['PatientUsers'],
+            'Hospitals'
+        ]);
+        
+        $reportData = json_decode($report->report_data, true) ?? [];
+        $reportContent = $reportData['content'] ?? '';
+        
+        $this->set(compact('report', 'reportContent'));
+    }
+
+    /**
+     * Download method - Export report in requested format
+     *
+     * @param string|null $id Report id.
+     * @param string $format Export format (pdf, docx, rtf, html, txt)
+     * @return \Cake\Http\Response Downloads file
+     */
+    public function download($id = null, $format = 'pdf')
+    {
+        $report = $this->Reports->get($id, contain: [
+            'Cases' => ['PatientUsers'],
+            'Hospitals'
+        ]);
+        
+        $reportData = json_decode($report->report_data, true) ?? [];
+        $reportContent = $reportData['content'] ?? '';
+        
+        // For our single-content structure, we pass the content directly
+        // instead of the old multi-section structure
+        $exportData = ['content' => $reportContent];
+        
+        // Load the export service
+        $exportService = new \App\Service\ReportExportService();
+        
+        try {
+            $result = $exportService->export($report, $exportData, $format);
+            
+            return $this->response
+                ->withType($result['mimeType'])
+                ->withDownload($result['filename'])
+                ->withStringBody($result['content']);
+                
+        } catch (\Exception $e) {
+            $this->Flash->error(__('Error generating report: {0}', $e->getMessage()));
+            return $this->redirect(['action' => 'view', $id]);
+        }
+    }
+
+    /**
+     * Delete method
+     *
+     * @param string|null $id Report id.
+     * @return \Cake\Http\Response|null Redirects to index.
+     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
+     */
+    public function delete($id = null)
+    {
+        $this->request->allowMethod(['post', 'delete']);
+        $report = $this->Reports->get($id);
+        
+        if ($this->Reports->delete($report)) {
+            $this->Flash->success(__('The report has been deleted.'));
+        } else {
+            $this->Flash->error(__('The report could not be deleted. Please, try again.'));
+        }
+
+        return $this->redirect(['action' => 'index']);
+    }
+}

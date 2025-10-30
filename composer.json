@@ -11,10 +11,12 @@
         "cakephp/cakephp": "5.2.*",
         "cakephp/migrations": "^4.0.0",
         "cakephp/plugin-installer": "^2.0",
+        "dompdf/dompdf": "^3.1",
         "josegonzalez/dotenv": "^4.0",
         "jumbojett/openid-connect-php": "^1.0",
         "mobiledetect/mobiledetectlib": "^4.8.03",
         "mpdf/mpdf": "^8.2",
+        "phpoffice/phpword": "^1.4",
         "smalot/pdfparser": "^2.12",
         "thiagoalessio/tesseract_ocr": "^2.13"
     },

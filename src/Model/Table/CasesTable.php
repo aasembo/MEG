@@ -71,6 +71,7 @@ class CasesTable extends Table
         $this->belongsTo('PatientUsers', [
             'className' => 'Users',
             'foreignKey' => 'patient_id',
+            'propertyName' => 'patient_user',
         ]);
         $this->belongsTo('CurrentUsers', [
             'className' => 'Users',
@@ -99,9 +100,6 @@ class CasesTable extends Table
             'foreignKey' => 'case_id',
         ]);
         $this->hasMany('Documents', [
-            'foreignKey' => 'case_id',
-        ]);
-        $this->hasMany('DocumentsBkp', [
             'foreignKey' => 'case_id',
         ]);
         $this->belongsToMany('ExamsProcedures', [

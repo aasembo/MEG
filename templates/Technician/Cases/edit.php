@@ -4,39 +4,49 @@
  * @var \App\Model\Entity\MedicalCase $case
  */
 
-$this->setLayout('technician');
 $this->assign('title', 'Edit Case #' . $case->id);
 ?>
 
-<div class="cases form content">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><?php echo __('Edit Case #'); ?><?php echo h($case->id); ?></h2>
-            <p class="text-muted mb-0">Update case information and procedures</p>
-        </div>
-        <div>
-            <?php echo $this->Html->link(
-                '<i class="fas fa-eye me-1"></i>' . __('View Case'),
-                ['action' => 'view', $case->id],
-                ['class' => 'btn btn-info', 'escape' => false]
-            ); ?>
-            <?php echo $this->Html->link(
-                '<i class="fas fa-arrow-left me-1"></i>' . __('Back to Cases'),
-                ['action' => 'index'],
-                ['class' => 'btn btn-outline-secondary', 'escape' => false]
-            ); ?>
+<div class="container-fluid px-4 py-4">
+    <!-- Page Header -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-primary text-white p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-2 fw-bold">
+                        <i class="fas fa-edit me-2"></i>Edit Case #<?php echo h($case->id); ?>
+                    </h2>
+                    <p class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Update case information and procedures
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <div class="btn-group" role="group">
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-eye me-1"></i>View',
+                            ['action' => 'view', $case->id],
+                            ['class' => 'btn btn-light', 'escape' => false]
+                        ); ?>
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-arrow-left me-1"></i>Back',
+                            ['action' => 'index'],
+                            ['class' => 'btn btn-outline-light', 'escape' => false]
+                        ); ?>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="row">
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-edit me-2"></i>Case Information
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-edit me-2 text-primary"></i>Case Information
                     </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <?php echo $this->Form->create($case, ['class' => 'needs-validation', 'novalidate' => true]); ?>
                     
                     <!-- Patient and Basic Info -->

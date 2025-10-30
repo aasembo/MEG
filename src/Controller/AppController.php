@@ -77,6 +77,24 @@ class AppController extends Controller
     }
 
     /**
+     * Before render callback
+     * 
+     * @param \Cake\Event\EventInterface $event The beforeRender event
+     * @return void
+     */
+    public function beforeRender(\Cake\Event\EventInterface $event): void
+    {
+        parent::beforeRender($event);
+        
+        // Set layout based on prefix
+        $prefix = $this->request->getParam('prefix');
+        
+        if ($prefix === 'Technician') {
+            $this->viewBuilder()->setLayout('technician');
+        }
+    }
+
+    /**
      * Detect hospital from subdomain and set context
      *
      * @return void

@@ -36,10 +36,11 @@ $cakeDescription = 'Technical Dashboard - Technician Portal';
 </head>
 <body class="bg-light">
     <!-- Top Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark technician-navbar sticky-top shadow">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Dashboard', 'action' => 'index']) ?>">
-                <i class="fas fa-tools me-2"></i>Technical Dashboard
+            <a class="navbar-brand fw-bold d-flex align-items-center" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Dashboard', 'action' => 'index']) ?>">
+                <i class="fas fa-stethoscope me-2"></i>
+                <span>MEG Portal</span>
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -47,54 +48,92 @@ $cakeDescription = 'Technical Dashboard - Technician Portal';
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
                         <a class="nav-link" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Dashboard', 'action' => 'index']) ?>">
-                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                            <i class="fas fa-home me-1"></i>Dashboard
                         </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-file-medical me-1"></i>Cases
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-briefcase-medical me-1"></i>Cases
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'index']) ?>"><i class="fas fa-list me-2"></i>All Cases</a></li>
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'add']) ?>"><i class="fas fa-plus me-2"></i>New Case</a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'index']) ?>">
+                                <i class="fas fa-list me-2 text-primary"></i>All Cases
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'add']) ?>">
+                                <i class="fas fa-plus-circle me-2 text-success"></i>New Case
+                            </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'index', '?' => ['status' => 'draft']]) ?>"><i class="fas fa-edit me-2"></i>Draft Cases</a></li>
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'index', '?' => ['status' => 'assigned']]) ?>"><i class="fas fa-user-check me-2"></i>Assigned Cases</a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'index', '?' => ['status' => 'draft']]) ?>">
+                                <i class="fas fa-file me-2 text-secondary"></i>Draft
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'index', '?' => ['status' => 'assigned']]) ?>">
+                                <i class="fas fa-user-check me-2 text-info"></i>Assigned
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'index', '?' => ['status' => 'completed']]) ?>">
+                                <i class="fas fa-check-circle me-2 text-success"></i>Completed
+                            </a></li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-users me-1"></i>Patients
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-injured me-1"></i>Patients
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Patients', 'action' => 'index']) ?>"><i class="fas fa-list me-2"></i>All Patients</a></li>
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Patients', 'action' => 'add']) ?>"><i class="fas fa-user-plus me-2"></i>Add Patient</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Patients', 'action' => 'index', '?' => ['status' => 'active']]) ?>"><i class="fas fa-user-check me-2"></i>Active Patients</a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Patients', 'action' => 'index']) ?>">
+                                <i class="fas fa-list me-2 text-primary"></i>All Patients
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Patients', 'action' => 'add']) ?>">
+                                <i class="fas fa-user-plus me-2 text-success"></i>Add Patient
+                            </a></li>
                         </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="fas fa-clipboard-list me-1"></i>Reports
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-file-alt me-1"></i>Reports
                         </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Reports', 'action' => 'index']) ?>">
+                                <i class="fas fa-list me-2 text-primary"></i>All Reports
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Reports', 'action' => 'index', '?' => ['status' => 'pending']]) ?>">
+                                <i class="fas fa-clock me-2 text-warning"></i>Pending
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Reports', 'action' => 'index', '?' => ['status' => 'reviewed']]) ?>">
+                                <i class="fas fa-eye me-2 text-info"></i>Reviewed
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Reports', 'action' => 'index', '?' => ['status' => 'approved']]) ?>">
+                                <i class="fas fa-check-double me-2 text-success"></i>Approved
+                            </a></li>
+                        </ul>
                     </li>
                 </ul>
                 
                 <!-- User Info & Logout -->
                 <?php if ($this->getRequest()->getAttribute('identity')): ?>
-                <div class="navbar-nav">
-                    <div class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-circle me-1"></i>
-                            <?php echo h($this->getRequest()->getAttribute('identity')->get('email') ?? $this->getRequest()->getAttribute('identity')->get('username') ?? 'Technician') ?>
+                <div class="d-flex align-items-center">
+                    <div class="dropdown">
+                        <a class="nav-link dropdown-toggle text-white d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                            <span class="d-none d-lg-inline">
+                                <?php echo h($this->getRequest()->getAttribute('identity')->get('name') ?? $this->getRequest()->getAttribute('identity')->get('username') ?? 'Technician') ?>
+                            </span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><h6 class="dropdown-header">Account</h6></li>
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>Profile</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-key me-2"></i>Settings</a></li>
+                            <li><h6 class="dropdown-header">
+                                <i class="fas fa-user me-2"></i>Account
+                            </h6></li>
+                            <li><a class="dropdown-item" href="#">
+                                <i class="fas fa-id-card me-2 text-primary"></i>Profile
+                            </a></li>
+                            <li><a class="dropdown-item" href="#">
+                                <i class="fas fa-cog me-2 text-secondary"></i>Settings
+                            </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item text-danger" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Login', 'action' => 'logout']) ?>">
@@ -110,84 +149,112 @@ $cakeDescription = 'Technical Dashboard - Technician Portal';
     </nav>
 
     <!-- Main Content Area -->
-    <div class="container-fluid mt-4">
+    <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <nav class="col-md-3 col-lg-2 d-md-block bg-white sidebar border-end vh-100 position-sticky top-0">
                 <div class="position-sticky pt-3">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-header bg-white border-bottom">
-                            <h6 class="card-title mb-0">
-                                <i class="fas fa-toolbox me-2"></i>Technical Tools
-                            </h6>
-                        </div>
-                        <div class="list-group list-group-flush">
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Dashboard', 'action' => 'index']) ?>" 
-                               class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-home me-2 text-primary"></i>Dashboard
+                    <!-- Quick Navigation -->
+                    <div class="mb-3">
+                        <h6 class="px-3 mb-3 text-uppercase text-muted small fw-bold">
+                            <i class="fas fa-compass me-2"></i>Navigation
+                        </h6>
+                        <ul class="nav flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-dark" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Dashboard', 'action' => 'index']) ?>">
+                                    <i class="fas fa-home me-3 text-primary"></i>
+                                    <span>Dashboard</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-dark" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'index']) ?>">
+                                    <i class="fas fa-briefcase-medical me-3 text-success"></i>
+                                    <span>Cases</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-dark" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Patients', 'action' => 'index']) ?>">
+                                    <i class="fas fa-user-injured me-3 text-info"></i>
+                                    <span>Patients</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-dark" href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Reports', 'action' => 'index']) ?>">
+                                    <i class="fas fa-file-alt me-3 text-warning"></i>
+                                    <span>Reports</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="mb-3">
+                        <h6 class="px-3 mb-3 text-uppercase text-muted small fw-bold">
+                            <i class="fas fa-bolt me-2"></i>Quick Actions
+                        </h6>
+                        <div class="px-3">
+                            <a href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'add']) ?>" 
+                               class="btn btn-primary btn-sm w-100 mb-2">
+                                <i class="fas fa-plus me-2"></i>New Case
                             </a>
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Cases', 'action' => 'index']) ?>" 
-                               class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-file-medical me-2 text-success"></i>Cases
-                            </a>
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Patients', 'action' => 'index']) ?>" 
-                               class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-users me-2 text-info"></i>Patients
-                            </a>
-                            <a href="#" class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-clipboard-list me-2 text-primary"></i>Reports
+                            <a href="<?php echo $this->Url->build(['prefix' => 'Technician', 'controller' => 'Patients', 'action' => 'add']) ?>" 
+                               class="btn btn-outline-primary btn-sm w-100">
+                                <i class="fas fa-user-plus me-2"></i>Add Patient
                             </a>
                         </div>
                     </div>
                     
                     <!-- System Status Card -->
-                    <div class="card border-0 shadow-sm mt-3">
-                        <div class="card-header bg-white border-bottom">
-                            <h6 class="card-title mb-0">
-                                <i class="fas fa-server me-2"></i>System Status
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small text-muted">Network</span>
-                                <span class="badge bg-success">Online</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small text-muted">Devices</span>
-                                <span class="badge bg-success">Connected</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="small text-muted">Monitoring</span>
-                                <span class="badge bg-info">Active</span>
+                    <div class="mx-3">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-3">
+                                <h6 class="card-title mb-3 fw-bold small">
+                                    <i class="fas fa-server me-2 text-success"></i>System Status
+                                </h6>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small text-muted">
+                                        <i class="fas fa-database me-1"></i>Database
+                                    </span>
+                                    <span class="badge bg-success bg-opacity-10 text-success small">Online</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small text-muted">
+                                        <i class="fas fa-network-wired me-1"></i>Network
+                                    </span>
+                                    <span class="badge bg-success bg-opacity-10 text-success small">Connected</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="small text-muted">
+                                        <i class="fas fa-chart-line me-1"></i>Services
+                                    </span>
+                                    <span class="badge bg-info bg-opacity-10 text-info small">Active</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </nav>
 
             <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
                 <!-- Flash Messages -->
-                <div class="flash-messages">
-                    <?php echo $this->Flash->render() ?>
-                </div>
+                <?php echo $this->Flash->render() ?>
                 
                 <!-- Page Content -->
-                <div class="content">
-                    <?php echo $this->fetch('content') ?>
-                </div>
+                <?php echo $this->fetch('content') ?>
             </main>
         </div>
     </div>
 
     <!-- Footer -->
-    <footer class="bg-light text-center text-muted py-3 mt-5 border-top">
+    <footer class="bg-white text-center text-muted py-4 mt-5 border-top">
         <div class="container">
-            <small class="d-flex align-items-center justify-content-center">
-                © <?php echo date('Y') ?> Technical Dashboard. 
-                <i class="fas fa-cog text-secondary mx-1"></i> 
-                Secure Healthcare Management Platform
-            </small>
+            <div class="d-flex align-items-center justify-content-center">
+                <i class="fas fa-heartbeat text-danger me-2"></i>
+                <small>
+                    © <?php echo date('Y') ?> MEG Healthcare Platform - Secure Medical Management System
+                </small>
+            </div>
         </div>
     </footer>
 

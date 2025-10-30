@@ -43,6 +43,7 @@ class DashboardController extends AppController
         
         // Get case statistics if hospital context is available
         $caseStats = [];
+        $reportStats = [];
         if ($currentHospital && isset($currentHospital->id)) {
             $casesTable = $this->fetchTable('Cases');
             
@@ -80,9 +81,38 @@ class DashboardController extends AppController
                 'cases_by_status' => $casesByStatus,
                 'recent_cases' => $recentCases
             ];
+            
+            // Get report statistics
+            $reportsTable = $this->fetchTable('Reports');
+            
+            // Total reports
+            $totalReports = $reportsTable->find()
+                ->where(['Reports.hospital_id' => $currentHospital->id])
+                ->count();
+            
+            // Reports by status
+            $reportsByStatus = $reportsTable->find()
+                ->select(['status', 'count' => $reportsTable->find()->func()->count('*')])
+                ->where(['Reports.hospital_id' => $currentHospital->id])
+                ->group(['status'])
+                ->toArray();
+            
+            // Recent reports
+            $recentReports = $reportsTable->find()
+                ->contain(['Cases' => ['PatientUsers'], 'Hospitals'])
+                ->where(['Reports.hospital_id' => $currentHospital->id])
+                ->order(['Reports.created' => 'DESC'])
+                ->limit(5)
+                ->toArray();
+            
+            $reportStats = [
+                'total_reports' => $totalReports,
+                'reports_by_status' => $reportsByStatus,
+                'recent_reports' => $recentReports
+            ];
         }
         
-        $this->set(compact('userWithRole', 'currentHospital', 'caseStats'));
+        $this->set(compact('userWithRole', 'currentHospital', 'caseStats', 'reportStats'));
         // Keep 'user' for backward compatibility
         $this->set('user', $userWithRole);
     }

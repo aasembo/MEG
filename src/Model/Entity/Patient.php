@@ -25,4 +25,42 @@ class Patient extends Entity {
         'hospital' => true,
         'cases' => true,
     ];
+
+    /**
+     * Virtual field for first_name - retrieved from associated User
+     */
+    protected function _getFirstName(): ?string
+    {
+        return $this->user->first_name ?? null;
+    }
+
+    /**
+     * Virtual field for last_name - retrieved from associated User
+     */
+    protected function _getLastName(): ?string
+    {
+        return $this->user->last_name ?? null;
+    }
+
+    /**
+     * Virtual field for date_of_birth - alias for dob
+     */
+    protected function _getDateOfBirth()
+    {
+        return $this->dob ?? null;
+    }
+
+    /**
+     * Virtual field for age - calculated from dob
+     */
+    protected function _getAge(): ?int
+    {
+        if (!$this->dob) {
+            return null;
+        }
+        
+        $dob = new \DateTime($this->dob->format('Y-m-d'));
+        $now = new \DateTime();
+        return $now->diff($dob)->y;
+    }
 }

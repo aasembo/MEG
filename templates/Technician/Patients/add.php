@@ -5,35 +5,41 @@
  * @var \App\Model\Entity\Patient $patient
  */
 
-$this->setLayout('technician');
 $this->assign('title', 'Add New Patient');
 ?>
-<div class="patients add content">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-0">
-                <i class="fas fa-user-plus me-2 text-secondary"></i>Add New Patient
-            </h1>
-            <p class="text-muted mb-0">Register a new patient for <?php echo h($currentHospital->name) ?></p>
-        </div>
-        <div>
-            <?php echo $this->Html->link(
-                '<i class="fas fa-arrow-left me-2"></i>Back to Patients',
-                ['action' => 'index'],
-                ['class' => 'btn btn-secondary', 'escape' => false]
-            ) ?>
+<div class="container-fluid px-4 py-4">
+    <!-- Page Header -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-primary text-white p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-2 fw-bold">
+                        <i class="fas fa-user-plus me-2"></i>Add New Patient
+                    </h2>
+                    <p class="mb-0">
+                        <i class="fas fa-hospital me-2"></i>Register a new patient for <?php echo h($currentHospital->name) ?>
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-arrow-left me-2"></i>Back to Patients',
+                        ['action' => 'index'],
+                        ['class' => 'btn btn-outline-light', 'escape' => false]
+                    ) ?>
+                </div>
+            </div>
         </div>
     </div>
 
 <div class="row">
     <div class="col-lg-8">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-user-circle me-2"></i>Patient Information
+        <div class="card border-0 shadow">
+            <div class="card-header bg-light py-3">
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="fas fa-user-circle me-2 text-primary"></i>Patient Information
                 </h5>
             </div>
-            <div class="card-body">
+            <div class="card-body bg-white">
             <?php echo $this->Form->create($patient, [
                 'class' => 'needs-validation',
                 'novalidate' => true,
@@ -183,8 +189,8 @@ $this->assign('title', 'Add New Patient');
 
             <div class="row">
                 <div class="col-12">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
+                    <div class="alert alert-info border-0">
+                        <i class="fas fa-info-circle me-2"></i>
                         <strong>Note:</strong> The patient will be automatically assigned to <?php echo h($currentHospital->name) ?> 
                         and given patient role access. Patients cannot login to the system but their information is available for case management.
                     </div>
@@ -192,16 +198,26 @@ $this->assign('title', 'Add New Patient');
             </div>
 
             <div class="row">
-                <div class="col-12 text-end">
-                    <?php echo $this->Form->button(__('Cancel'), [
-                        'type' => 'button',
-                        'class' => 'btn btn-outline-secondary me-2',
-                        'onclick' => 'window.location.href="' . $this->Url->build(['action' => 'index']) . '"'
-                    ]) ?>
-                    <?php echo $this->Form->button(__('Create Patient'), [
-                        'class' => 'btn btn-primary',
-                        'type' => 'submit'
-                    ]) ?>
+                <div class="col-12">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <?php echo $this->Form->button(
+                            '<i class="fas fa-times me-2"></i>Cancel',
+                            [
+                                'type' => 'button',
+                                'class' => 'btn btn-outline-secondary',
+                                'onclick' => 'window.location.href="' . $this->Url->build(['action' => 'index']) . '"',
+                                'escapeTitle' => false
+                            ]
+                        ) ?>
+                        <?php echo $this->Form->button(
+                            '<i class="fas fa-user-plus me-2"></i>Create Patient',
+                            [
+                                'class' => 'btn btn-primary',
+                                'type' => 'submit',
+                                'escapeTitle' => false
+                            ]
+                        ) ?>
+                    </div>
                 </div>
             </div>
 
@@ -210,35 +226,42 @@ $this->assign('title', 'Add New Patient');
             </div>
         </div>
         
+        
         <div class="col-lg-4">
         <!-- Patient Registration Guide -->
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-info-circle me-2"></i>Patient Registration
+        <div class="card border-0 shadow mb-4">
+            <div class="card-header bg-light py-3">
+                <h6 class="mb-0 fw-bold text-dark">
+                    <i class="fas fa-info-circle me-2 text-primary"></i>Patient Registration
                 </h6>
             </div>
-            <div class="card-body">
-                <div class="mb-3">
+            <div class="card-body bg-white">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-success me-2">✓</span>
-                        <strong>Required Fields</strong>
+                        <span class="badge rounded-pill bg-success me-2">
+                            <i class="fas fa-check"></i>
+                        </span>
+                        <strong class="text-dark">Required Fields</strong>
                     </div>
                     <small class="text-muted">First name, last name, email, gender, and date of birth are required for all patients.</small>
                 </div>
                 
-                <div class="mb-3">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-info me-2">i</span>
-                        <strong>Medical Records</strong>
+                        <span class="badge rounded-pill bg-info me-2">
+                            <i class="fas fa-info"></i>
+                        </span>
+                        <strong class="text-dark">Medical Records</strong>
                     </div>
                     <small class="text-muted">Medical and financial record numbers are optional but help with external record keeping.</small>
                 </div>
                 
                 <div>
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-warning me-2">!</span>
-                        <strong>Patient Access</strong>
+                        <span class="badge rounded-pill bg-warning text-dark me-2">
+                            <i class="fas fa-exclamation"></i>
+                        </span>
+                        <strong class="text-dark">Patient Access</strong>
                     </div>
                     <small class="text-muted">Patients cannot login to the system. Their information is managed by hospital staff only.</small>
                 </div>
@@ -246,33 +269,33 @@ $this->assign('title', 'Add New Patient');
         </div>
         
         <!-- Patient Data Guide -->
-        <div class="card border-0 shadow-sm mt-3">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-database me-2"></i>Data Management
+        <div class="card border-0 shadow mb-4">
+            <div class="card-header bg-light py-3">
+                <h6 class="mb-0 fw-bold text-dark">
+                    <i class="fas fa-database me-2 text-primary"></i>Data Management
                 </h6>
             </div>
-            <div class="card-body">
-                <div class="mb-3">
+            <div class="card-body bg-white">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-primary me-2">1</span>
-                        <strong>Basic Information</strong>
+                        <span class="badge rounded-pill bg-primary me-2">1</span>
+                        <strong class="text-dark">Basic Information</strong>
                     </div>
                     <small class="text-muted">Name, email, and contact details stored in user profile.</small>
                 </div>
                 
-                <div class="mb-3">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-primary me-2">2</span>
-                        <strong>Medical Data</strong>
+                        <span class="badge rounded-pill bg-primary me-2">2</span>
+                        <strong class="text-dark">Medical Data</strong>
                     </div>
                     <small class="text-muted">Gender, age, DOB, and medical records stored separately for privacy.</small>
                 </div>
                 
                 <div>
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-primary me-2">3</span>
-                        <strong>Hospital Assignment</strong>
+                        <span class="badge rounded-pill bg-primary me-2">3</span>
+                        <strong class="text-dark">Hospital Assignment</strong>
                     </div>
                     <small class="text-muted">Patient automatically assigned to <?php echo h($currentHospital->name) ?>.</small>
                 </div>
@@ -280,13 +303,13 @@ $this->assign('title', 'Add New Patient');
         </div>
         
         <!-- Quick Actions -->
-        <div class="card border-0 shadow-sm mt-3">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-bolt me-2"></i>After Registration
+        <div class="card border-0 shadow">
+            <div class="card-header bg-light py-3">
+                <h6 class="mb-0 fw-bold text-dark">
+                    <i class="fas fa-bolt me-2 text-warning"></i>After Registration
                 </h6>
             </div>
-            <div class="card-body">
+            <div class="card-body bg-white">
                 <small class="text-muted mb-3 d-block">Once the patient is created, you can:</small>
                 <ul class="list-unstyled mb-0">
                     <li class="mb-2">
@@ -297,7 +320,7 @@ $this->assign('title', 'Add New Patient');
                         <i class="fas fa-check text-success me-2"></i>
                         <small>Edit patient information</small>
                     </li>
-                    <li>
+                    <li class="mb-0">
                         <i class="fas fa-check text-success me-2"></i>
                         <small>View patient case history</small>
                     </li>
@@ -306,3 +329,21 @@ $this->assign('title', 'Add New Patient');
         </div>
     </div>
 </div>
+</div>
+
+<script>
+// Bootstrap form validation
+(function() {
+    'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    });
+})();
+</script>

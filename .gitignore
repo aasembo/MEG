@@ -3,6 +3,7 @@
 /config/app_local.php
 /config/.env
 /config/Migrations/
+/config/Seeds/
 /logs/*
 /tmp/*
 /vendor/*

@@ -51,12 +51,15 @@ class PatientsController extends AppController
         
         $query = $patientsTable->find()
             ->contain(['Users', 'Hospitals'])
-            ->where(['Patients.hospital_id' => $currentHospital->id])
-            ->order(['Users.last_name' => 'ASC', 'Users.first_name' => 'ASC']);
+            ->where(['Patients.hospital_id' => $currentHospital->id]);
+        
+        // Get filter parameters
+        $search = $this->request->getQuery('search', '');
+        $status = $this->request->getQuery('status', 'all');
         
         // Search functionality
-        if ($this->request->getQuery('search')) {
-            $search = trim($this->request->getQuery('search'));
+        if ($search) {
+            $search = trim($search);
             $query->where([
                 'OR' => [
                     'Users.first_name LIKE' => '%' . $search . '%',
@@ -71,16 +74,28 @@ class PatientsController extends AppController
         }
 
         // Status filter
-        if ($this->request->getQuery('status')) {
-            $query->where(['Users.status' => $this->request->getQuery('status')]);
+        if ($status && $status !== 'all') {
+            $query->where(['Users.status' => $status]);
         }
+
+        // Configure pagination with sorting
+        $this->paginate = [
+            'limit' => 20,
+            'order' => ['Users.last_name' => 'ASC', 'Users.first_name' => 'ASC'],
+            'sortableFields' => [
+                'Users.last_name',
+                'Users.first_name',
+                'Users.username',
+                'Users.email',
+                'Users.status',
+                'Patients.created'
+            ]
+        ];
 
         $patients = $this->paginate($query);
         
         // Variables for template
         $hospitalName = $currentHospital->name ?? 'Unknown Hospital';
-        $search = $this->request->getQuery('search', '');
-        $status = $this->request->getQuery('status', '');
         $statusOptions = [
             'all' => 'All Status',
             SiteConstants::USER_STATUS_ACTIVE => 'Active',

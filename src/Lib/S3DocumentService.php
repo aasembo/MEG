@@ -129,7 +129,7 @@ class S3DocumentService {
             $paddedCaseId = $this->formatCaseId($caseId);
             
             // New path structure: Meg_{CaseID}/{DocumentType}/{OriginalFilename}
-            $s3Key = "Meg_{$paddedCaseId}/{$documentType}/{$sanitizedName}";
+            $s3Key = "MEG_{$paddedCaseId}/{$documentType}/{$sanitizedName}";
             
             $result = $this->s3Client->putObject([
                 'Bucket' => $this->bucket,

@@ -4,35 +4,41 @@
  * @var \App\Model\Entity\MedicalCase $case
  */
 
-$this->setLayout('technician');
 $this->assign('title', 'Create New Case');
 ?>
-<div class="cases add content">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-0">
-                <i class="fas fa-file-medical me-2 text-secondary"></i>Create New Case
-            </h1>
-            <p class="text-muted mb-0">Create a new medical case for <?php echo h($currentHospital->name) ?></p>
-        </div>
-        <div>
-            <?php echo $this->Html->link(
-                '<i class="fas fa-arrow-left me-2"></i>Back to Cases',
-                ['action' => 'index'],
-                ['class' => 'btn btn-secondary', 'escape' => false]
-            ) ?>
+<div class="container-fluid px-4 py-4">
+    <!-- Page Header -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-primary text-white p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-2 fw-bold">
+                        <i class="fas fa-file-medical me-2"></i>Create New Case
+                    </h2>
+                    <p class="mb-0">
+                        <i class="fas fa-hospital me-2"></i>Create a new medical case for <?php echo h($currentHospital->name) ?>
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-arrow-left me-2"></i>Back to Cases',
+                        ['action' => 'index'],
+                        ['class' => 'btn btn-outline-light', 'escape' => false]
+                    ) ?>
+                </div>
+            </div>
         </div>
     </div>
 
 <div class="row">
     <div class="col-lg-8">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-file-medical-alt me-2"></i>Case Information
+        <div class="card border-0 shadow">
+            <div class="card-header bg-light py-3">
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="fas fa-file-medical-alt me-2 text-primary"></i>Case Information
                 </h5>
             </div>
-            <div class="card-body">
+            <div class="card-body bg-white">
             <?php echo $this->Form->create($case, ['class' => 'needs-validation', 'novalidate' => true]) ?>
                     
                     <!-- Patient and Basic Info -->
@@ -145,10 +151,10 @@ $this->assign('title', 'Create New Case');
                     </div>
 
                     <!-- Exam Procedures Section -->
-                    <div class="card border-secondary mb-4">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0">
-                                <i class="fas fa-procedures me-2"></i>Exam Procedures
+                    <div class="card border-0 bg-light mb-4">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h6 class="mb-0 fw-semibold text-dark">
+                                <i class="fas fa-procedures me-2 text-primary"></i>Exam Procedures
                             </h6>
                         </div>
                         <div class="card-body">
@@ -187,22 +193,32 @@ $this->assign('title', 'Create New Case');
 
                     <!-- Action Buttons -->
                     <div class="row">
-                        <div class="col-12 text-end">
-                            <?php echo $this->Form->button(__('Cancel'), [
-                                'type' => 'button',
-                                'class' => 'btn btn-outline-secondary me-2',
-                                'onclick' => 'window.location.href="' . $this->Url->build(['action' => 'index']) . '"'
-                            ]) ?>
-                            <?php if (!empty($patients)): ?>
-                                <?php echo $this->Form->button(__('Create Case'), [
-                                    'type' => 'submit',
-                                    'class' => 'btn btn-primary'
-                                ]) ?>
-                            <?php else: ?>
-                                <button type="button" class="btn btn-secondary" disabled>
-                                    Create Case (No Patients Available)
-                                </button>
-                            <?php endif; ?>
+                        <div class="col-12">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <?php echo $this->Form->button(
+                                    '<i class="fas fa-times me-2"></i>Cancel',
+                                    [
+                                        'type' => 'button',
+                                        'class' => 'btn btn-outline-secondary',
+                                        'onclick' => 'window.location.href="' . $this->Url->build(['action' => 'index']) . '"',
+                                        'escapeTitle' => false
+                                    ]
+                                ) ?>
+                                <?php if (!empty($patients)): ?>
+                                    <?php echo $this->Form->button(
+                                        '<i class="fas fa-plus-circle me-2"></i>Create Case',
+                                        [
+                                            'type' => 'submit',
+                                            'class' => 'btn btn-primary',
+                                            'escapeTitle' => false
+                                        ]
+                                    ) ?>
+                                <?php else: ?>
+                                    <button type="button" class="btn btn-secondary" disabled>
+                                        <i class="fas fa-ban me-2"></i>Create Case (No Patients Available)
+                                    </button>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
 
@@ -213,41 +229,41 @@ $this->assign('title', 'Create New Case');
     
         <div class="col-lg-4">
         <!-- Case Creation Help -->
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-info-circle me-2"></i>Case Creation Guide
+        <div class="card border-0 shadow mb-4">
+            <div class="card-header bg-light py-3">
+                <h6 class="mb-0 fw-bold text-dark">
+                    <i class="fas fa-info-circle me-2 text-primary"></i>Case Creation Guide
                 </h6>
             </div>
-            <div class="card-body">
-                <div class="mb-3">
+            <div class="card-body bg-white">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-primary me-2">1</span>
-                        <strong>Patient & Department</strong>
+                        <span class="badge rounded-pill bg-primary me-2">1</span>
+                        <strong class="text-dark">Patient & Department</strong>
                     </div>
                     <small class="text-muted">Select the patient and department for this case.</small>
                 </div>
                 
-                <div class="mb-3">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-primary me-2">2</span>
-                        <strong>Sedation Requirements</strong>
+                        <span class="badge rounded-pill bg-primary me-2">2</span>
+                        <strong class="text-dark">Sedation Requirements</strong>
                     </div>
                     <small class="text-muted">Choose sedation level if procedures require it.</small>
                 </div>
                 
-                <div class="mb-3">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-primary me-2">3</span>
-                        <strong>Exam Procedures</strong>
+                        <span class="badge rounded-pill bg-primary me-2">3</span>
+                        <strong class="text-dark">Exam Procedures</strong>
                     </div>
                     <small class="text-muted">Select all procedures needed for this case.</small>
                 </div>
                 
                 <div>
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-primary me-2">4</span>
-                        <strong>Priority & Notes</strong>
+                        <span class="badge rounded-pill bg-primary me-2">4</span>
+                        <strong class="text-dark">Priority & Notes</strong>
                     </div>
                     <small class="text-muted">Set priority and add detailed case information.</small>
                 </div>
@@ -256,13 +272,13 @@ $this->assign('title', 'Create New Case');
         
         <!-- Available Modalities -->
         <?php if (!empty($modalities)): ?>
-        <div class="card border-0 shadow-sm mt-3">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-microscope me-2"></i>Available Modalities
+        <div class="card border-0 shadow mb-4">
+            <div class="card-header bg-light py-3">
+                <h6 class="mb-0 fw-bold text-dark">
+                    <i class="fas fa-microscope me-2 text-primary"></i>Available Modalities
                 </h6>
             </div>
-            <div class="card-body">
+            <div class="card-body bg-white">
                 <div class="small">
                     <?php foreach ($modalities as $modalityId => $modalityName): ?>
                         <div class="d-flex align-items-center mb-2">
@@ -277,41 +293,41 @@ $this->assign('title', 'Create New Case');
         <?php endif; ?>
         
         <!-- Priority Levels -->
-        <div class="card border-0 shadow-sm mt-3">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-exclamation-triangle me-2"></i>Priority Levels
+        <div class="card border-0 shadow">
+            <div class="card-header bg-light py-3">
+                <h6 class="mb-0 fw-bold text-dark">
+                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>Priority Levels
                 </h6>
             </div>
-            <div class="card-body">
-                <div class="mb-3">
+            <div class="card-body bg-white">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-danger me-2">Urgent</span>
-                        <strong>Immediate Attention</strong>
+                        <span class="badge rounded-pill bg-danger text-white me-2">Urgent</span>
+                        <strong class="text-dark">Immediate Attention</strong>
                     </div>
                     <small class="text-muted">Critical cases requiring immediate processing.</small>
                 </div>
                 
-                <div class="mb-3">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-warning me-2">High</span>
-                        <strong>Within Hours</strong>
+                        <span class="badge rounded-pill bg-warning text-dark me-2">High</span>
+                        <strong class="text-dark">Within Hours</strong>
                     </div>
                     <small class="text-muted">Process within a few hours of creation.</small>
                 </div>
                 
-                <div class="mb-3">
+                <div class="mb-3 pb-3 border-bottom">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-info me-2">Medium</span>
-                        <strong>Standard Processing</strong>
+                        <span class="badge rounded-pill bg-info text-white me-2">Medium</span>
+                        <strong class="text-dark">Standard Processing</strong>
                     </div>
                     <small class="text-muted">Normal processing timeline applies.</small>
                 </div>
                 
                 <div>
                     <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-secondary me-2">Low</span>
-                        <strong>When Convenient</strong>
+                        <span class="badge rounded-pill bg-secondary text-white me-2">Low</span>
+                        <strong class="text-dark">When Convenient</strong>
                     </div>
                     <small class="text-muted">Non-urgent cases for routine processing.</small>
                 </div>
@@ -320,8 +336,8 @@ $this->assign('title', 'Create New Case');
         
         <?php if (empty($patients)): ?>
         <!-- No Patients Warning -->
-        <div class="card border-0 shadow-sm mt-3">
-            <div class="card-header bg-warning">
+        <div class="card border-0 shadow mt-4">
+            <div class="card-header bg-warning text-dark py-3">
                 <h6 class="mb-0 text-white">
                     <i class="fas fa-exclamation-triangle me-2"></i>No Patients Available
                 </h6>
