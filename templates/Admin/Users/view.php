@@ -78,7 +78,7 @@
                         <div class="col-sm-8">
                             <?php if ($user->role): ?>
                                 <span class="badge rounded-pill <?php echo $this->Role->badgeClass($user->role->type); ?>">
-                                    <i class="fas fa-<?php echo $user->role->type === 'super' ? 'crown' : ($user->role->type === 'administrator' ? 'user-shield' : 'user') ?> me-1"></i>
+                                    <i class="fas fa-<?php echo $user->role->type === 'administrator' ? 'user-shield' : 'user' ?> me-1"></i>
                                     <?php echo h($this->Role->label($user->role->type)); ?>
                                 </span>
                             <?php else: ?>
@@ -105,11 +105,7 @@
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Hospital:</div>
                         <div class="col-sm-8">
-                            <?php if ($user->role && $user->role->type === 'super'): ?>
-                                <span class="badge bg-warning text-dark">
-                                    <i class="fas fa-crown me-1"></i>Super User - All Hospitals
-                                </span>
-                            <?php elseif (!empty($user->hospital_id)): ?>
+                            <?php if (!empty($user->hospital_id)): ?>
                                 <?php if (isset($user->hospital) && $user->hospital): ?>
                                     <div class="text-dark">
                                         <strong><?php echo h($user->hospital->name) ?></strong>

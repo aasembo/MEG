@@ -258,7 +258,7 @@
                             <td>
                                 <?php if ($user->role): ?>
                                     <span class="badge rounded-pill <?php echo $this->Role->badgeClass($user->role->type); ?>">
-                                        <i class="fas fa-<?php echo $user->role->type === 'super' ? 'crown' : ($user->role->type === 'administrator' ? 'user-shield' : 'user') ?> me-1"></i>
+                                        <i class="fas fa-<?php echo $user->role->type === 'administrator' ? 'user-shield' : 'user' ?> me-1"></i>
                                         <?php echo h($this->Role->label($user->role->type)); ?>
                                     </span>
                                 <?php else: ?>

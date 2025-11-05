@@ -237,20 +237,18 @@
                     <?php if ($user->role): ?>
                         <?php
                         $roleColors = [
-                            'super' => 'warning',
                             'administrator' => 'info',
                             'doctor' => 'success',
                             'technician' => 'primary',
-                            'scientist' => 'secondary',
+                            'scientist' => 'warning',
                             'patient' => 'light'
                         ];
                         $roleColor = $roleColors[$user->role->type] ?? 'secondary';
                         $roleDescriptions = [
-                            'super' => 'Full system access and administration rights.',
-                            'administrator' => 'Administrative access with limited system settings.',
+                            'administrator' => 'Administrative access with system oversight capabilities.',
                             'doctor' => 'Medical professional with patient and case management access.',
                             'technician' => 'Technical staff with patient data entry and case processing.',
-                            'scientist' => 'Research and laboratory management access.',
+                            'scientist' => 'Scientific staff with analysis and research capabilities.',
                             'patient' => 'Patient record with limited system access.'
                         ];
                         $roleDescription = $roleDescriptions[$user->role->type] ?? 'Custom role permissions.';
@@ -382,14 +380,8 @@
         var hospitalField = document.getElementById('hospital-field');
         
         function toggleHospitalField() {
-            var selectedOption = roleSelect.options[roleSelect.selectedIndex];
-            var roleText = selectedOption.text.toLowerCase();
-            
-            if (roleText.includes('super')) {
-                hospitalField.style.display = 'none';
-            } else {
-                hospitalField.style.display = 'block';
-            }
+            // All admin-accessible roles require hospital assignment
+            hospitalField.style.display = 'block';
         }
         
         // Initial check

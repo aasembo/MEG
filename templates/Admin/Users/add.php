@@ -194,18 +194,10 @@
                 <div class="card-body bg-white">
                     <div class="mb-3 pb-3 border-bottom">
                         <div class="d-flex align-items-center mb-2">
-                            <span class="badge bg-warning text-dark me-2">Super</span>
-                            <strong class="text-dark">Super User</strong>
-                        </div>
-                        <small class="text-muted">Full system access and administration rights. Not linked to any hospital.</small>
-                    </div>
-                    
-                    <div class="mb-3 pb-3 border-bottom">
-                        <div class="d-flex align-items-center mb-2">
                             <span class="badge bg-info me-2">Admin</span>
                             <strong class="text-dark">Administrator</strong>
                         </div>
-                        <small class="text-muted">Administrative access with limited system settings. Must be linked to a hospital.</small>
+                        <small class="text-muted">Administrative access with system oversight capabilities. Must be linked to a hospital.</small>
                     </div>
                     
                     <div class="mb-3 pb-3 border-bottom">
@@ -214,6 +206,14 @@
                             <strong class="text-dark">Doctor</strong>
                         </div>
                         <small class="text-muted">Medical professional with patient and case management access.</small>
+                    </div>
+                    
+                    <div class="mb-3 pb-3 border-bottom">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-warning text-dark me-2">Scientist</span>
+                            <strong class="text-dark">Scientist</strong>
+                        </div>
+                        <small class="text-muted">Scientific staff with analysis and research capabilities.</small>
                     </div>
                     
                     <div class="mb-3 pb-3 border-bottom">
@@ -345,14 +345,8 @@
         var hospitalField = document.getElementById('hospital-field');
         
         function toggleHospitalField() {
-            var selectedOption = roleSelect.options[roleSelect.selectedIndex];
-            var roleText = selectedOption.text.toLowerCase();
-            
-            if (roleText.includes('super')) {
-                hospitalField.style.display = 'none';
-            } else {
-                hospitalField.style.display = 'block';
-            }
+            // All admin-accessible roles require hospital assignment
+            hospitalField.style.display = 'block';
         }
         
         // Initial check
