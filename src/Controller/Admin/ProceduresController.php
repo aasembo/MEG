@@ -20,6 +20,35 @@ class ProceduresController extends AppController {
             ->contain(['Hospitals', 'Sedations', 'Departments'])
             ->where(['Procedures.hospital_id' => $hospitalId]);
             
+        // Handle search
+        $search = $this->request->getQuery('search');
+        if (!empty($search)) {
+            $query->where([
+                'OR' => [
+                    'Procedures.name LIKE' => '%' . $search . '%',
+                    'Procedures.description LIKE' => '%' . $search . '%',
+                    'Procedures.type LIKE' => '%' . $search . '%',
+                    'Procedures.notes LIKE' => '%' . $search . '%'
+                ]
+            ]);
+        }
+        
+        // Configure pagination with sortable fields
+        $this->paginate = [
+            'limit' => 25,
+            'order' => ['Procedures.name' => 'ASC'],
+            'sortableFields' => [
+                'Procedures.name',
+                'Procedures.type',
+                'Procedures.created',
+                'Procedures.modified',
+                'Procedures.duration_minutes',
+                'Procedures.cost',
+                'Procedures.risk_level',
+                'Departments.name'
+            ]
+        ];
+            
         $procedures = $this->paginate($query);
         
         $this->set(compact('procedures'));
@@ -27,7 +56,7 @@ class ProceduresController extends AppController {
 
     public function view($id = null) {
         $procedure = $this->Procedures->get($id, [
-            'contain' => ['Hospitals', 'Sedations', 'Departments', 'ExamsProcedures', 'ExamsProcedures.Exams'],
+            'contain' => ['Hospitals', 'Sedations', 'Departments', 'Exams'],
         ]);
         
         $this->set(compact('procedure'));

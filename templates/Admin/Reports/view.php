@@ -6,25 +6,29 @@
 $reportData = json_decode($report->report_data, true) ?? [];
 $reportContent = $reportData['content'] ?? '';
 
+$this->setLayout('admin');
 $this->assign('title', 'Report #' . $report->id);
 ?>
 
 <div class="container-fluid px-4 py-4">
     <!-- Page Header -->
     <div class="card border-0 shadow mb-4">
-        <div class="card-body bg-primary text-white p-4">
+        <div class="card-body bg-dark text-white p-4">
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2 class="mb-2 fw-bold">
                         <i class="fas fa-file-medical-alt me-2"></i>Report #<?php echo  h($report->id) ?>
                     </h2>
-                    <p class="mb-0">
+                    <p class="mb-1">
                         <?php if (isset($report->case->patient_user)): ?>
                             <i class="fas fa-user-injured me-2"></i><?php echo  $this->PatientMask->displayName($report->case->patient_user) ?>
                         <?php endif; ?>
                         <?php if (isset($report->hospital)): ?>
                             <span class="ms-3"><i class="fas fa-hospital me-2"></i><?php echo  h($report->hospital->name) ?></span>
                         <?php endif; ?>
+                    </p>
+                    <p class="mb-0 text-warning small">
+                        <i class="fas fa-shield-alt me-1"></i>Administrative view - Read-only access
                     </p>
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
@@ -36,8 +40,8 @@ $this->assign('title', 'Report #' . $report->id);
                         ); ?>
                         
                         <?php echo  $this->Html->link(
-                            '<i class="fas fa-edit me-1"></i>Edit',
-                            ['action' => 'edit', $report->id],
+                            '<i class="fas fa-download me-1"></i>Download',
+                            ['action' => 'download', $report->id, 'pdf'],
                             ['class' => 'btn btn-light', 'escape' => false]
                         ); ?>
                         
@@ -53,15 +57,13 @@ $this->assign('title', 'Report #' . $report->id);
     </div>
 
     <div class="row">
-
-    <div class="row">
         <!-- Main Content -->
         <div class="col-lg-8">
             <!-- Report Information -->
             <div class="card border-0 shadow mb-4">
                 <div class="card-header bg-light py-3">
                     <h5 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-file-medical-alt me-2 text-primary"></i>Report Information
+                        <i class="fas fa-file-medical-alt me-2 text-warning"></i>Report Information
                     </h5>
                 </div>
                 <div class="card-body bg-white">
@@ -70,7 +72,7 @@ $this->assign('title', 'Report #' . $report->id);
                             <table class="table table-borderless table-sm">
                                 <tr>
                                     <td class="fw-semibold">Report ID:</td>
-                                    <td><span class="badge bg-primary"><?php echo  h($report->id) ?></span></td>
+                                    <td><span class="badge bg-warning text-dark"><?php echo  h($report->id) ?></span></td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Case:</td>
@@ -80,6 +82,22 @@ $this->assign('title', 'Report #' . $report->id);
                                             ['controller' => 'Cases', 'action' => 'view', $report->case_id],
                                             ['class' => 'text-decoration-none', 'escape' => false]
                                         ) ?>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Creator:</td>
+                                    <td>
+                                        <?php if (isset($report->user)): ?>
+                                            <div class="d-flex align-items-center">
+                                                <?php echo  h($report->user->first_name . ' ' . $report->user->last_name) ?>
+                                                <?php if (isset($report->user->role)): ?>
+                                                    <?php echo  $this->Role->badge($report->user->role->type, ['class' => 'ms-2', 'size' => 'sm']) ?>
+                                                <?php endif; ?>
+                                            </div>
+                                            <small class="text-muted"><?php echo  h($report->user->email) ?></small>
+                                        <?php else: ?>
+                                            <span class="text-muted">Unknown</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                                 <tr>
@@ -97,7 +115,7 @@ $this->assign('title', 'Report #' . $report->id);
                                     <td class="fw-semibold">Hospital:</td>
                                     <td>
                                         <?php if (isset($report->hospital)): ?>
-                                            <i class="fas fa-hospital me-1 text-primary"></i>
+                                            <i class="fas fa-hospital me-1 text-warning"></i>
                                             <?php echo  h($report->hospital->name) ?>
                                         <?php else: ?>
                                             <span class="text-muted">Not assigned</span>
@@ -146,7 +164,7 @@ $this->assign('title', 'Report #' . $report->id);
                 <div class="card-header bg-light py-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0 fw-bold text-dark">
-                            <i class="fas fa-file-alt me-2 text-primary"></i>MEG Report Content
+                            <i class="fas fa-file-alt me-2 text-warning"></i>MEG Report Content
                         </h5>
                         <span class="badge bg-secondary">Rich Text</span>
                     </div>
@@ -188,21 +206,15 @@ $this->assign('title', 'Report #' . $report->id);
 
         <!-- Sidebar -->
         <div class="col-lg-4">
-            <!-- Quick Actions -->
+            <!-- Administrative Actions -->
             <div class="card border-0 shadow mb-4">
                 <div class="card-header bg-light py-3">
                     <h6 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-bolt me-2 text-primary"></i>Quick Actions
+                        <i class="fas fa-bolt me-2 text-warning"></i>Quick Actions
                     </h6>
                 </div>
                 <div class="card-body bg-white">
                     <div class="d-grid gap-2">
-                        <?php echo  $this->Html->link(
-                            '<i class="fas fa-edit me-2"></i>Edit Report',
-                            ['action' => 'edit', $report->id],
-                            ['class' => 'btn btn-primary d-flex align-items-center justify-content-center', 'escape' => false]
-                        ); ?>
-                        
                         <?php echo  $this->Html->link(
                             '<i class="fas fa-eye me-2"></i>Preview',
                             ['action' => 'preview', $report->id],
@@ -230,6 +242,16 @@ $this->assign('title', 'Report #' . $report->id);
                             ['action' => 'index'],
                             ['class' => 'btn btn-outline-secondary d-flex align-items-center justify-content-center', 'escape' => false]
                         ); ?>
+                        
+                        <?php echo  $this->Form->postLink(
+                            '<i class="fas fa-trash me-2"></i>Delete Report',
+                            ['action' => 'delete', $report->id],
+                            [
+                                'class' => 'btn btn-outline-danger d-flex align-items-center justify-content-center',
+                                'escape' => false,
+                                'confirm' => 'Are you sure you want to delete this report? This action cannot be undone.'
+                            ]
+                        ); ?>
                     </div>
                 </div>
             </div>
@@ -238,7 +260,7 @@ $this->assign('title', 'Report #' . $report->id);
             <div class="card border-0 shadow mb-4">
                 <div class="card-header bg-light py-3">
                     <h6 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-chart-line me-2 text-primary"></i>Report Status
+                        <i class="fas fa-chart-line me-2 text-warning"></i>Report Status
                     </h6>
                 </div>
                 <div class="card-body bg-white">
@@ -302,7 +324,7 @@ $this->assign('title', 'Report #' . $report->id);
             <div class="card border-0 shadow mb-4">
                 <div class="card-header bg-light py-3">
                     <h6 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-chart-bar me-2 text-primary"></i>Report Stats
+                        <i class="fas fa-chart-bar me-2 text-warning"></i>Report Stats
                     </h6>
                 </div>
                 <div class="card-body bg-white">
@@ -340,7 +362,7 @@ $this->assign('title', 'Report #' . $report->id);
             <div class="card border-0 shadow">
                 <div class="card-header bg-light py-3">
                     <h6 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-file-export me-2 text-primary"></i>Export Options
+                        <i class="fas fa-file-export me-2 text-warning"></i>Export Options
                     </h6>
                 </div>
                 <div class="card-body bg-white">

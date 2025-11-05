@@ -39,7 +39,7 @@ $priorityColor = $priorityColors[$step2Data['priority'] ?? 'medium'] ?? 'seconda
                     </p>
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                    <?= $this->Html->link(
+                    <?php echo  $this->Html->link(
                         '<i class="fas fa-eye me-2"></i>View Case',
                         ['action' => 'view', $case->id],
                         ['class' => 'btn btn-light', 'escape' => false]
@@ -109,14 +109,14 @@ $priorityColor = $priorityColors[$step2Data['priority'] ?? 'medium'] ?? 'seconda
                                     <small class="text-muted fw-semibold">Patient:</small>
                                 </div>
                                 <div class="col-sm-8">
-                                    <div class="fw-medium"><?= $this->PatientMask->displayName($patient) ?></div>
+                                    <div class="fw-medium"><?php echo  $this->PatientMask->displayName($patient) ?></div>
                                 </div>
                                 
                                 <div class="col-sm-4">
                                     <small class="text-muted fw-semibold">Case Date:</small>
                                 </div>
                                 <div class="col-sm-8">
-                                    <div><?= h(date('M d, Y', strtotime($step1Data['date']))) ?></div>
+                                    <div><?php echo  h(date('M d, Y', strtotime($step1Data['date']))) ?></div>
                                 </div>
                                 
                                 <div class="col-sm-4">
@@ -124,7 +124,7 @@ $priorityColor = $priorityColors[$step2Data['priority'] ?? 'medium'] ?? 'seconda
                                 </div>
                                 <div class="col-sm-8">
                                     <div class="small bg-light rounded p-2" style="max-height: 100px; overflow-y: auto;">
-                                        <?= h($step1Data['symptoms']) ?>
+                                        <?php echo  h($step1Data['symptoms']) ?>
                                     </div>
                                 </div>
                             </div>
@@ -147,22 +147,22 @@ $priorityColor = $priorityColors[$step2Data['priority'] ?? 'medium'] ?? 'seconda
                                     <small class="text-muted fw-semibold">Department:</small>
                                 </div>
                                 <div class="col-sm-8">
-                                    <div class="fw-medium"><?= h($department->name ?? 'Not specified') ?></div>
+                                    <div class="fw-medium"><?php echo  h($department->name ?? 'Not specified') ?></div>
                                 </div>
                                 
                                 <div class="col-sm-4">
                                     <small class="text-muted fw-semibold">Sedation:</small>
                                 </div>
                                 <div class="col-sm-8">
-                                    <div><?= $sedation ? h($sedation->level . ' (' . $sedation->type . ')') : 'None' ?></div>
+                                    <div><?php echo  $sedation ? h($sedation->level . ' (' . $sedation->type . ')') : 'None' ?></div>
                                 </div>
                                 
                                 <div class="col-sm-4">
                                     <small class="text-muted fw-semibold">Priority:</small>
                                 </div>
                                 <div class="col-sm-8">
-                                    <span class="badge bg-<?= $priorityColor ?> rounded-pill">
-                                        <?= h($priorityLabel) ?>
+                                    <span class="badge bg-<?php echo  $priorityColor ?> rounded-pill">
+                                        <?php echo  h($priorityLabel) ?>
                                     </span>
                                 </div>
                             </div>
@@ -177,7 +177,7 @@ $priorityColor = $priorityColors[$step2Data['priority'] ?? 'medium'] ?? 'seconda
                     <h6 class="mb-0 fw-semibold">
                         <i class="fas fa-procedures me-2 text-primary"></i>
                         Selected Exams & Procedures
-                        <span class="badge bg-primary rounded-pill ms-2"><?= count($selectedExamsProcedures) ?></span>
+                        <span class="badge bg-primary rounded-pill ms-2"><?php echo  count($selectedExamsProcedures) ?></span>
                     </h6>
                 </div>
                 <div class="card-body">
@@ -187,14 +187,14 @@ $priorityColor = $priorityColors[$step2Data['priority'] ?? 'medium'] ?? 'seconda
                                 <div class="col-md-6">
                                     <div class="border rounded-3 p-3 bg-light">
                                         <div class="fw-semibold text-primary">
-                                            <?= h($examProc->exam->name ?? 'Unknown Exam') ?>
+                                            <?php echo  h($examProc->exam->name ?? 'Unknown Exam') ?>
                                         </div>
                                         <div class="small text-muted">
-                                            <?= h($examProc->procedure->name ?? 'Unknown Procedure') ?>
+                                            <?php echo  h($examProc->procedure->name ?? 'Unknown Procedure') ?>
                                         </div>
                                         <?php if (!empty($examProc->exam->modality->name)): ?>
                                             <div class="small">
-                                                <span class="badge bg-secondary"><?= h($examProc->exam->modality->name) ?></span>
+                                                <span class="badge bg-secondary"><?php echo  h($examProc->exam->modality->name) ?></span>
                                             </div>
                                         <?php endif; ?>
                                     </div>
@@ -226,7 +226,7 @@ $priorityColor = $priorityColors[$step2Data['priority'] ?? 'medium'] ?? 'seconda
                                 <strong class="text-info">AI-Recommended Notes</strong>
                             </div>
                             <div class="border rounded-3 p-3 bg-info bg-opacity-10">
-                                <?= nl2br(h($aiRecommendations['notes'])) ?>
+                                <?php echo  nl2br(h($aiRecommendations['notes'])) ?>
                             </div>
                             <div class="form-text mt-2">
                                 <i class="fas fa-lightbulb me-1"></i>
@@ -247,7 +247,7 @@ $priorityColor = $priorityColors[$step2Data['priority'] ?? 'medium'] ?? 'seconda
                                 class="form-control form-control-lg" 
                                 rows="6"
                                 placeholder="Add any additional notes, observations, or special instructions for this case..."
-                            ><?= h($step3Data['technician_notes'] ?? '') ?></textarea>
+                            ><?php echo  h($step3Data['technician_notes'] ?? '') ?></textarea>
                             <div class="form-text">
                                 <i class="fas fa-info-circle me-1"></i>
                                 Add your own notes, observations, or special instructions for this case.
@@ -257,7 +257,7 @@ $priorityColor = $priorityColors[$step2Data['priority'] ?? 'medium'] ?? 'seconda
                         <div id="alertContainer"></div>
 
                         <div class="d-flex justify-content-between align-items-center pt-3 border-top">
-                            <?= $this->Html->link(
+                            <?php echo  $this->Html->link(
                                 '<i class="fas fa-arrow-left me-2"></i>Back to Step 2',
                                 ['action' => 'editStep2', $case->id],
                                 ['class' => 'btn btn-outline-secondary btn-lg', 'escape' => false]
@@ -323,11 +323,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = Object.fromEntries(formData);
 
             // Send AJAX request to save step 3 and update case
-            const response = await fetch('<?= $this->Url->build(['action' => 'saveEditStep3', $case->id]) ?>', {
+            const response = await fetch('<?php echo  $this->Url->build(['action' => 'saveEditStep3', $case->id]) ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': '<?= $this->request->getAttribute('csrfToken') ?>'
+                    'X-CSRF-Token': '<?php echo  $this->request->getAttribute('csrfToken') ?>'
                 },
                 body: JSON.stringify(data)
             });
@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Redirect to case view after short delay
                 setTimeout(() => {
-                    window.location.href = '<?= $this->Url->build(['action' => 'view']) ?>/' + result.case_id;
+                    window.location.href = '<?php echo  $this->Url->build(['action' => 'view']) ?>/' + result.case_id;
                 }, 1500);
             } else {
                 // Show errors

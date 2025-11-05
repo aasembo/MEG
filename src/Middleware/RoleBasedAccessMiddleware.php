@@ -16,8 +16,16 @@ use Cake\Log\Log;
 /**
  * Role-Based Access Control Middleware
  * 
- * Ensures users can only access routes for their assigned role.
- * Prevents cross-role access (e.g., scientist accessing technician routes).
+ * IMPORTANT NOTE: Database structure uses users.role_id -> roles.id -> roles.type
+ * 
+ * STRICT ROLE TO ROUTE MAPPING:
+ * - roles.type = 'administrator' -> ONLY /admin/* routes
+ * - roles.type = 'doctor' -> ONLY /doctor/* routes  
+ * - roles.type = 'technician' -> ONLY /technician/* routes
+ * - roles.type = 'scientist' -> ONLY /scientist/* routes
+ * - roles.type = 'super' -> ONLY /system/* routes
+ * 
+ * No cross-role access allowed. Each role is strictly confined to their prefix.
  */
 class RoleBasedAccessMiddleware implements MiddlewareInterface
 {
@@ -51,10 +59,11 @@ class RoleBasedAccessMiddleware implements MiddlewareInterface
         
         // Check if user has permission to access this prefix
         if (!$this->hasRolePermission($user, $prefix)) {
-            Log::warning("Role access denied: User {$user->email} (role: {$user->role_type}) attempted to access {$prefix} route");
+            $roleType = $user->role ? $user->role->type : 'unknown';
+            Log::warning("Role access denied: User {$user->email} (role: {$roleType}) attempted to access {$prefix} route");
             
             // Redirect to appropriate dashboard for their role
-            $redirectUrl = $this->getRedirectUrlForRole($user->role_type);
+            $redirectUrl = $this->getRedirectUrlForRole($roleType);
             
             $response = new Response();
             return $response->withStatus(302)->withHeader('Location', $redirectUrl);
@@ -72,9 +81,9 @@ class RoleBasedAccessMiddleware implements MiddlewareInterface
      * @return bool True if role checking should be skipped
      */
     private function shouldSkipRoleCheck(?string $prefix, ?string $controller, ?string $action): bool
-    {
+    { 
         // Skip for non-role-based routes (no prefix or non-role prefixes)
-        if (empty($prefix) || !in_array($prefix, ['Doctor', 'Scientist', 'Technician', 'Admin'])) {
+        if (empty($prefix) || !in_array($prefix, ['Doctor', 'Scientist', 'Technician', 'Admin', 'System'])) { 
             return true;
         }
         
@@ -85,11 +94,6 @@ class RoleBasedAccessMiddleware implements MiddlewareInterface
         
         // Skip for specific auth actions
         if (in_array($action, ['login', 'logout', 'callback', 'authenticate'])) {
-            return true;
-        }
-        
-        // Skip for dashboard index actions to prevent redirect loops
-        if ($controller === 'Dashboard' && $action === 'index') {
             return true;
         }
         
@@ -117,7 +121,8 @@ class RoleBasedAccessMiddleware implements MiddlewareInterface
                     ->first();
                 
                 if ($user && $user->role) {
-                    $user->role_type = $user->role->type; // Set role_type for consistency
+                    // User entity now has role relationship loaded (users.role_id -> roles.id)
+                    // Access role type via $user->role->type (from roles table)
                     return $user;
                 }
             }
@@ -141,7 +146,8 @@ class RoleBasedAccessMiddleware implements MiddlewareInterface
                         ->first();
                     
                     if ($user && $user->role) {
-                        $user->role_type = $user->role->type; // Set role_type for consistency
+                        // User entity now has role relationship loaded (users.role_id -> roles.id)
+                        // Access role type via $user->role->type (from roles table)
                         return $user;
                     }
                 }
@@ -154,25 +160,27 @@ class RoleBasedAccessMiddleware implements MiddlewareInterface
     /**
      * Check if user has permission to access the given prefix
      *
-     * @param object $user The user object
+     * @param object $user The user object with role relationship loaded
      * @param string|null $prefix The route prefix
      * @return bool True if user has permission
      */
     private function hasRolePermission(object $user, ?string $prefix): bool
     {
-        $userRole = $user->role_type ?? null;
+        // Get role type from related roles table (users.role_id -> roles.type)
+        $userRole = $user->role ? $user->role->type : null;
         
         if (!$userRole || !$prefix) {
             return false;
         }
         
-        // Define role to prefix mapping
+        // STRICT role to prefix mapping - users can ONLY access their specific role routes
+        // Database: users.role_id -> roles.id -> roles.type
         $rolePermissions = [
-            SiteConstants::ROLE_TYPE_SCIENTIST => ['Scientist'],
-            SiteConstants::ROLE_TYPE_DOCTOR => ['Doctor'],
-            SiteConstants::ROLE_TYPE_TECHNICIAN => ['Technician'],
-            SiteConstants::ROLE_TYPE_ADMIN => ['Admin', 'Doctor', 'Scientist', 'Technician'], // Admins can access all
-            SiteConstants::ROLE_TYPE_SUPER => ['Admin', 'Doctor', 'Scientist', 'Technician', 'System'], // Super admins can access all
+            'scientist' => ['Scientist'],      // roles.type = 'scientist' -> /scientist/* only
+            'doctor' => ['Doctor'],            // roles.type = 'doctor' -> /doctor/* only
+            'technician' => ['Technician'],    // roles.type = 'technician' -> /technician/* only
+            'administrator' => ['Admin'],      // roles.type = 'administrator' -> /admin/* only
+            'super' => ['System'],             // roles.type = 'super' -> /system/* only
         ];
         
         $allowedPrefixes = $rolePermissions[$userRole] ?? [];
@@ -183,18 +191,18 @@ class RoleBasedAccessMiddleware implements MiddlewareInterface
     /**
      * Get appropriate redirect URL for user's role
      *
-     * @param string|null $roleType The user's role type
+     * @param string|null $roleType The user's role type from roles.type
      * @return string The redirect URL
      */
     private function getRedirectUrlForRole(?string $roleType): string
     {
         return match($roleType) {
-            SiteConstants::ROLE_TYPE_SCIENTIST => '/scientist/dashboard',
-            SiteConstants::ROLE_TYPE_DOCTOR => '/doctor/dashboard',
-            SiteConstants::ROLE_TYPE_TECHNICIAN => '/technician/dashboard',
-            SiteConstants::ROLE_TYPE_ADMIN => '/admin/dashboard',
-            SiteConstants::ROLE_TYPE_SUPER => '/system/dashboard',
-            default => '/' // Redirect to home page instead of admin/login
+            'scientist' => '/scientist/dashboard',       // roles.type = 'scientist'
+            'doctor' => '/doctor/dashboard',             // roles.type = 'doctor'
+            'technician' => '/technician/dashboard',     // roles.type = 'technician'
+            'administrator' => '/admin/dashboard',       // roles.type = 'administrator'
+            'super' => '/system/dashboard',              // roles.type = 'super'
+            default => '/' // Redirect to home page for unknown roles
         };
     }
 }

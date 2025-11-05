@@ -10,7 +10,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $this->fetch('title') ?></title>
+    <title><?php echo  $this->fetch('title') ?></title>
     
     <!-- Bootstrap 5 CSS for basic styling -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -92,18 +92,18 @@
         }
     </style>
     
-    <?= $this->fetch('meta') ?>
-    <?= $this->fetch('css') ?>
+    <?php echo  $this->fetch('meta') ?>
+    <?php echo  $this->fetch('css') ?>
 </head>
 <body>
     <div class="print-container">
-        <?= $this->Flash->render() ?>
-        <?= $this->fetch('content') ?>
+        <?php echo  $this->Flash->render() ?>
+        <?php echo  $this->fetch('content') ?>
     </div>
     
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
-    <?= $this->fetch('script') ?>
+    <?php echo  $this->fetch('script') ?>
 </body>
 </html>

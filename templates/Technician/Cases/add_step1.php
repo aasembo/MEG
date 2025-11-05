@@ -22,7 +22,7 @@ $this->assign('title', 'Add New Case - Step 1: Patient Information');
                     </p>
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                    <?= $this->Html->link(
+                    <?php echo  $this->Html->link(
                         '<i class="fas fa-list me-2"></i>All Cases',
                         ['action' => 'index'],
                         ['class' => 'btn btn-light', 'escape' => false]
@@ -95,8 +95,8 @@ $this->assign('title', 'Add New Case - Step 1: Patient Information');
                                 <select name="patient_id" id="patient_id" class="form-select form-select-lg" required>
                                     <option value="">Choose a patient...</option>
                                     <?php foreach ($patients as $id => $name): ?>
-                                        <option value="<?= h($id) ?>" <?= (isset($caseData['patient_id']) && $caseData['patient_id'] == $id) ? 'selected' : '' ?>>
-                                            <?= h($name) ?>
+                                        <option value="<?php echo  h($id) ?>" <?php echo  (isset($caseData['patient_id']) && $caseData['patient_id'] == $id) ? 'selected' : '' ?>>
+                                            <?php echo  h($name) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -120,7 +120,7 @@ $this->assign('title', 'Add New Case - Step 1: Patient Information');
                                     name="date" 
                                     id="date" 
                                     class="form-control form-control-lg" 
-                                    value="<?= h($caseData['date'] ?? date('Y-m-d')) ?>"
+                                    value="<?php echo  h($caseData['date'] ?? date('Y-m-d')) ?>"
                                     required
                                 >
                                 <div class="invalid-feedback">
@@ -143,7 +143,7 @@ $this->assign('title', 'Add New Case - Step 1: Patient Information');
                                     name="time" 
                                     id="time" 
                                     class="form-control form-control-lg" 
-                                    value="<?= h($caseData['time'] ?? '') ?>"
+                                    value="<?php echo  h($caseData['time'] ?? '') ?>"
                                 >
                                 <div class="form-text">
                                     <i class="fas fa-info-circle me-1"></i>
@@ -164,7 +164,7 @@ $this->assign('title', 'Add New Case - Step 1: Patient Information');
                                     rows="4"
                                     placeholder="Describe the patient's symptoms, complaints, or reason for examination..."
                                     required
-                                ><?= h($caseData['symptoms'] ?? '') ?></textarea>
+                                ><?php echo  h($caseData['symptoms'] ?? '') ?></textarea>
                                 <div class="invalid-feedback">
                                     Please describe the patient's symptoms.
                                 </div>
@@ -178,7 +178,7 @@ $this->assign('title', 'Add New Case - Step 1: Patient Information');
                         <div id="alertContainer" class="mt-4"></div>
 
                         <div class="d-flex justify-content-between align-items-center pt-4 border-top mt-4">
-                            <?= $this->Html->link(
+                            <?php echo  $this->Html->link(
                                 '<i class="fas fa-times me-2"></i>Cancel',
                                 ['action' => 'index'],
                                 ['class' => 'btn btn-outline-secondary btn-lg', 'escape' => false]
@@ -249,11 +249,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = Object.fromEntries(formData);
 
             // Send AJAX request to save step 1
-            const response = await fetch('<?= $this->Url->build(['action' => 'saveStep1']) ?>', {
+            const response = await fetch('<?php echo  $this->Url->build(['action' => 'saveStep1']) ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': '<?= $this->request->getAttribute('csrfToken') ?>'
+                    'X-CSRF-Token': '<?php echo  $this->request->getAttribute('csrfToken') ?>'
                 },
                 body: JSON.stringify(data)
             });
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Redirect to step 2 after short delay
                 setTimeout(() => {
-                    window.location.href = '<?= $this->Url->build(['action' => 'addStep2']) ?>';
+                    window.location.href = '<?php echo  $this->Url->build(['action' => 'addStep2']) ?>';
                 }, 1000);
             } else {
                 // Show errors

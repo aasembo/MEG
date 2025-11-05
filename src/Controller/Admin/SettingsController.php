@@ -17,6 +17,17 @@ use Cake\Event\EventInterface;
 class SettingsController extends AppController
 {
     /**
+     * Initialization hook method.
+     *
+     * @return void
+     */
+    public function initialize(): void
+    {
+        parent::initialize();
+        $this->viewBuilder()->setLayout('admin');
+    }
+
+    /**
      * Before filter callback
      *
      * @param \Cake\Event\EventInterface $event Event

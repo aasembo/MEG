@@ -664,7 +664,7 @@ $this->assign('title', 'Case #' . $case->id);
                                 </span>
                             </div>
                             <div class="progress mb-2" style="height: 8px;">
-                                <div class="progress-bar bg-danger" style="width: <?= ($completedStages / 3) * 100 ?>%"></div>
+                                <div class="progress-bar bg-danger" style="width: <?php echo  ($completedStages / 3) * 100 ?>%"></div>
                             </div>
                         </div>
 
@@ -698,28 +698,28 @@ $this->assign('title', 'Case #' . $case->id);
                                 <?php $isCurrentUserRole = ($roleType === $currentUserRole); ?>
                                 <?php $isCompleted = ($report !== null); ?>
                                 
-                                <div class="hierarchy-stage mb-3 <?= $isCompleted ? 'completed' : 'pending' ?> <?= $isCurrentUserRole ? 'current-user' : '' ?>">
-                                    <div class="d-flex align-items-center p-3 rounded border <?= $isCompleted ? 'border-' . $config['color'] . ' bg-' . $config['color'] . ' bg-opacity-10' : 'border-light bg-light' ?>">
+                                <div class="hierarchy-stage mb-3 <?php echo  $isCompleted ? 'completed' : 'pending' ?> <?php echo  $isCurrentUserRole ? 'current-user' : '' ?>">
+                                    <div class="d-flex align-items-center p-3 rounded border <?php echo  $isCompleted ? 'border-' . $config['color'] . ' bg-' . $config['color'] . ' bg-opacity-10' : 'border-light bg-light' ?>">
                                         <!-- Stage Icon & Info -->
                                         <div class="flex-shrink-0 me-3">
-                                            <div class="rounded-circle bg-<?= $isCompleted ? $config['color'] : 'light' ?> text-<?= $isCompleted ? 'white' : 'muted' ?> d-flex align-items-center justify-content-center" 
+                                            <div class="rounded-circle bg-<?php echo  $isCompleted ? $config['color'] : 'light' ?> text-<?php echo  $isCompleted ? 'white' : 'muted' ?> d-flex align-items-center justify-content-center" 
                                                  style="width: 45px; height: 45px;">
-                                                <i class="fas <?= $config['icon'] ?> fa-lg"></i>
+                                                <i class="fas <?php echo  $config['icon'] ?> fa-lg"></i>
                                             </div>
                                         </div>
                                         
                                         <!-- Stage Content -->
                                         <div class="flex-grow-1">
                                             <div class="d-flex align-items-center justify-content-between mb-1">
-                                                <h6 class="mb-0 fw-bold text-<?= $isCompleted ? $config['color'] : 'muted' ?>">
-                                                    <?= $config['title'] ?>
+                                                <h6 class="mb-0 fw-bold text-<?php echo  $isCompleted ? $config['color'] : 'muted' ?>">
+                                                    <?php echo  $config['title'] ?>
                                                     <?php if ($isCurrentUserRole): ?>
-                                                        <span class="badge bg-<?= $config['color'] ?> ms-2">You</span>
+                                                        <span class="badge bg-<?php echo  $config['color'] ?> ms-2">You</span>
                                                     <?php endif; ?>
                                                 </h6>
                                                 
                                                 <?php if ($isCompleted): ?>
-                                                    <span class="badge bg-<?= $config['color'] ?> px-2 py-1">
+                                                    <span class="badge bg-<?php echo  $config['color'] ?> px-2 py-1">
                                                         <i class="fas fa-check-circle me-1"></i>Complete
                                                     </span>
                                                 <?php else: ?>
@@ -729,23 +729,23 @@ $this->assign('title', 'Case #' . $case->id);
                                                 <?php endif; ?>
                                             </div>
                                             
-                                            <p class="mb-2 small text-muted"><?= $config['description'] ?></p>
+                                            <p class="mb-2 small text-muted"><?php echo  $config['description'] ?></p>
                                             
                                             <?php if ($isCompleted): ?>
                                                 <!-- Report Details -->
                                                 <div class="row align-items-center">
                                                     <div class="col-md-8">
                                                         <div class="small">
-                                                            <strong>Report #<?= h($report->id) ?></strong>
+                                                            <strong>Report #<?php echo  h($report->id) ?></strong>
                                                             <?php if (!$isCurrentUserRole && !empty($report->user)): ?>
                                                                 <span class="text-muted">
-                                                                    by <?= h($report->user->first_name . ' ' . $report->user->last_name) ?>
+                                                                    by <?php echo  h($report->user->first_name . ' ' . $report->user->last_name) ?>
                                                                 </span>
                                                             <?php endif; ?>
                                                             <br>
                                                             <span class="text-muted">
                                                                 <i class="fas fa-calendar me-1"></i>
-                                                                <?= $report->created->format('M j, Y g:i A') ?>
+                                                                <?php echo  $report->created->format('M j, Y g:i A') ?>
                                                             </span>
                                                             <?php 
                                                             $statusClass = match($report->status) {
@@ -756,12 +756,12 @@ $this->assign('title', 'Case #' . $case->id);
                                                                 default => 'secondary'
                                                             };
                                                             ?>
-                                                            <span class="badge bg-<?= $statusClass ?> ms-2"><?= h(ucfirst($report->status)) ?></span>
+                                                            <span class="badge bg-<?php echo  $statusClass ?> ms-2"><?php echo  h(ucfirst($report->status)) ?></span>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-4 text-end">
                                                         <div class="btn-group btn-group-sm">
-                                                            <?= $this->Html->link(
+                                                            <?php echo  $this->Html->link(
                                                                 '<i class="fas fa-eye"></i>',
                                                                 ['controller' => 'Reports', 'action' => 'view', $report->id],
                                                                 [
@@ -772,7 +772,7 @@ $this->assign('title', 'Case #' . $case->id);
                                                             ); ?>
                                                             
                                                             <?php if ($isCurrentUserRole): ?>
-                                                                <?= $this->Html->link(
+                                                                <?php echo  $this->Html->link(
                                                                     '<i class="fas fa-edit"></i>',
                                                                     ['controller' => 'Reports', 'action' => 'edit', $report->id],
                                                                     [
@@ -783,7 +783,7 @@ $this->assign('title', 'Case #' . $case->id);
                                                                 ); ?>
                                                             <?php endif; ?>
                                                             
-                                                            <?= $this->Html->link(
+                                                            <?php echo  $this->Html->link(
                                                                 '<i class="fas fa-download"></i>',
                                                                 ['controller' => 'Reports', 'action' => 'download', $report->id, 'pdf'],
                                                                 [
@@ -799,7 +799,7 @@ $this->assign('title', 'Case #' . $case->id);
                                                 <!-- No Report Available -->
                                                 <?php if ($isCurrentUserRole): ?>
                                                     <div class="text-center">
-                                                        <?= $this->Html->link(
+                                                        <?php echo  $this->Html->link(
                                                             '<i class="fas fa-plus me-2"></i>Create My ' . ucfirst($roleType) . ' Report',
                                                             ['controller' => 'Reports', 'action' => 'add', '?' => ['case_id' => $case->id]],
                                                             [
@@ -811,7 +811,7 @@ $this->assign('title', 'Case #' . $case->id);
                                                     </div>
                                                 <?php else: ?>
                                                     <div class="text-center">
-                                                        <small class="text-muted">Awaiting <?= $roleType ?> to complete this stage</small>
+                                                        <small class="text-muted">Awaiting <?php echo  $roleType ?> to complete this stage</small>
                                                     </div>
                                                 <?php endif; ?>
                                             <?php endif; ?>

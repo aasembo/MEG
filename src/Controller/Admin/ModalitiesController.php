@@ -19,6 +19,51 @@ class ModalitiesController extends AppController {
         $query = $this->Modalities->find()
             ->contain(['Hospitals'])
             ->where(['Modalities.hospital_id' => $hospitalId]);
+        
+        // Handle search
+        $searchTerm = $this->request->getQuery('search');
+        if (!empty($searchTerm)) {
+            $query->where([
+                'OR' => [
+                    'Modalities.name LIKE' => '%' . $searchTerm . '%',
+                    'Modalities.description LIKE' => '%' . $searchTerm . '%'
+                ]
+            ]);
+        }
+        
+        // Handle sort dropdown - apply to query directly
+        $sortParam = $this->request->getQuery('sort');
+        if (!empty($sortParam)) {
+            switch ($sortParam) {
+                case 'name':
+                    $query->orderAsc('Modalities.name');
+                    break;
+                case 'name DESC':
+                    $query->orderDesc('Modalities.name');
+                    break;
+                case 'created':
+                    $query->orderAsc('Modalities.created');
+                    break;
+                case 'created DESC':
+                    $query->orderDesc('Modalities.created');
+                    break;
+                default:
+                    $query->orderDesc('Modalities.created');
+                    break;
+            }
+        } else {
+            $query->orderDesc('Modalities.created');
+        }
+        
+        // Set pagination options
+        $this->paginate = [
+            'limit' => 25,
+            'sortableFields' => [
+                'Modalities.name',
+                'Modalities.description', 
+                'Modalities.created'
+            ]
+        ];
             
         $modalities = $this->paginate($query);
         

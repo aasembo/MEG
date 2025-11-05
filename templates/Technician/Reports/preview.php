@@ -16,32 +16,32 @@ $this->assign('title', 'Report Preview #' . $report->id);
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2 class="mb-2 fw-bold">
-                        <i class="fas fa-eye me-2"></i>Report Preview #<?= h($report->id) ?>
+                        <i class="fas fa-eye me-2"></i>Report Preview #<?php echo  h($report->id) ?>
                     </h2>
                     <p class="mb-0">
                         <?php if (isset($report->case->patient_user)): ?>
-                            <i class="fas fa-user-injured me-2"></i><?= $this->PatientMask->displayName($report->case->patient_user) ?>
+                            <i class="fas fa-user-injured me-2"></i><?php echo  $this->PatientMask->displayName($report->case->patient_user) ?>
                         <?php endif; ?>
                         <?php if (isset($report->hospital)): ?>
-                            <span class="ms-3"><i class="fas fa-hospital me-2"></i><?= h($report->hospital->name) ?></span>
+                            <span class="ms-3"><i class="fas fa-hospital me-2"></i><?php echo  h($report->hospital->name) ?></span>
                         <?php endif; ?>
                     </p>
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <div class="btn-group" role="group">
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-download me-1"></i>PDF',
                             ['action' => 'download', $report->id, 'pdf'],
                             ['class' => 'btn btn-light', 'escape' => false, 'target' => '_blank']
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-edit me-1"></i>Edit',
                             ['action' => 'edit', $report->id],
                             ['class' => 'btn btn-light', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-arrow-left me-1"></i>Back',
                             ['action' => 'view', $report->id],
                             ['class' => 'btn btn-outline-light', 'escape' => false]
@@ -68,13 +68,13 @@ $this->assign('title', 'Report Preview #' . $report->id);
                     <!-- Printable Report Content -->
                     <div id="printableReport" class="p-5" style="font-family: 'Times New Roman', serif; line-height: 1.6; min-height: 600px; background: white;">
                         <?php if ($reportContent): ?>
-                            <?= $reportContent ?>
+                            <?php echo  $reportContent ?>
                         <?php else: ?>
                             <div class="text-center py-5">
                                 <i class="fas fa-file-medical-alt fa-4x text-muted mb-3"></i>
                                 <h3 class="text-muted">No Report Content Available</h3>
                                 <p class="text-muted">Please edit the report to add content before previewing.</p>
-                                <?= $this->Html->link(
+                                <?php echo  $this->Html->link(
                                     '<i class="fas fa-edit me-2"></i>Edit Report',
                                     ['action' => 'edit', $report->id],
                                     ['class' => 'btn btn-primary', 'escape' => false]
@@ -98,19 +98,19 @@ $this->assign('title', 'Report Preview #' . $report->id);
                 <div class="card-body bg-white">
                     <div class="d-grid gap-2">
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-edit me-2"></i>Edit Report',
                             ['action' => 'edit', $report->id],
                             ['class' => 'btn btn-warning d-flex align-items-center justify-content-center', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-eye me-2"></i>View Details',
                             ['action' => 'view', $report->id],
                             ['class' => 'btn btn-info d-flex align-items-center justify-content-center', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-medical me-2"></i>View Case',
                             ['controller' => 'Cases', 'action' => 'view', $report->case_id],
                             ['class' => 'btn btn-outline-primary d-flex align-items-center justify-content-center', 'escape' => false]
@@ -130,12 +130,12 @@ $this->assign('title', 'Report Preview #' . $report->id);
                     <table class="table table-borderless table-sm mb-0">
                         <tr>
                             <td class="fw-semibold">Report ID:</td>
-                            <td><span class="badge bg-primary"><?= h($report->id) ?></span></td>
+                            <td><span class="badge bg-primary"><?php echo  h($report->id) ?></span></td>
                         </tr>
                         <tr>
                             <td class="fw-semibold">Case ID:</td>
                             <td>
-                                <?= $this->Html->link(
+                                <?php echo  $this->Html->link(
                                     '#' . $report->case_id,
                                     ['controller' => 'Cases', 'action' => 'view', $report->case_id],
                                     ['class' => 'text-decoration-none']
@@ -146,7 +146,7 @@ $this->assign('title', 'Report Preview #' . $report->id);
                             <td class="fw-semibold">Patient:</td>
                             <td>
                                 <?php if (isset($report->case->patient_user)): ?>
-                                    <?= $this->PatientMask->displayName($report->case->patient_user) ?>
+                                    <?php echo  $this->PatientMask->displayName($report->case->patient_user) ?>
                                 <?php else: ?>
                                     <span class="text-muted">Not assigned</span>
                                 <?php endif; ?>
@@ -155,14 +155,14 @@ $this->assign('title', 'Report Preview #' . $report->id);
                         <tr>
                             <td class="fw-semibold">Status:</td>
                             <td>
-                                <span class="badge bg-<?= $report->status === 'approved' ? 'success' : ($report->status === 'reviewed' ? 'warning' : 'secondary') ?>">
-                                    <?= h(ucfirst($report->status)) ?>
+                                <span class="badge bg-<?php echo  $report->status === 'approved' ? 'success' : ($report->status === 'reviewed' ? 'warning' : 'secondary') ?>">
+                                    <?php echo  h(ucfirst($report->status)) ?>
                                 </span>
                             </td>
                         </tr>
                         <tr>
                             <td class="fw-semibold">Created:</td>
-                            <td><?= $report->created->format('M j, Y') ?></td>
+                            <td><?php echo  $report->created->format('M j, Y') ?></td>
                         </tr>
                     </table>
                 </div>
@@ -177,25 +177,25 @@ $this->assign('title', 'Report Preview #' . $report->id);
                 </div>
                 <div class="card-body bg-white">
                     <div class="d-grid gap-2">
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-pdf me-2"></i>PDF Format',
                             ['action' => 'download', $report->id, 'pdf'],
                             ['class' => 'btn btn-outline-danger d-flex align-items-center justify-content-center', 'escape' => false, 'target' => '_blank']
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-word me-2"></i>Word Document',
                             ['action' => 'download', $report->id, 'docx'],
                             ['class' => 'btn btn-outline-primary d-flex align-items-center justify-content-center', 'escape' => false, 'target' => '_blank']
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-code me-2"></i>HTML Format',
                             ['action' => 'download', $report->id, 'html'],
                             ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false, 'target' => '_blank']
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-alt me-2"></i>Plain Text',
                             ['action' => 'download', $report->id, 'txt'],
                             ['class' => 'btn btn-outline-secondary d-flex align-items-center justify-content-center', 'escape' => false, 'target' => '_blank']

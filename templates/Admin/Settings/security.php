@@ -6,7 +6,6 @@
  */
 
 $this->assign('title', 'Security Policies');
-$this->layout = 'admin';
 
 // Helper function to get nested value with fallback
 function getSettingValue($settings, $path, $default = '') {

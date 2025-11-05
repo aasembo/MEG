@@ -16,9 +16,48 @@ class DepartmentsController extends AppController {
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         $hospitalId = $currentHospital ? $currentHospital->id : 1;
         
+        // Configure pagination with sortable fields
+        $this->paginate = [
+            'limit' => 25,
+            'order' => [
+                'Departments.name' => 'asc'
+            ],
+            'sortableFields' => [
+                'Departments.name',
+                'Departments.description', 
+                'Departments.created',
+                'Departments.modified'
+            ]
+        ];
+        
         $query = $this->Departments->find()
             ->contain(['Hospitals'])
             ->where(['Departments.hospital_id' => $hospitalId]);
+        
+        // Handle search functionality
+        $search = trim($this->request->getQuery('search', ''));
+        if (!empty($search)) {
+            $query->where([
+                'OR' => [
+                    'Departments.name LIKE' => '%' . $search . '%',
+                    'Departments.description LIKE' => '%' . $search . '%'
+                ]
+            ]);
+        }
+        
+        // Handle manual sorting from dropdown (backwards compatibility)
+        $sort = trim($this->request->getQuery('sort', ''));
+        if (!empty($sort) && !$this->request->getQuery('sort_field')) {
+            $allowedSorts = ['name', 'name DESC', 'created', 'created DESC'];
+            if (in_array($sort, $allowedSorts)) {
+                if (strpos($sort, ' DESC') !== false) {
+                    $field = str_replace(' DESC', '', $sort);
+                    $query->orderDesc('Departments.' . $field);
+                } else {
+                    $query->orderAsc('Departments.' . $sort);
+                }
+            }
+        }
             
         $departments = $this->paginate($query);
         

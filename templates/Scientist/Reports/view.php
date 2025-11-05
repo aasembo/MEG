@@ -16,30 +16,30 @@ $this->assign('title', 'Report #' . $report->id);
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2 class="mb-2 fw-bold">
-                        <i class="fas fa-file-medical-alt me-2"></i>Report #<?= h($report->id) ?>
+                        <i class="fas fa-file-medical-alt me-2"></i>Report #<?php echo  h($report->id) ?>
                     </h2>
                     <p class="mb-0">
                         <?php if (isset($report->case->patient_user)): ?>
-                            <i class="fas fa-user-injured me-2"></i><?= $this->PatientMask->displayName($report->case->patient_user) ?>
-                            <span class="ms-3"><i class="fas fa-hospital me-2"></i><?= h($report->hospital->name) ?></span>
+                            <i class="fas fa-user-injured me-2"></i><?php echo  $this->PatientMask->displayName($report->case->patient_user) ?>
+                            <span class="ms-3"><i class="fas fa-hospital me-2"></i><?php echo  h($report->hospital->name) ?></span>
                         <?php endif; ?>
                     </p>
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <div class="btn-group" role="group">
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-eye me-1"></i>Preview',
                             ['action' => 'preview', $report->id],
                             ['class' => 'btn btn-light', 'escape' => false, 'target' => '_blank']
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-edit me-1"></i>Edit',
                             ['action' => 'edit', $report->id],
                             ['class' => 'btn btn-outline-light', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-arrow-left me-1"></i>Back',
                             ['action' => 'index'],
                             ['class' => 'btn btn-outline-light', 'escape' => false]
@@ -66,12 +66,12 @@ $this->assign('title', 'Report #' . $report->id);
                             <table class="table table-borderless table-sm">
                                 <tr>
                                     <td class="fw-semibold">Report ID:</td>
-                                    <td><span class="badge bg-success"><?= h($report->id) ?></span></td>
+                                    <td><span class="badge bg-success"><?php echo  h($report->id) ?></span></td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Case:</td>
                                     <td>
-                                        <?= $this->Html->link(
+                                        <?php echo  $this->Html->link(
                                             '<i class="fas fa-external-link-alt me-1"></i>Case #' . $report->case_id,
                                             ['controller' => 'Cases', 'action' => 'view', $report->case_id],
                                             ['class' => 'text-decoration-none', 'escape' => false]
@@ -82,8 +82,8 @@ $this->assign('title', 'Report #' . $report->id);
                                     <td class="fw-semibold">Patient:</td>
                                     <td>
                                         <?php if (isset($report->case->patient_user)): ?>
-                                            <?= $this->PatientMask->displayName($report->case->patient_user) ?>
-                                            <br><small class="text-muted">ID: <?= h($report->case->patient_user->id) ?></small>
+                                            <?php echo  $this->PatientMask->displayName($report->case->patient_user) ?>
+                                            <br><small class="text-muted">ID: <?php echo  h($report->case->patient_user->id) ?></small>
                                         <?php else: ?>
                                             <span class="text-muted">No patient assigned</span>
                                         <?php endif; ?>
@@ -94,7 +94,7 @@ $this->assign('title', 'Report #' . $report->id);
                                     <td>
                                         <?php if (isset($report->hospital)): ?>
                                             <i class="fas fa-hospital me-1 text-success"></i>
-                                            <?= h($report->hospital->name) ?>
+                                            <?php echo  h($report->hospital->name) ?>
                                         <?php else: ?>
                                             <span class="text-muted">Not assigned</span>
                                         <?php endif; ?>
@@ -107,9 +107,9 @@ $this->assign('title', 'Report #' . $report->id);
                                 <tr>
                                     <td class="fw-semibold">Status:</td>
                                     <td>
-                                        <span class="badge bg-<?= $report->status === 'approved' ? 'success' : ($report->status === 'reviewed' ? 'warning' : 'secondary') ?>">
-                                            <i class="fas fa-<?= $report->status === 'approved' ? 'check-circle' : ($report->status === 'reviewed' ? 'clock' : 'circle') ?> me-1"></i>
-                                            <?= h(ucfirst($report->status)) ?>
+                                        <span class="badge bg-<?php echo  $report->status === 'approved' ? 'success' : ($report->status === 'reviewed' ? 'warning' : 'secondary') ?>">
+                                            <i class="fas fa-<?php echo  $report->status === 'approved' ? 'check-circle' : ($report->status === 'reviewed' ? 'clock' : 'circle') ?> me-1"></i>
+                                            <?php echo  h(ucfirst($report->status)) ?>
                                         </span>
                                     </td>
                                 </tr>
@@ -117,7 +117,7 @@ $this->assign('title', 'Report #' . $report->id);
                                     <td class="fw-semibold">Confidence Score:</td>
                                     <td>
                                         <?php if ($report->confidence_score): ?>
-                                            <span class="badge bg-info"><?= h($report->confidence_score) ?>%</span>
+                                            <span class="badge bg-info"><?php echo  h($report->confidence_score) ?>%</span>
                                         <?php else: ?>
                                             <span class="text-muted">N/A</span>
                                         <?php endif; ?>
@@ -125,11 +125,11 @@ $this->assign('title', 'Report #' . $report->id);
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Created:</td>
-                                    <td><?= $report->created->format('F j, Y \a\t g:i A') ?></td>
+                                    <td><?php echo  $report->created->format('F j, Y \a\t g:i A') ?></td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Last Modified:</td>
-                                    <td><?= $report->modified->format('F j, Y \a\t g:i A') ?></td>
+                                    <td><?php echo  $report->modified->format('F j, Y \a\t g:i A') ?></td>
                                 </tr>
                             </table>
                         </div>
@@ -150,7 +150,7 @@ $this->assign('title', 'Report #' . $report->id);
                 <div class="card-body bg-white">
                     <?php if ($reportContent): ?>
                         <div class="report-content-display p-4 bg-light rounded">
-                            <?= $reportContent ?>
+                            <?php echo  $reportContent ?>
                         </div>
                     <?php else: ?>
                         <div class="alert alert-info mb-0">
@@ -175,7 +175,7 @@ $this->assign('title', 'Report #' . $report->id);
                         <strong>Internal Use Only:</strong> These notes are not included in the final report.
                     </div>
                     <div class="mt-3 p-3 bg-light rounded">
-                        <?= nl2br(h($report->technician_notes)) ?>
+                        <?php echo  nl2br(h($report->technician_notes)) ?>
                     </div>
                 </div>
             </div>
@@ -193,13 +193,13 @@ $this->assign('title', 'Report #' . $report->id);
                 </div>
                 <div class="card-body bg-white">
                     <div class="d-grid gap-2">
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-edit me-2"></i>Edit Report',
                             ['action' => 'edit', $report->id],
                             ['class' => 'btn btn-success d-flex align-items-center justify-content-center', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-eye me-2"></i>Preview',
                             ['action' => 'preview', $report->id],
                             [
@@ -209,19 +209,19 @@ $this->assign('title', 'Report #' . $report->id);
                             ]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-download me-2"></i>Download PDF',
                             ['action' => 'download', $report->id, 'pdf'],
                             ['class' => 'btn btn-info d-flex align-items-center justify-content-center', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-medical me-2"></i>View Case',
                             ['controller' => 'Cases', 'action' => 'view', $report->case_id],
                             ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-list me-2"></i>All Reports',
                             ['action' => 'index'],
                             ['class' => 'btn btn-outline-secondary d-flex align-items-center justify-content-center', 'escape' => false]
@@ -240,41 +240,41 @@ $this->assign('title', 'Report #' . $report->id);
                 <div class="card-body bg-white">
                     <div class="text-center mb-3">
                         <div class="h4 mb-2">
-                            <span class="badge bg-<?= $report->status === 'approved' ? 'success' : ($report->status === 'reviewed' ? 'warning' : 'secondary') ?> p-3">
-                                <i class="fas fa-<?= $report->status === 'approved' ? 'check-circle' : ($report->status === 'reviewed' ? 'clock' : 'circle') ?> me-2"></i>
-                                <?= h(ucfirst($report->status)) ?>
+                            <span class="badge bg-<?php echo  $report->status === 'approved' ? 'success' : ($report->status === 'reviewed' ? 'warning' : 'secondary') ?> p-3">
+                                <i class="fas fa-<?php echo  $report->status === 'approved' ? 'check-circle' : ($report->status === 'reviewed' ? 'clock' : 'circle') ?> me-2"></i>
+                                <?php echo  h(ucfirst($report->status)) ?>
                             </span>
                         </div>
                     </div>
 
                     <div class="progress mb-3" style="height: 8px;">
-                        <div class="progress-bar bg-<?= $report->status === 'approved' ? 'success' : ($report->status === 'reviewed' ? 'warning' : 'secondary') ?>" 
-                             style="width: <?= $report->status === 'approved' ? '100' : ($report->status === 'reviewed' ? '75' : '25') ?>%">
+                        <div class="progress-bar bg-<?php echo  $report->status === 'approved' ? 'success' : ($report->status === 'reviewed' ? 'warning' : 'secondary') ?>" 
+                             style="width: <?php echo  $report->status === 'approved' ? '100' : ($report->status === 'reviewed' ? '75' : '25') ?>%">
                         </div>
                     </div>
 
                     <div class="small">
                         <div class="d-flex align-items-center mb-2">
                             <div class="me-2">
-                                <i class="fas fa-circle text-<?= $report->status === 'pending' ? 'success' : 'success' ?>"></i>
+                                <i class="fas fa-circle text-<?php echo  $report->status === 'pending' ? 'success' : 'success' ?>"></i>
                             </div>
-                            <div class="<?= $report->status === 'pending' ? 'fw-semibold' : 'text-muted' ?>">
+                            <div class="<?php echo  $report->status === 'pending' ? 'fw-semibold' : 'text-muted' ?>">
                                 Draft Created
                             </div>
                         </div>
                         <div class="d-flex align-items-center mb-2">
                             <div class="me-2">
-                                <i class="fas fa-circle text-<?= $report->status === 'reviewed' ? 'success' : ($report->status === 'approved' ? 'success' : 'muted') ?>"></i>
+                                <i class="fas fa-circle text-<?php echo  $report->status === 'reviewed' ? 'success' : ($report->status === 'approved' ? 'success' : 'muted') ?>"></i>
                             </div>
-                            <div class="<?= $report->status === 'reviewed' ? 'fw-semibold' : ($report->status === 'approved' ? 'text-success' : 'text-muted') ?>">
+                            <div class="<?php echo  $report->status === 'reviewed' ? 'fw-semibold' : ($report->status === 'approved' ? 'text-success' : 'text-muted') ?>">
                                 Under Review
                             </div>
                         </div>
                         <div class="d-flex align-items-center">
                             <div class="me-2">
-                                <i class="fas fa-circle text-<?= $report->status === 'approved' ? 'success' : 'muted' ?>"></i>
+                                <i class="fas fa-circle text-<?php echo  $report->status === 'approved' ? 'success' : 'muted' ?>"></i>
                             </div>
-                            <div class="<?= $report->status === 'approved' ? 'fw-semibold text-success' : 'text-muted' ?>">
+                            <div class="<?php echo  $report->status === 'approved' ? 'fw-semibold text-success' : 'text-muted' ?>">
                                 Approved & Final
                             </div>
                         </div>
@@ -284,9 +284,9 @@ $this->assign('title', 'Report #' . $report->id);
                     <div class="border-top pt-3 mt-3">
                         <div class="small text-muted mb-1">Confidence Score</div>
                         <div class="progress" style="height: 20px;">
-                            <div class="progress-bar bg-<?= $report->confidence_score >= 80 ? 'success' : ($report->confidence_score >= 60 ? 'warning' : 'danger') ?>" 
-                                 style="width: <?= $report->confidence_score ?>%">
-                                <?= $report->confidence_score ?>%
+                            <div class="progress-bar bg-<?php echo  $report->confidence_score >= 80 ? 'success' : ($report->confidence_score >= 60 ? 'warning' : 'danger') ?>" 
+                                 style="width: <?php echo  $report->confidence_score ?>%">
+                                <?php echo  $report->confidence_score ?>%
                             </div>
                         </div>
                     </div>
@@ -304,11 +304,11 @@ $this->assign('title', 'Report #' . $report->id);
                 <div class="card-body bg-white">
                     <div class="row text-center">
                         <div class="col-6 border-end">
-                            <div class="h5 mb-1"><?= $report->created->diffInDays() ?></div>
+                            <div class="h5 mb-1"><?php echo  $report->created->diffInDays() ?></div>
                             <div class="small text-muted">Days Old</div>
                         </div>
                         <div class="col-6">
-                            <div class="h5 mb-1"><?= str_word_count(strip_tags($reportContent)) ?></div>
+                            <div class="h5 mb-1"><?php echo  str_word_count(strip_tags($reportContent)) ?></div>
                             <div class="small text-muted">Words</div>
                         </div>
                     </div>
@@ -318,15 +318,15 @@ $this->assign('title', 'Report #' . $report->id);
                     <div class="small">
                         <div class="d-flex justify-content-between mb-1">
                             <span>Created:</span>
-                            <strong><?= $report->created->format('M j, Y') ?></strong>
+                            <strong><?php echo  $report->created->format('M j, Y') ?></strong>
                         </div>
                         <div class="d-flex justify-content-between mb-1">
                             <span>Last modified:</span>
-                            <strong><?= $report->modified->diffForHumans() ?></strong>
+                            <strong><?php echo  $report->modified->diffForHumans() ?></strong>
                         </div>
                         <div class="d-flex justify-content-between">
                             <span>Content length:</span>
-                            <strong><?= number_format(strlen($reportContent)) ?> chars</strong>
+                            <strong><?php echo  number_format(strlen($reportContent)) ?> chars</strong>
                         </div>
                     </div>
                 </div>
@@ -341,25 +341,25 @@ $this->assign('title', 'Report #' . $report->id);
                 </div>
                 <div class="card-body bg-white">
                     <div class="d-grid gap-2">
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-pdf me-2"></i>PDF Format',
                             ['action' => 'download', $report->id, 'pdf'],
                             ['class' => 'btn btn-outline-danger d-flex align-items-center justify-content-center', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-word me-2"></i>Word Document',
                             ['action' => 'download', $report->id, 'docx'],
                             ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-code me-2"></i>HTML Format',
                             ['action' => 'download', $report->id, 'html'],
                             ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false]
                         ); ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-file-alt me-2"></i>Plain Text',
                             ['action' => 'download', $report->id, 'txt'],
                             ['class' => 'btn btn-outline-secondary d-flex align-items-center justify-content-center', 'escape' => false]

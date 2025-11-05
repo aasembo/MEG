@@ -101,35 +101,35 @@
 <body>
     <!-- Header -->
     <div class="header">
-        <h1><?= h($hospital->name ?? 'Medical Center') ?></h1>
-        <h2><?= h($report_name ?? 'Magnetoencephalography Report (MEG)') ?></h2>
+        <h1><?php echo  h($hospital->name ?? 'Medical Center') ?></h1>
+        <h2><?php echo  h($report_name ?? 'Magnetoencephalography Report (MEG)') ?></h2>
     </div>
 
     <!-- Patient Information -->
     <div class="patient-info">
         <div class="info-row">
             <span class="label">Name:</span>
-            <span class="value"><?= h($patientLastName) ?>, <?= h($patientFirstName) ?></span>
+            <span class="value"><?php echo  h($patientLastName) ?>, <?php echo  h($patientFirstName) ?></span>
         </div>
         <div class="info-row">
             <span class="label">Date of Birth:</span>
-            <span class="value"><?= h($patientDob) ?></span>
+            <span class="value"><?php echo  h($patientDob) ?></span>
         </div>
         <div class="info-row">
             <span class="label">MRN:</span>
-            <span class="value"><?= h($patientMrn) ?> &nbsp;&nbsp;&nbsp; <strong>FIN:</strong> <?= h($patientFin) ?></span>
+            <span class="value"><?php echo  h($patientMrn) ?> &nbsp;&nbsp;&nbsp; <strong>FIN:</strong> <?php echo  h($patientFin) ?></span>
         </div>
         <div class="info-row">
             <span class="label">Date of Study:</span>
-            <span class="value"><?= h($studyDate) ?></span>
+            <span class="value"><?php echo  h($studyDate) ?></span>
         </div>
         <div class="info-row">
             <span class="label">Referring Physician:</span>
-            <span class="value"><?= h($referringPhysician) ?></span>
+            <span class="value"><?php echo  h($referringPhysician) ?></span>
         </div>
         <div class="info-row">
             <span class="label">MEG ID:</span>
-            <span class="value"><?= h($megId) ?></span>
+            <span class="value"><?php echo  h($megId) ?></span>
         </div>
     </div>
 
@@ -138,19 +138,19 @@
         <!-- AI-Generated Report Structure -->
         <?php foreach ($sections as $section): ?>
             <div class="section">
-                <div class="section-title"><?= h($section['title']) ?>:</div>
+                <div class="section-title"><?php echo  h($section['title']) ?>:</div>
                 
                 <!-- Main section content -->
                 <?php if (!empty($section['content'])): ?>
-                    <?= $section['content'] ?>
+                    <?php echo  $section['content'] ?>
                 <?php endif; ?>
                 
                 <!-- Subsections -->
                 <?php if (!empty($section['subsections'])): ?>
                     <?php foreach ($section['subsections'] as $subsection): ?>
                         <div class="indented">
-                            <p><strong><?= h($subsection['title']) ?>:</strong></p>
-                            <?= $subsection['content'] ?>
+                            <p><strong><?php echo  h($subsection['title']) ?>:</strong></p>
+                            <?php echo  $subsection['content'] ?>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -161,20 +161,20 @@
         <!-- Patient History -->
         <div class="section">
             <div class="section-title">Patient History:</div>
-            <p><?= h($age ?? 'N/A') ?>-year-old <?= h($gender ?? 'patient') ?> <?= !empty($medications) ? 'on ' . h($medications) : 'with no reported medications' ?>.</p>
+            <p><?php echo  h($age ?? 'N/A') ?>-year-old <?php echo  h($gender ?? 'patient') ?> <?php echo  !empty($medications) ? 'on ' . h($medications) : 'with no reported medications' ?>.</p>
         </div>
 
         <!-- MEG Recordings -->
         <div class="section">
             <div class="section-title">MEG Recordings:</div>
             <p>
-                The patient underwent magnetoencephalography (MEG) <?= h($sedationText ?? 'without sedation') ?>. 
+                The patient underwent magnetoencephalography (MEG) <?php echo  h($sedationText ?? 'without sedation') ?>. 
                 The following procedures were performed:
             </p>
             <ul>
                 <?php if (isset($proceduresList) && !empty($proceduresList)): ?>
                     <?php foreach ($proceduresList as $procedure): ?>
-                        <li><?= h($procedure) ?></li>
+                        <li><?php echo  h($procedure) ?></li>
                     <?php endforeach; ?>
                 <?php else: ?>
                     <li>Standard MEG recording</li>
@@ -198,7 +198,7 @@
         <?php if (isset($technicalDescriptions) && !empty($technicalDescriptions)): ?>
             <?php foreach ($technicalDescriptions as $description): ?>
                 <div class="section">
-                    <?= $description ?>
+                    <?php echo  $description ?>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
@@ -208,7 +208,7 @@
             <div class="section-title">MSI Conclusions:</div>
             <?php if (isset($msiConclusions) && !empty($msiConclusions)): ?>
                 <?php foreach ($msiConclusions as $conclusion): ?>
-                    <p><?= $conclusion ?></p>
+                    <p><?php echo  $conclusion ?></p>
                 <?php endforeach; ?>
             <?php else: ?>
                 <p>Detailed analysis and conclusions will be provided following comprehensive review of all acquired data.</p>
@@ -219,7 +219,7 @@
         <?php if (isset($additionalNotes) && !empty($additionalNotes)): ?>
             <div class="section">
                 <div class="section-title">Additional Notes:</div>
-                <p><?= nl2br(h($additionalNotes)) ?></p>
+                <p><?php echo  nl2br(h($additionalNotes)) ?></p>
             </div>
         <?php endif; ?>
     <?php endif; ?>
@@ -232,7 +232,7 @@
             Board Certified Clinical Neuropsychologist<br>
             MEG Program Director
         </p>
-        <p>Date: <?= date('F d, Y') ?></p>
+        <p>Date: <?php echo  date('F d, Y') ?></p>
     </div>
 </body>
 </html>

@@ -20,7 +20,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2 class="mb-2 fw-bold">
-                        <i class="fas fa-edit me-2"></i>Edit Case #<?= h($case->id) ?>
+                        <i class="fas fa-edit me-2"></i>Edit Case #<?php echo  h($case->id) ?>
                     </h2>
                     <p class="mb-0">
                         <i class="fas fa-procedures me-2"></i>Step 2: Department & Procedures
@@ -28,12 +28,12 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <div class="btn-group" role="group">
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-eye me-2"></i>View Case',
                             ['action' => 'view', $case->id],
                             ['class' => 'btn btn-light', 'escape' => false]
                         ) ?>
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-list me-2"></i>All Cases',
                             ['action' => 'index'],
                             ['class' => 'btn btn-light', 'escape' => false]
@@ -99,20 +99,20 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                     <div class="row g-2">
                         <div class="col-md-3">
                             <small class="text-muted fw-semibold">Case ID:</small>
-                            <div class="fw-medium">#<?= h($case->id) ?></div>
+                            <div class="fw-medium">#<?php echo  h($case->id) ?></div>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted fw-semibold">Patient:</small>
-                            <div class="fw-medium"><?= h($step1Data['patient_name'] ?? 'Not selected') ?></div>
+                            <div class="fw-medium"><?php echo  h($step1Data['patient_name'] ?? 'Not selected') ?></div>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted fw-semibold">Case Date:</small>
-                            <div><?= h(date('M d, Y', strtotime($step1Data['date'] ?? 'now'))) ?></div>
+                            <div><?php echo  h(date('M d, Y', strtotime($step1Data['date'] ?? 'now'))) ?></div>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted fw-semibold">Status:</small>
                             <div>
-                                <span class="badge bg-info"><?= h(ucfirst($case->technician_status ?? 'draft')) ?></span>
+                                <span class="badge bg-info"><?php echo  h(ucfirst($case->technician_status ?? 'draft')) ?></span>
                             </div>
                         </div>
                     </div>
@@ -120,7 +120,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                         <div class="col-12">
                             <small class="text-muted fw-semibold">Symptoms:</small>
                             <div class="small bg-light rounded p-2" style="max-height: 60px; overflow-y: auto;">
-                                <?= h($step1Data['symptoms'] ?? 'No symptoms recorded') ?>
+                                <?php echo  h($step1Data['symptoms'] ?? 'No symptoms recorded') ?>
                             </div>
                         </div>
                     </div>
@@ -157,11 +157,11 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                                 <div>
                                                     <h6 class="mb-1"><i class="fas fa-building me-2"></i>Department</h6>
                                                     <div class="fw-semibold text-warning">
-                                                        <?= h($departments[$aiRecommendations['department_id']] ?? 'Unknown') ?>
+                                                        <?php echo  h($departments[$aiRecommendations['department_id']] ?? 'Unknown') ?>
                                                     </div>
                                                 </div>
                                                 <button type="button" class="btn btn-sm btn-warning" id="applyDepartment" 
-                                                        data-department-id="<?= h($aiRecommendations['department_id']) ?>">
+                                                        data-department-id="<?php echo  h($aiRecommendations['department_id']) ?>">
                                                     <i class="fas fa-check me-1"></i>Apply
                                                 </button>
                                             </div>
@@ -179,11 +179,11 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                                 <div>
                                                     <h6 class="mb-1"><i class="fas fa-pills me-2"></i>Sedation</h6>
                                                     <div class="fw-semibold text-warning">
-                                                        <?= h($sedations[$aiRecommendations['sedation_id']] ?? 'Unknown') ?>
+                                                        <?php echo  h($sedations[$aiRecommendations['sedation_id']] ?? 'Unknown') ?>
                                                     </div>
                                                 </div>
                                                 <button type="button" class="btn btn-sm btn-warning" id="applySedation"
-                                                        data-sedation-id="<?= h($aiRecommendations['sedation_id']) ?>">
+                                                        data-sedation-id="<?php echo  h($aiRecommendations['sedation_id']) ?>">
                                                     <i class="fas fa-check me-1"></i>Apply
                                                 </button>
                                             </div>
@@ -201,11 +201,11 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                                 <div>
                                                     <h6 class="mb-1"><i class="fas fa-exclamation-circle me-2"></i>Priority</h6>
                                                     <div class="fw-semibold text-warning">
-                                                        <?= h(ucfirst($aiRecommendations['priority'])) ?> Priority
+                                                        <?php echo  h(ucfirst($aiRecommendations['priority'])) ?> Priority
                                                     </div>
                                                 </div>
                                                 <button type="button" class="btn btn-sm btn-warning" id="applyPriority"
-                                                        data-priority="<?= h($aiRecommendations['priority']) ?>">
+                                                        data-priority="<?php echo  h($aiRecommendations['priority']) ?>">
                                                     <i class="fas fa-check me-1"></i>Apply
                                                 </button>
                                             </div>
@@ -238,11 +238,11 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                 <select name="department_id" id="department_id" class="form-select form-select-lg" required>
                                     <option value="">Select Department...</option>
                                     <?php foreach ($departments as $id => $name): ?>
-                                        <option value="<?= h($id) ?>" 
-                                            <?= (isset($step2Data['department_id']) && $step2Data['department_id'] == $id) ? 'selected' : '' ?>
-                                            <?= (!empty($aiRecommendations['department_id']) && $aiRecommendations['department_id'] == $id) ? 'data-ai-recommended="true"' : '' ?>>
-                                            <?= h($name) ?>
-                                            <?= (!empty($aiRecommendations['department_id']) && $aiRecommendations['department_id'] == $id) ? ' ★' : '' ?>
+                                        <option value="<?php echo  h($id) ?>" 
+                                            <?php echo  (isset($step2Data['department_id']) && $step2Data['department_id'] == $id) ? 'selected' : '' ?>
+                                            <?php echo  (!empty($aiRecommendations['department_id']) && $aiRecommendations['department_id'] == $id) ? 'data-ai-recommended="true"' : '' ?>>
+                                            <?php echo  h($name) ?>
+                                            <?php echo  (!empty($aiRecommendations['department_id']) && $aiRecommendations['department_id'] == $id) ? ' ★' : '' ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -264,11 +264,11 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                 <select name="sedation_id" id="sedation_id" class="form-select form-select-lg">
                                     <option value="">No Sedation Required</option>
                                     <?php foreach ($sedations as $id => $name): ?>
-                                        <option value="<?= h($id) ?>" 
-                                            <?= (isset($step2Data['sedation_id']) && $step2Data['sedation_id'] == $id) ? 'selected' : '' ?>
-                                            <?= (!empty($aiRecommendations['sedation_id']) && $aiRecommendations['sedation_id'] == $id) ? 'data-ai-recommended="true"' : '' ?>>
-                                            <?= h($name) ?>
-                                            <?= (!empty($aiRecommendations['sedation_id']) && $aiRecommendations['sedation_id'] == $id) ? ' ★' : '' ?>
+                                        <option value="<?php echo  h($id) ?>" 
+                                            <?php echo  (isset($step2Data['sedation_id']) && $step2Data['sedation_id'] == $id) ? 'selected' : '' ?>
+                                            <?php echo  (!empty($aiRecommendations['sedation_id']) && $aiRecommendations['sedation_id'] == $id) ? 'data-ai-recommended="true"' : '' ?>>
+                                            <?php echo  h($name) ?>
+                                            <?php echo  (!empty($aiRecommendations['sedation_id']) && $aiRecommendations['sedation_id'] == $id) ? ' ★' : '' ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -287,28 +287,28 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                 <select name="priority" id="priority" class="form-select form-select-lg" required>
                                     <option value="">Choose priority level...</option>
                                     <option value="low" 
-                                        <?= (isset($step2Data['priority']) && $step2Data['priority'] == 'low') ? 'selected' : '' ?>
-                                        <?= (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'low') ? 'data-ai-recommended="true"' : '' ?>>
+                                        <?php echo  (isset($step2Data['priority']) && $step2Data['priority'] == 'low') ? 'selected' : '' ?>
+                                        <?php echo  (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'low') ? 'data-ai-recommended="true"' : '' ?>>
                                         Low Priority - Routine case
-                                        <?= (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'low') ? ' ★' : '' ?>
+                                        <?php echo  (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'low') ? ' ★' : '' ?>
                                     </option>
                                     <option value="medium" 
-                                        <?= (isset($step2Data['priority']) && $step2Data['priority'] == 'medium') ? 'selected' : 'selected' ?>
-                                        <?= (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'medium') ? 'data-ai-recommended="true"' : '' ?>>
+                                        <?php echo  (isset($step2Data['priority']) && $step2Data['priority'] == 'medium') ? 'selected' : 'selected' ?>
+                                        <?php echo  (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'medium') ? 'data-ai-recommended="true"' : '' ?>>
                                         Medium Priority - Standard case
-                                        <?= (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'medium') ? ' ★' : '' ?>
+                                        <?php echo  (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'medium') ? ' ★' : '' ?>
                                     </option>
                                     <option value="high" 
-                                        <?= (isset($step2Data['priority']) && $step2Data['priority'] == 'high') ? 'selected' : '' ?>
-                                        <?= (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'high') ? 'data-ai-recommended="true"' : '' ?>>
+                                        <?php echo  (isset($step2Data['priority']) && $step2Data['priority'] == 'high') ? 'selected' : '' ?>
+                                        <?php echo  (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'high') ? 'data-ai-recommended="true"' : '' ?>>
                                         High Priority - Expedited case
-                                        <?= (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'high') ? ' ★' : '' ?>
+                                        <?php echo  (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'high') ? ' ★' : '' ?>
                                     </option>
                                     <option value="urgent" 
-                                        <?= (isset($step2Data['priority']) && $step2Data['priority'] == 'urgent') ? 'selected' : '' ?>
-                                        <?= (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'urgent') ? 'data-ai-recommended="true"' : '' ?>>
+                                        <?php echo  (isset($step2Data['priority']) && $step2Data['priority'] == 'urgent') ? 'selected' : '' ?>
+                                        <?php echo  (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'urgent') ? 'data-ai-recommended="true"' : '' ?>>
                                         Urgent - Emergency case
-                                        <?= (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'urgent') ? ' ★' : '' ?>
+                                        <?php echo  (!empty($aiRecommendations['priority']) && $aiRecommendations['priority'] == 'urgent') ? ' ★' : '' ?>
                                     </option>
                                 </select>
                                 <div class="invalid-feedback">
@@ -332,7 +332,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                     class="form-control form-control-lg" 
                                     rows="3"
                                     placeholder="Any additional information or special requirements..."
-                                ><?= h($step2Data['notes'] ?? '') ?></textarea>
+                                ><?php echo  h($step2Data['notes'] ?? '') ?></textarea>
                                 <div class="form-text">
                                     <i class="fas fa-info-circle me-1"></i>
                                     Optional: Any special instructions or notes for this case.
@@ -389,7 +389,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                                 }
                                                 foreach (array_keys($modalities) as $modality): 
                                                 ?>
-                                                    <option value="<?= h($modality) ?>"><?= h($modality) ?></option>
+                                                    <option value="<?php echo  h($modality) ?>"><?php echo  h($modality) ?></option>
                                                 <?php endforeach; ?>
                                             </select>
                                         </div>
@@ -434,9 +434,9 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                                         $isAiRecommended = in_array($examProc->id, $aiRecommendedIds);
                                                     ?>
                                                         <div class="col-12 procedure-item" 
-                                                             data-name="<?= h(strtolower($examProc->exam->name ?? '') . ' ' . strtolower($examProc->procedure->name ?? '')) ?>"
-                                                             data-modality="<?= h($examProc->exam->modality->name ?? '') ?>"
-                                                             data-ai-recommended="<?= $isAiRecommended ? 'true' : 'false' ?>">
+                                                             data-name="<?php echo  h(strtolower($examProc->exam->name ?? '') . ' ' . strtolower($examProc->procedure->name ?? '')) ?>"
+                                                             data-modality="<?php echo  h($examProc->exam->modality->name ?? '') ?>"
+                                                             data-ai-recommended="<?php echo  $isAiRecommended ? 'true' : 'false' ?>">
                                                             <div class="card border-0 bg-light procedure-card" style="cursor: pointer;">
                                                                 <div class="card-body py-2 px-3">
                                                                     <div class="form-check d-flex align-items-center">
@@ -444,28 +444,28 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                                                             class="form-check-input procedure-checkbox me-3" 
                                                                             type="checkbox" 
                                                                             name="exam_procedures[]" 
-                                                                            value="<?= $examProc->id ?>" 
-                                                                            id="proc_<?= $examProc->id ?>"
+                                                                            value="<?php echo  $examProc->id ?>" 
+                                                                            id="proc_<?php echo  $examProc->id ?>"
                                                                             form="step2Form"
-                                                                            <?= (isset($step2Data['exam_procedures']) && in_array($examProc->id, $step2Data['exam_procedures'])) ? 'checked' : '' ?>
-                                                                            <?= $isAiRecommended ? 'data-ai-recommended="true"' : '' ?>
+                                                                            <?php echo  (isset($step2Data['exam_procedures']) && in_array($examProc->id, $step2Data['exam_procedures'])) ? 'checked' : '' ?>
+                                                                            <?php echo  $isAiRecommended ? 'data-ai-recommended="true"' : '' ?>
                                                                         >
-                                                                        <label class="form-check-label flex-grow-1" for="proc_<?= $examProc->id ?>">
+                                                                        <label class="form-check-label flex-grow-1" for="proc_<?php echo  $examProc->id ?>">
                                                                             <div class="d-flex justify-content-between align-items-center">
                                                                                 <div class="flex-grow-1">
                                                                                     <div class="fw-semibold text-primary mb-1">
-                                                                                        <?= $isAiRecommended ? '★ ' : '' ?><?= h($examProc->exam->name ?? 'Unknown Exam') ?>
+                                                                                        <?php echo  $isAiRecommended ? '★ ' : '' ?><?php echo  h($examProc->exam->name ?? 'Unknown Exam') ?>
                                                                                         <?php if ($isAiRecommended): ?>
                                                                                             <span class="badge bg-warning text-dark ms-2">AI</span>
                                                                                         <?php endif; ?>
                                                                                     </div>
                                                                                     <div class="small text-muted">
-                                                                                        <?= h($examProc->procedure->name ?? 'Unknown Procedure') ?>
+                                                                                        <?php echo  h($examProc->procedure->name ?? 'Unknown Procedure') ?>
                                                                                     </div>
                                                                                 </div>
                                                                                 <div class="text-end">
                                                                                     <?php if (!empty($examProc->exam->modality->name)): ?>
-                                                                                        <span class="badge bg-secondary"><?= h($examProc->exam->modality->name) ?></span>
+                                                                                        <span class="badge bg-secondary"><?php echo  h($examProc->exam->modality->name) ?></span>
                                                                                     <?php endif; ?>
                                                                                 </div>
                                                                             </div>
@@ -491,11 +491,11 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                                         <div class="row text-center">
                                             <div class="col-4">
                                                 <div class="small text-muted">Total Available</div>
-                                                <div class="fw-bold text-primary" id="totalCount"><?= count($examsProcedures) ?></div>
+                                                <div class="fw-bold text-primary" id="totalCount"><?php echo  count($examsProcedures) ?></div>
                                             </div>
                                             <div class="col-4">
                                                 <div class="small text-muted">AI Recommended</div>
-                                                <div class="fw-bold text-warning" id="aiCount"><?= count($aiRecommendedProcs) ?></div>
+                                                <div class="fw-bold text-warning" id="aiCount"><?php echo  count($aiRecommendedProcs) ?></div>
                                             </div>
                                             <div class="col-4">
                                                 <div class="small text-muted">Selected</div>
@@ -514,7 +514,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
 
             <!-- Navigation -->
             <div class="d-flex justify-content-between align-items-center py-3">
-                <?= $this->Html->link(
+                <?php echo  $this->Html->link(
                     '<i class="fas fa-arrow-left me-2"></i>Back to Step 1',
                     ['action' => 'editStep1', $case->id],
                     ['class' => 'btn btn-outline-secondary btn-lg', 'escape' => false]
@@ -537,7 +537,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 2: Department & Proc
                 <div class="d-flex align-items-center">
                     <i class="fas fa-info-circle me-3 fa-lg"></i>
                     <div>
-                        <h6 class="mb-1">Step 2 of 3 - Editing Case #<?= h($case->id) ?></h6>
+                        <h6 class="mb-1">Step 2 of 3 - Editing Case #<?php echo  h($case->id) ?></h6>
                         <div class="small mb-0">
                             Update department, set case priority, and choose the exams/procedures to be performed. You can select multiple procedures as needed.
                         </div>
@@ -812,11 +812,11 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Number of procedures:', selectedProcedures.length);
 
             // Send AJAX request
-            const response = await fetch('<?= $this->Url->build(['action' => 'saveEditStep2', $case->id]) ?>', {
+            const response = await fetch('<?php echo  $this->Url->build(['action' => 'saveEditStep2', $case->id]) ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': '<?= $this->request->getAttribute('csrfToken') ?>'
+                    'X-CSRF-Token': '<?php echo  $this->request->getAttribute('csrfToken') ?>'
                 },
                 body: JSON.stringify(data)
             });
@@ -836,7 +836,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
 
                 setTimeout(() => {
-                    window.location.href = '<?= $this->Url->build(['action' => 'editStep3', $case->id]) ?>';
+                    window.location.href = '<?php echo  $this->Url->build(['action' => 'editStep3', $case->id]) ?>';
                 }, 1000);
             } else {
                 let errorHtml = '<div class="alert alert-danger border-0" role="alert">';

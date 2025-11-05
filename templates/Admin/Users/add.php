@@ -7,581 +7,290 @@
 ?>
 <?php $this->assign('title', 'Add New User'); ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h3 mb-0">
-            <i class="fas fa-user-plus me-2 text-primary"></i>Add New User
-        </h1>
-        <p class="text-muted mb-0">Create a new user account</p>
-    </div>
-    <div>
-        <?php echo $this->Html->link(
-            '<i class="fas fa-arrow-left me-2"></i>Back to Users',
-            ['action' => 'index'],
-            ['class' => 'btn btn-secondary', 'escape' => false]
-        ) ?>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-user-circle me-2"></i>User Information
-                </h5>
-            </div>
-            <div class="card-body">
-                <?php echo $this->Form->create($user, ['class' => 'needs-validation', 'novalidate' => true]) ?>
-                
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <?php echo $this->Form->control('username', [
-                            'type' => 'text',
-                            'class' => 'form-control' . ($user->hasErrors('username') ? ' is-invalid' : ''),
-                            'label' => [
-                                'text' => 'Username <span class="text-danger">*</span>',
-                                'escape' => false,
-                                'class' => 'form-label'
-                            ],
-                            'required' => true,
-                            'placeholder' => 'Enter username',
-                            'div' => false,
-                            'templates' => [
-                                'inputContainer' => '{{content}}',
-                                'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                            ]
-                        ]) ?>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <?php echo $this->Form->control('email', [
-                            'type' => 'email',
-                            'class' => 'form-control' . ($user->hasErrors('email') ? ' is-invalid' : ''),
-                            'label' => [
-                                'text' => 'Email Address <span class="text-danger">*</span>',
-                                'escape' => false,
-                                'class' => 'form-label'
-                            ],
-                            'required' => true,
-                            'placeholder' => 'user@example.com',
-                            'div' => false,
-                            'templates' => [
-                                'inputContainer' => '{{content}}',
-                                'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                            ]
-                        ]) ?>
-                    </div>
+<div class="container-fluid px-4 py-4">
+    <!-- Page Header -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-dark text-warning p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-2 fw-bold">
+                        <i class="fas fa-user-plus me-2"></i>Add New User
+                    </h2>
+                    <p class="mb-0 text-white-50">
+                        <i class="fas fa-shield-alt me-2"></i>Create a new user account for the system
+                    </p>
                 </div>
-                
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <?php echo $this->Form->control('first_name', [
-                            'type' => 'text',
-                            'class' => 'form-control' . ($user->hasErrors('first_name') ? ' is-invalid' : ''),
-                            'label' => [
-                                'text' => 'First Name <span class="text-danger">*</span>',
-                                'escape' => false,
-                                'class' => 'form-label'
-                            ],
-                            'required' => true,
-                            'placeholder' => 'Enter first name',
-                            'div' => false,
-                            'templates' => [
-                                'inputContainer' => '{{content}}',
-                                'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                            ]
-                        ]) ?>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <?php echo $this->Form->control('last_name', [
-                            'type' => 'text',
-                            'class' => 'form-control' . ($user->hasErrors('last_name') ? ' is-invalid' : ''),
-                            'label' => [
-                                'text' => 'Last Name <span class="text-danger">*</span>',
-                                'escape' => false,
-                                'class' => 'form-label'
-                            ],
-                            'required' => true,
-                            'placeholder' => 'Enter last name',
-                            'div' => false,
-                            'templates' => [
-                                'inputContainer' => '{{content}}',
-                                'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                            ]
-                        ]) ?>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <?php echo $this->Form->control('role_id', [
-                            'type' => 'select',
-                            'options' => $roles,
-                            'empty' => 'Select a role...',
-                            'class' => 'form-select' . ($user->hasErrors('role_id') ? ' is-invalid' : ''),
-                            'label' => [
-                                'text' => 'User Role <span class="text-danger">*</span>',
-                                'escape' => false,
-                                'class' => 'form-label'
-                            ],
-                            'required' => true,
-                            'div' => false,
-                            'id' => 'role-select',
-                            'data-role-types' => json_encode($roleTypes),
-                            'templates' => [
-                                'inputContainer' => '{{content}}',
-                                'select' => '<select name="{{name}}" {{attrs}}>{{content}}</select>',
-                                'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                            ]
-                        ]) ?>
-                    </div>
-                    
-                    <div class="col-md-4 mb-3" id="hospital-field">
-                        <label class="form-label">Hospital <span class="text-danger">*</span></label>
-                        <div class="form-control-plaintext border p-2 bg-light rounded">
-                            <i class="fas fa-hospital me-2 text-primary"></i>
-                            <?php echo h($currentHospital->name) ?>
-                            <small class="text-muted d-block">Current hospital context</small>
-                        </div>
-                        <input type="hidden" name="hospital_id" value="<?php echo $currentHospital->id ?>">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <?php echo $this->Form->control('status', [
-                            'type' => 'select',
-                            'options' => [
-                                'active' => 'Active',
-                                'inactive' => 'Inactive'
-                            ],
-                            'class' => 'form-select' . ($user->hasErrors('status') ? ' is-invalid' : ''),
-                            'label' => [
-                                'text' => 'Account Status <span class="text-danger">*</span>',
-                                'escape' => false,
-                                'class' => 'form-label'
-                            ],
-                            'default' => 'active',
-                            'required' => true,
-                            'div' => false,
-                            'templates' => [
-                                'inputContainer' => '{{content}}',
-                                'select' => '<select name="{{name}}" {{attrs}}>{{content}}</select>',
-                                'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                            ]
-                        ]) ?>
-                    </div>
-                </div>
-                
-                <!-- Specialized Role Fields -->
-                <div id="specialized-fields" style="display: none;">
-                    <hr class="my-4">
-                    <h6 class="text-muted mb-3">
-                        <i class="fas fa-user-cog me-2"></i>Additional Role-Specific Information
-                    </h6>
-                    
-                    <!-- Doctor Fields -->
-                    <div id="doctor-fields" class="role-fields" style="display: none;">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <?php echo $this->Form->control('doctor_phone', [
-                                    'type' => 'text',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Phone Number',
-                                        'class' => 'form-label'
-                                    ],
-                                    'placeholder' => 'Enter phone number',
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Nurse Fields -->
-                    <div id="nurse-fields" class="role-fields" style="display: none;">
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <?php echo $this->Form->control('nurse_phone', [
-                                    'type' => 'text',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Phone Number',
-                                        'class' => 'form-label'
-                                    ],
-                                    'placeholder' => 'Enter phone number',
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <?php echo $this->Form->control('nurse_gender', [
-                                    'type' => 'select',
-                                    'options' => [
-                                        '' => 'Select Gender',
-                                        'M' => 'Male',
-                                        'F' => 'Female',
-                                        'O' => 'Other'
-                                    ],
-                                    'class' => 'form-select',
-                                    'label' => [
-                                        'text' => 'Gender <span class="text-danger">*</span>',
-                                        'escape' => false,
-                                        'class' => 'form-label'
-                                    ],
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'select' => '<select name="{{name}}" {{attrs}}>{{content}}</select>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <?php echo $this->Form->control('nurse_dob', [
-                                    'type' => 'date',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Date of Birth <span class="text-danger">*</span>',
-                                        'escape' => false,
-                                        'class' => 'form-label'
-                                    ],
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <?php echo $this->Form->control('nurse_age', [
-                                    'type' => 'number',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Age <span class="text-danger">*</span>',
-                                        'escape' => false,
-                                        'class' => 'form-label'
-                                    ],
-                                    'min' => 18,
-                                    'max' => 100,
-                                    'placeholder' => 'Enter age',
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <?php echo $this->Form->control('nurse_record_number', [
-                                    'type' => 'text',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Record Number <span class="text-danger">*</span>',
-                                        'escape' => false,
-                                        'class' => 'form-label'
-                                    ],
-                                    'placeholder' => 'Enter unique record number',
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Scientist Fields -->
-                    <div id="scientist-fields" class="role-fields" style="display: none;">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <?php echo $this->Form->control('scientist_phone', [
-                                    'type' => 'text',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Phone Number',
-                                        'class' => 'form-label'
-                                    ],
-                                    'placeholder' => 'Enter phone number',
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Patient Fields -->
-                    <div id="patient-fields" class="role-fields" style="display: none;">
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <?php echo $this->Form->control('patient_gender', [
-                                    'type' => 'select',
-                                    'options' => [
-                                        '' => 'Select Gender',
-                                        'M' => 'Male',
-                                        'F' => 'Female',
-                                        'O' => 'Other'
-                                    ],
-                                    'class' => 'form-select',
-                                    'label' => [
-                                        'text' => 'Gender <span class="text-danger">*</span>',
-                                        'escape' => false,
-                                        'class' => 'form-label'
-                                    ],
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'select' => '<select name="{{name}}" {{attrs}}>{{content}}</select>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <?php echo $this->Form->control('patient_dob', [
-                                    'type' => 'date',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Date of Birth <span class="text-danger">*</span>',
-                                        'escape' => false,
-                                        'class' => 'form-label'
-                                    ],
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <?php echo $this->Form->control('patient_age', [
-                                    'type' => 'number',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Age <span class="text-danger">*</span>',
-                                        'escape' => false,
-                                        'class' => 'form-label'
-                                    ],
-                                    'min' => 0,
-                                    'max' => 150,
-                                    'placeholder' => 'Enter age',
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <?php echo $this->Form->control('patient_medical_record_number', [
-                                    'type' => 'text',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Medical Record Number',
-                                        'class' => 'form-label'
-                                    ],
-                                    'placeholder' => 'Enter medical record number',
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <?php echo $this->Form->control('patient_financial_record_number', [
-                                    'type' => 'text',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Financial Record Number',
-                                        'class' => 'form-label'
-                                    ],
-                                    'placeholder' => 'Enter financial record number',
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Technician Fields -->
-                    <div id="technician-fields" class="role-fields" style="display: none;">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <?php echo $this->Form->control('technician_phone', [
-                                    'type' => 'text',
-                                    'class' => 'form-control',
-                                    'label' => [
-                                        'text' => 'Phone Number',
-                                        'class' => 'form-label'
-                                    ],
-                                    'placeholder' => 'Enter phone number',
-                                    'div' => false,
-                                    'templates' => [
-                                        'inputContainer' => '{{content}}',
-                                        'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                        'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                                    ]
-                                ]) ?>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <?php echo $this->Form->control('password', [
-                            'type' => 'password',
-                            'class' => 'form-control' . ($user->hasErrors('password') ? ' is-invalid' : ''),
-                            'label' => [
-                                'text' => 'Password <span class="text-danger">*</span>',
-                                'escape' => false,
-                                'class' => 'form-label'
-                            ],
-                            'required' => true,
-                            'placeholder' => 'Enter password',
-                            'minlength' => 8,
-                            'div' => false,
-                            'templates' => [
-                                'inputContainer' => '{{content}}',
-                                'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                            ]
-                        ]) ?>
-                        <div class="form-text">Password must be at least 8 characters long.</div>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <?php echo $this->Form->control('confirm_password', [
-                            'type' => 'password',
-                            'class' => 'form-control' . ($user->hasErrors('confirm_password') ? ' is-invalid' : ''),
-                            'label' => [
-                                'text' => 'Confirm Password <span class="text-danger">*</span>',
-                                'escape' => false,
-                                'class' => 'form-label'
-                            ],
-                            'required' => true,
-                            'placeholder' => 'Confirm password',
-                            'div' => false,
-                            'templates' => [
-                                'inputContainer' => '{{content}}',
-                                'input' => '<input type="{{type}}" name="{{name}}" {{attrs}}/>',
-                                'error' => '<div class="invalid-feedback d-block">{{content}}</div>'
-                            ]
-                        ]) ?>
-                    </div>
-                </div>
-                
-            </div>
-            <div class="card-footer bg-light">
-                <div class="d-flex justify-content-between">
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <?php echo $this->Html->link(
-                        '<i class="fas fa-times me-2"></i>Cancel',
+                        '<i class="fas fa-arrow-left me-2"></i>Back to Users',
                         ['action' => 'index'],
-                        ['class' => 'btn btn-secondary', 'escape' => false]
+                        ['class' => 'btn btn-outline-warning', 'escape' => false]
                     ) ?>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-2"></i>Create User
-                    </button>
                 </div>
             </div>
-            
-            <?php echo $this->Form->end() ?>
         </div>
     </div>
-    
-    <div class="col-lg-4">
-        <!-- User Roles Information -->
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-info-circle me-2"></i>User Roles
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-warning me-2">Super</span>
-                        <strong>Super User</strong>
-                    </div>
-                    <small class="text-muted">Full system access and administration rights. <strong>Not linked to any hospital.</strong></small>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-user-circle me-2 text-warning"></i>User Information
+                    </h5>
                 </div>
-                
-                <div class="mb-3">
-                    <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-info me-2">Admin</span>
-                        <strong>Administrator</strong>
+                <div class="card-body bg-white">
+                    <?php echo $this->Form->create($user, ['class' => 'needs-validation', 'novalidate' => true]) ?>
+                    
+                    <!-- Basic Information -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <?php echo $this->Form->control('first_name', [
+                                'label' => 'First Name *',
+                                'class' => 'form-control' . ($user->hasErrors('first_name') ? ' is-invalid' : ''),
+                                'required' => true,
+                                'placeholder' => 'Enter first name'
+                            ]) ?>
+                        </div>
+                        <div class="col-md-6">
+                            <?php echo $this->Form->control('last_name', [
+                                'label' => 'Last Name *',
+                                'class' => 'form-control' . ($user->hasErrors('last_name') ? ' is-invalid' : ''),
+                                'required' => true,
+                                'placeholder' => 'Enter last name'
+                            ]) ?>
+                        </div>
                     </div>
-                    <small class="text-muted">Administrative access with limited system settings. <strong>Must be linked to a hospital.</strong></small>
-                </div>
-                
-                <div>
-                    <div class="d-flex align-items-center mb-2">
-                        <span class="badge bg-secondary me-2">User</span>
-                        <strong>Regular User</strong>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <?php echo $this->Form->control('username', [
+                                'label' => 'Username *',
+                                'class' => 'form-control' . ($user->hasErrors('username') ? ' is-invalid' : ''),
+                                'required' => true,
+                                'placeholder' => 'Enter username'
+                            ]) ?>
+                        </div>
+                        <div class="col-md-6">
+                            <?php echo $this->Form->control('email', [
+                                'label' => 'Email Address *',
+                                'type' => 'email',
+                                'class' => 'form-control' . ($user->hasErrors('email') ? ' is-invalid' : ''),
+                                'required' => true,
+                                'placeholder' => 'user@example.com'
+                            ]) ?>
+                        </div>
                     </div>
-                    <small class="text-muted">Standard user access with basic permissions. <strong>Must be linked to a hospital.</strong></small>
+                    
+                    <!-- Role and Status -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <?php echo $this->Form->control('role_id', [
+                                'label' => 'User Role *',
+                                'type' => 'select',
+                                'options' => $roles,
+                                'empty' => 'Select a role...',
+                                'class' => 'form-select' . ($user->hasErrors('role_id') ? ' is-invalid' : ''),
+                                'required' => true,
+                                'id' => 'role-select',
+                                'data-role-types' => json_encode($roleTypes ?? [])
+                            ]) ?>
+                        </div>
+                        <div class="col-md-4" id="hospital-field">
+                            <label class="form-label">Hospital *</label>
+                            <div class="form-control-plaintext border p-2 bg-light rounded">
+                                <i class="fas fa-hospital me-2 text-warning"></i>
+                                <?php echo h($currentHospital->name ?? 'System Hospital') ?>
+                                <small class="text-muted d-block">Current hospital context</small>
+                            </div>
+                            <input type="hidden" name="hospital_id" value="<?php echo $currentHospital->id ?? '' ?>">
+                        </div>
+                        <div class="col-md-4">
+                            <?php echo $this->Form->control('status', [
+                                'label' => 'Account Status *',
+                                'type' => 'select',
+                                'options' => [
+                                    'active' => 'Active',
+                                    'inactive' => 'Inactive'
+                                ],
+                                'class' => 'form-select' . ($user->hasErrors('status') ? ' is-invalid' : ''),
+                                'default' => 'active',
+                                'required' => true
+                            ]) ?>
+                        </div>
+                    </div>
+                    
+                    <!-- Password Section -->
+                    <hr class="my-4">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-key me-2"></i>Account Security
+                    </h6>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <?php echo $this->Form->control('password', [
+                                'label' => 'Password *',
+                                'type' => 'password',
+                                'class' => 'form-control' . ($user->hasErrors('password') ? ' is-invalid' : ''),
+                                'required' => true,
+                                'placeholder' => 'Enter password',
+                                'minlength' => 8
+                            ]) ?>
+                            <div class="form-text">Password must be at least 8 characters long.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <?php echo $this->Form->control('confirm_password', [
+                                'label' => 'Confirm Password *',
+                                'type' => 'password',
+                                'class' => 'form-control' . ($user->hasErrors('confirm_password') ? ' is-invalid' : ''),
+                                'required' => true,
+                                'placeholder' => 'Confirm password'
+                            ]) ?>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="alert alert-info border-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> The user will be automatically assigned the selected role and can login to the system immediately upon creation.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-times me-2"></i>Cancel',
+                                    ['action' => 'index'],
+                                    ['class' => 'btn btn-outline-secondary', 'escape' => false]
+                                ) ?>
+                                <?php echo $this->Form->button(
+                                    '<i class="fas fa-user-plus me-2"></i>Create User',
+                                    [
+                                        'class' => 'btn btn-warning text-dark fw-bold',
+                                        'type' => 'submit',
+                                        'escapeTitle' => false
+                                    ]
+                                ) ?>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <?php echo $this->Form->end() ?>
                 </div>
             </div>
         </div>
         
-        <!-- Password Requirements -->
-        <div class="card border-0 shadow-sm mt-3">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-lock me-2"></i>Password Requirements
-                </h6>
+        <div class="col-lg-4">
+            <!-- User Roles Guide -->
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-shield-alt me-2 text-warning"></i>User Roles
+                    </h6>
+                </div>
+                <div class="card-body bg-white">
+                    <div class="mb-3 pb-3 border-bottom">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-warning text-dark me-2">Super</span>
+                            <strong class="text-dark">Super User</strong>
+                        </div>
+                        <small class="text-muted">Full system access and administration rights. Not linked to any hospital.</small>
+                    </div>
+                    
+                    <div class="mb-3 pb-3 border-bottom">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-info me-2">Admin</span>
+                            <strong class="text-dark">Administrator</strong>
+                        </div>
+                        <small class="text-muted">Administrative access with limited system settings. Must be linked to a hospital.</small>
+                    </div>
+                    
+                    <div class="mb-3 pb-3 border-bottom">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-success me-2">Doctor</span>
+                            <strong class="text-dark">Doctor</strong>
+                        </div>
+                        <small class="text-muted">Medical professional with patient and case management access.</small>
+                    </div>
+                    
+                    <div class="mb-3 pb-3 border-bottom">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-primary me-2">Technician</span>
+                            <strong class="text-dark">Technician</strong>
+                        </div>
+                        <small class="text-muted">Technical staff with patient data entry and case processing access.</small>
+                    </div>
+                    
+                    <div>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-secondary me-2">Patient</span>
+                            <strong class="text-dark">Patient</strong>
+                        </div>
+                        <small class="text-muted">Patient record with limited system access. Managed by hospital staff.</small>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <ul class="list-unstyled mb-0">
-                    <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        <small>At least 8 characters long</small>
-                    </li>
-                    <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        <small>Mix of letters and numbers recommended</small>
-                    </li>
-                    <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        <small>Special characters allowed</small>
-                    </li>
-                    <li>
-                        <i class="fas fa-check text-success me-2"></i>
-                        <small>Case sensitive</small>
-                    </li>
-                </ul>
+            
+            <!-- Password Requirements -->
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-lock me-2 text-warning"></i>Password Requirements
+                    </h6>
+                </div>
+                <div class="card-body bg-white">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <small>At least 8 characters long</small>
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <small>Mix of letters and numbers recommended</small>
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <small>Special characters allowed</small>
+                        </li>
+                        <li>
+                            <i class="fas fa-check text-success me-2"></i>
+                            <small>Case sensitive</small>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-bolt me-2 text-warning"></i>After Creation
+                    </h6>
+                </div>
+                <div class="card-body bg-white">
+                    <small class="text-muted mb-3 d-block">Once the user is created, you can:</small>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <small>Edit user information</small>
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <small>Change role assignments</small>
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <small>Deactivate/activate account</small>
+                        </li>
+                        <li class="mb-0">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <small>Reset user password</small>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -634,17 +343,6 @@
         // Hospital field visibility based on role
         var roleSelect = document.getElementById('role-select');
         var hospitalField = document.getElementById('hospital-field');
-        var hospitalSelect = hospitalField.querySelector('select');
-        var specializedFieldsContainer = document.getElementById('specialized-fields');
-        
-        // Role type detection using data attributes (most reliable method)
-        function getRoleTypeFromSelect() {
-            var selectedRoleId = roleSelect.value;
-            if (!selectedRoleId) return null;
-            
-            var roleTypes = JSON.parse(roleSelect.getAttribute('data-role-types') || '{}');
-            return roleTypes[selectedRoleId] || null;
-        }
         
         function toggleHospitalField() {
             var selectedOption = roleSelect.options[roleSelect.selectedIndex];
@@ -652,77 +350,16 @@
             
             if (roleText.includes('super')) {
                 hospitalField.style.display = 'none';
-                hospitalSelect.required = false;
-                hospitalSelect.value = '';
             } else {
                 hospitalField.style.display = 'block';
-                hospitalSelect.required = true;
             }
-        }
-        
-        function toggleSpecializedFields() {
-            var roleType = getRoleTypeFromSelect();
-            
-            // Hide all role fields first
-            var allRoleFields = document.querySelectorAll('.role-fields');
-            allRoleFields.forEach(function(field) {
-                field.style.display = 'none';
-            });
-            
-            // Hide specialized container
-            specializedFieldsContainer.style.display = 'none';
-            
-            // Show appropriate role fields if specialized role is selected
-            if (roleType) {
-                specializedFieldsContainer.style.display = 'block';
-                var targetFields = document.getElementById(roleType + '-fields');
-                if (targetFields) {
-                    targetFields.style.display = 'block';
-                    
-                    // Make required fields required
-                    var requiredFields = targetFields.querySelectorAll('input[required], select[required]');
-                    requiredFields.forEach(function(field) {
-                        field.required = true;
-                    });
-                }
-            }
-            
-            // Also toggle hospital field
-            toggleHospitalField();
         }
         
         // Initial check
-        toggleSpecializedFields();
+        toggleHospitalField();
         
         // Check on role change
-        roleSelect.addEventListener('change', toggleSpecializedFields);
-        
-        // Auto-calculate age from date of birth
-        function setupAgeCalculation(dobFieldId, ageFieldId) {
-            var dobField = document.getElementById(dobFieldId);
-            var ageField = document.getElementById(ageFieldId);
-            
-            if (dobField && ageField) {
-                dobField.addEventListener('change', function() {
-                    if (this.value) {
-                        var birthDate = new Date(this.value);
-                        var today = new Date();
-                        var age = today.getFullYear() - birthDate.getFullYear();
-                        var monthDiff = today.getMonth() - birthDate.getMonth();
-                        
-                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                            age--;
-                        }
-                        
-                        ageField.value = age;
-                    }
-                });
-            }
-        }
-        
-        // Setup age calculation for nurse and patient
-        setupAgeCalculation('nurse-dob', 'nurse-age');
-        setupAgeCalculation('patient-dob', 'patient-age');
+        roleSelect.addEventListener('change', toggleHospitalField);
     }, false);
 })();
 </script>

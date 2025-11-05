@@ -34,6 +34,21 @@ class CasesController extends AppController
         
         // Set admin layout for all actions
         $this->viewBuilder()->setLayout('admin');
+        
+        // Configure pagination for cases
+        $this->paginate = [
+            'limit' => 25,
+            'order' => ['Cases.created' => 'DESC'],
+            'sortableFields' => [
+                'Cases.id',
+                'Cases.patient_id',
+                'Cases.status', 
+                'Cases.priority',
+                'Cases.date',
+                'Cases.current_user_id',
+                'Cases.created'
+            ]
+        ];
     }
 
     /**
@@ -110,7 +125,7 @@ class CasesController extends AppController
         // Hospital admin can see ALL cases for their hospital (not just own cases)
         // No additional where clause needed - already filtered by hospital_id
 
-        $cases = $this->paginate($query->orderBy(array('Cases.created' => 'DESC')));
+        $cases = $this->paginate($query);
 
         // Get filter options
         $statusOptions = array(
@@ -180,7 +195,7 @@ class CasesController extends AppController
                 'contain' => array(
                     'Users',
                     'Hospitals', 
-                    'PatientUsers' => array('Patients'),
+                    'PatientUsers',
                     'CurrentUsers',
                     'CurrentVersions',
                     'Departments',
@@ -233,7 +248,14 @@ class CasesController extends AppController
         $s3Service = new \App\Lib\S3DocumentService();
         $isS3Enabled = $s3Service->isS3Enabled();
 
-        $this->set(compact('case', 'currentHospital', 'isS3Enabled'));
+        // Check if case has any reports
+        $reportsTable = $this->fetchTable('Reports');
+        $existingReports = $reportsTable->find()
+            ->contain(['Users' => ['Roles']]) // Include user information
+            ->where(['case_id' => $id])
+            ->all();
+
+        $this->set(compact('case', 'currentHospital', 'isS3Enabled', 'existingReports'));
     }
 
     /**

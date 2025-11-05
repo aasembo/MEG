@@ -10,7 +10,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
 ?>
 
 <!-- Include Custom Rich Text Editor -->
-<script src="<?= $this->Url->build('/assets/js/rich-text-editor.js') ?>"></script>
+<script src="<?php echo  $this->Url->build('/assets/js/rich-text-editor.js') ?>"></script>
 
 <div class="container-fluid px-4 py-4">
     <!-- Page Header -->
@@ -19,26 +19,26 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2 class="mb-2 fw-bold">
-                        <i class="fas fa-file-medical-alt me-2"></i><?= $isEdit ? 'Edit MEG Report' : 'Create MEG Report' ?>
+                        <i class="fas fa-file-medical-alt me-2"></i><?php echo  $isEdit ? 'Edit MEG Report' : 'Create MEG Report' ?>
                     </h2>
                     <?php if (isset($case)): ?>
                     <p class="mb-0">
-                        <i class="fas fa-user-injured me-2"></i><?= $this->PatientMask->displayName($case->patient_user) ?>
-                        <span class="ms-3"><i class="fas fa-hospital me-2"></i><?= h($case->hospital->name) ?></span>
+                        <i class="fas fa-user-injured me-2"></i><?php echo  $this->PatientMask->displayName($case->patient_user) ?>
+                        <span class="ms-3"><i class="fas fa-hospital me-2"></i><?php echo  h($case->hospital->name) ?></span>
                     </p>
                     <?php endif; ?>
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <div class="btn-group" role="group">
                         <?php if ($isEdit): ?>
-                            <?= $this->Html->link(
+                            <?php echo  $this->Html->link(
                                 '<i class="fas fa-eye me-1"></i>Preview',
                                 ['action' => 'preview', $report->id],
                                 ['class' => 'btn btn-light', 'escape' => false, 'target' => '_blank']
                             ); ?>
                         <?php endif; ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-arrow-left me-1"></i>Back',
                             ['action' => 'index'],
                             ['class' => 'btn btn-outline-light', 'escape' => false]
@@ -69,7 +69,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
         </div>
     </div>
 
-    <?= $this->Form->create($report, ['type' => 'post', 'class' => 'report-form']) ?>
+    <?php echo  $this->Form->create($report, ['type' => 'post', 'class' => 'report-form']) ?>
     
     <div class="row">
         <!-- Main Content Area -->
@@ -88,15 +88,15 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                             <table class="table table-borderless table-sm">
                                 <tr>
                                     <td class="fw-semibold">Case ID:</td>
-                                    <td><span class="badge bg-primary"><?= h($case->id) ?></span></td>
+                                    <td><span class="badge bg-primary"><?php echo  h($case->id) ?></span></td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Patient:</td>
-                                    <td><?= $this->PatientMask->displayName($case->patient_user) ?></td>
+                                    <td><?php echo  $this->PatientMask->displayName($case->patient_user) ?></td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Hospital:</td>
-                                    <td><?= h($case->hospital->name) ?></td>
+                                    <td><?php echo  h($case->hospital->name) ?></td>
                                 </tr>
                             </table>
                         </div>
@@ -104,17 +104,17 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                             <table class="table table-borderless table-sm">
                                 <tr>
                                     <td class="fw-semibold">Department:</td>
-                                    <td><?= $case->department ? h($case->department->name) : '<span class="text-muted">Not assigned</span>' ?></td>
+                                    <td><?php echo  $case->department ? h($case->department->name) : '<span class="text-muted">Not assigned</span>' ?></td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Case Date:</td>
-                                    <td><?= $case->date ? $case->date->format('F j, Y') : '<span class="text-muted">Not set</span>' ?></td>
+                                    <td><?php echo  $case->date ? $case->date->format('F j, Y') : '<span class="text-muted">Not set</span>' ?></td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Procedures:</td>
                                     <td>
                                         <?php if (!empty($case->cases_exams_procedures)): ?>
-                                            <span class="badge bg-info"><?= count($case->cases_exams_procedures) ?> assigned</span>
+                                            <span class="badge bg-info"><?php echo  count($case->cases_exams_procedures) ?> assigned</span>
                                         <?php else: ?>
                                             <span class="text-muted">None assigned</span>
                                         <?php endif; ?>
@@ -159,7 +159,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                             data-height="700px" 
                             placeholder="Complete MEG clinical report content will be generated here..."
                             required
-                        ><?= $reportContent ?? '' ?></textarea>
+                        ><?php echo  $reportContent ?? '' ?></textarea>
                         <div class="form-text">
                             <i class="fas fa-info-circle me-1"></i>
                             Edit the complete report using the rich text editor. All patient and case data is dynamically populated.
@@ -181,7 +181,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                         <strong>Internal Use Only:</strong> These notes are for technician reference and will not appear in the final report.
                     </div>
                     
-                    <?= $this->Form->control('technician_notes', [
+                    <?php echo  $this->Form->control('technician_notes', [
                         'type' => 'textarea',
                         'rows' => 4,
                         'class' => 'form-control',
@@ -204,7 +204,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                 <div class="card-body bg-white">
                     <!-- Status Selection -->
                     <div class="mb-3">
-                        <?= $this->Form->control('status', [
+                        <?php echo  $this->Form->control('status', [
                             'options' => [
                                 'pending' => 'Pending (Draft)',
                                 'reviewed' => 'Ready for Review',
@@ -222,7 +222,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
 
                     <!-- Confidence Score -->
                     <div class="mb-3">
-                        <?= $this->Form->control('confidence_score', [
+                        <?php echo  $this->Form->control('confidence_score', [
                             'type' => 'number',
                             'min' => 0,
                             'max' => 100,
@@ -249,11 +249,11 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                 <div class="card-body bg-white">
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary d-flex align-items-center justify-content-center">
-                            <i class="fas fa-save me-2"></i><?= $isEdit ? 'Update Report' : 'Create Report' ?>
+                            <i class="fas fa-save me-2"></i><?php echo  $isEdit ? 'Update Report' : 'Create Report' ?>
                         </button>
                         
                         <?php if ($isEdit): ?>
-                            <?= $this->Html->link(
+                            <?php echo  $this->Html->link(
                                 '<i class="fas fa-eye me-2"></i>Preview & Download',
                                 ['action' => 'preview', $report->id],
                                 [
@@ -264,7 +264,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                             ); ?>
                         <?php endif; ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-times me-2"></i>Cancel',
                             ['action' => 'index'],
                             [
@@ -388,11 +388,11 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                 <div class="card-body bg-white">
                     <div class="row text-center">
                         <div class="col-6 border-end">
-                            <div class="h6 mb-1"><?= $report->created ? $report->created->diffInDays() : 0 ?></div>
+                            <div class="h6 mb-1"><?php echo  $report->created ? $report->created->diffInDays() : 0 ?></div>
                             <div class="small text-muted">Days Old</div>
                         </div>
                         <div class="col-6">
-                            <div class="h6 mb-1"><?= $report->modified ? $report->modified->diffForHumans() : 'Never' ?></div>
+                            <div class="h6 mb-1"><?php echo  $report->modified ? $report->modified->diffForHumans() : 'Never' ?></div>
                             <div class="small text-muted">Last Edit</div>
                         </div>
                     </div>
@@ -402,7 +402,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                     <div class="small">
                         <div class="d-flex justify-content-between mb-1">
                             <span>Created:</span>
-                            <strong><?= $report->created ? $report->created->format('M j, Y') : 'N/A' ?></strong>
+                            <strong><?php echo  $report->created ? $report->created->format('M j, Y') : 'N/A' ?></strong>
                         </div>
                         <div class="d-flex justify-content-between">
                             <span>Status:</span>
@@ -412,7 +412,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                                     'reviewed' => 'warning',
                                     default => 'secondary'
                                 };
-                            ?>"><?= h($report->status ?? 'pending') ?></span>
+                            ?>"><?php echo  h($report->status ?? 'pending') ?></span>
                         </div>
                     </div>
                 </div>
@@ -421,7 +421,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
         </div>
     </div>
 
-    <?= $this->Form->end() ?>
+    <?php echo  $this->Form->end() ?>
 </div>
 
 <!-- Enhanced JavaScript for Modern UI -->

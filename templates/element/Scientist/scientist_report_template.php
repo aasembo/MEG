@@ -24,22 +24,22 @@ $includeAI = $options['include_ai'] ?? false;
             <tr style="background-color: #f8f9fa;">
                 <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; width: 30%;">Patient Name:</td>
                 <td style="padding: 10px; border: 1px solid #ddd;">
-                    <?= $patient ? $this->PatientMask->displayName($patient) : '[Patient Name]' ?>
+                    <?php echo  $patient ? $this->PatientMask->displayName($patient) : '[Patient Name]' ?>
                 </td>
                 <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; width: 30%;">Case ID:</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">#<?= h($case->id) ?></td>
+                <td style="padding: 10px; border: 1px solid #ddd;">#<?php echo  h($case->id) ?></td>
             </tr>
             <tr>
                 <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Date of Birth:</td>
                 <td style="padding: 10px; border: 1px solid #ddd;">
-                    <?= $patient ? $this->PatientMask->displayDob($patient) : '[Date of Birth]' ?>
+                    <?php echo  $patient ? $this->PatientMask->displayDob($patient) : '[Date of Birth]' ?>
                 </td>
                 <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Report Date:</td>
-                <td style="padding: 10px; border: 1px solid #ddd;"><?= date('F j, Y') ?></td>
+                <td style="padding: 10px; border: 1px solid #ddd;"><?php echo  date('F j, Y') ?></td>
             </tr>
             <tr style="background-color: #f8f9fa;">
                 <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Hospital:</td>
-                <td style="padding: 10px; border: 1px solid #ddd;" colspan="3"><?= h($hospital->name) ?></td>
+                <td style="padding: 10px; border: 1px solid #ddd;" colspan="3"><?php echo  h($hospital->name) ?></td>
             </tr>
         </table>
     </div>
@@ -290,7 +290,7 @@ $includeAI = $options['include_ai'] ?? false;
     
     <!-- Report Footer -->
     <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #28a745;">
-        <p><strong>Report Generated:</strong> <?= date('F j, Y \a\t g:i A') ?></p>
+        <p><strong>Report Generated:</strong> <?php echo  date('F j, Y \a\t g:i A') ?></p>
         <p><strong>Scientist Review Required:</strong> This report requires review and approval by a qualified scientist before clinical use.</p>
         <p><strong>Quality Assurance:</strong> This analysis follows established scientific protocols and quality standards.</p>
     </div>

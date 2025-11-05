@@ -6,7 +6,6 @@
  */
 
 $this->assign('title', 'Notification Settings');
-$this->layout = 'admin';
 
 // Helper function to get nested value with fallback
 function getSettingValue($settings, $path, $default = '') {
@@ -25,427 +24,342 @@ function getSettingValue($settings, $path, $default = '') {
 }
 ?>
 
-<div class="container-fluid mt-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h3>
-                    <i class="fas fa-bell text-warning"></i> Notification Settings
-                </h3>
-                <?php echo $this->Html->link(
-                    '<i class="fas fa-arrow-left"></i> Back to Settings',
-                    array('action' => 'index'),
-                    array('class' => 'btn btn-outline-secondary', 'escape' => false)
-                ); ?>
-            </div>
-
-            <?php echo $this->Form->create(null, array('url' => array('action' => 'notifications'))); ?>
-            
-            <!-- Email Configuration -->
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-envelope"></i> Email Configuration</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Email Provider</label>
-                                <?php echo $this->Form->select(
-                                    'email.provider',
-                                    array(
-                                        'smtp' => 'SMTP Server',
-                                        'sendgrid' => 'SendGrid',
-                                        'mailgun' => 'Mailgun',
-                                        'ses' => 'Amazon SES'
-                                    ),
-                                    array(
-                                        'class' => 'form-select',
-                                        'id' => 'emailProvider',
-                                        'value' => getSettingValue($notificationSettings, 'email.provider', 'smtp')
-                                    )
-                                ); ?>
+<div class="container-fluid px-4 py-4">
+    <!-- Page Header -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-dark text-warning p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center">
+                        <div class="me-4">
+                            <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center" style="width: 70px; height: 70px; font-size: 2rem;">
+                                <i class="fas fa-bell"></i>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-check mt-4 pt-2">
-                                <?php echo $this->Form->checkbox(
-                                    'email.enabled',
-                                    array(
-                                        'class' => 'form-check-input',
-                                        'checked' => getSettingValue($notificationSettings, 'email.enabled', true)
-                                    )
-                                ); ?>
-                                <label class="form-check-label">
-                                    <strong>Enable Email Notifications</strong>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="smtpSettings" class="smtp-settings">
-                        <hr>
-                        <h6>SMTP Settings</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">SMTP Host</label>
-                                    <?php echo $this->Form->text(
-                                        'email.host',
-                                        array(
-                                            'class' => 'form-control',
-                                            'value' => getSettingValue($notificationSettings, 'email.host', ''),
-                                            'placeholder' => 'smtp.example.com'
-                                        )
-                                    ); ?>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="mb-3">
-                                    <label class="form-label">Port</label>
-                                    <?php echo $this->Form->number(
-                                        'email.port',
-                                        array(
-                                            'class' => 'form-control',
-                                            'value' => getSettingValue($notificationSettings, 'email.port', 587),
-                                            'min' => 1,
-                                            'max' => 65535
-                                        )
-                                    ); ?>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="mb-3">
-                                    <label class="form-label">Encryption</label>
-                                    <?php echo $this->Form->select(
-                                        'email.encryption',
-                                        array('tls' => 'TLS', 'ssl' => 'SSL', 'none' => 'None'),
-                                        array(
-                                            'class' => 'form-select',
-                                            'value' => getSettingValue($notificationSettings, 'email.encryption', 'tls')
-                                        )
-                                    ); ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Username</label>
-                                    <?php echo $this->Form->text(
-                                        'email.username',
-                                        array(
-                                            'class' => 'form-control',
-                                            'value' => getSettingValue($notificationSettings, 'email.username', ''),
-                                            'autocomplete' => 'off'
-                                        )
-                                    ); ?>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Password</label>
-                                    <?php echo $this->Form->password(
-                                        'email.password',
-                                        array(
-                                            'class' => 'form-control',
-                                            'value' => getSettingValue($notificationSettings, 'email.password', '') ? '••••••••••••' : '',
-                                            'autocomplete' => 'new-password'
-                                        )
-                                    ); ?>
-                                    <small class="form-text text-muted">Stored encrypted</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="apiSettings" class="api-settings" style="display: none;">
-                        <hr>
-                        <h6>API Settings</h6>
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <label class="form-label">API Key</label>
-                                    <?php echo $this->Form->password(
-                                        'email.api_key',
-                                        array(
-                                            'class' => 'form-control',
-                                            'value' => getSettingValue($notificationSettings, 'email.api_key', '') ? '••••••••••••' : '',
-                                            'placeholder' => 'Enter your API key'
-                                        )
-                                    ); ?>
-                                    <small class="form-text text-muted">Stored encrypted</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <hr>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">From Name</label>
-                                <?php echo $this->Form->text(
-                                    'email.from_name',
-                                    array(
-                                        'class' => 'form-control',
-                                        'value' => getSettingValue($notificationSettings, 'email.from_name', 'MEG System'),
-                                        'placeholder' => 'Hospital Name'
-                                    )
-                                ); ?>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">From Email</label>
-                                <?php echo $this->Form->email(
-                                    'email.from_email',
-                                    array(
-                                        'class' => 'form-control',
-                                        'value' => getSettingValue($notificationSettings, 'email.from_email', 'noreply@example.com'),
-                                        'placeholder' => 'noreply@hospital.com'
-                                    )
-                                ); ?>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SMS Configuration -->
-            <div class="card mb-4">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-sms"></i> SMS Configuration</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">SMS Provider</label>
-                                <?php echo $this->Form->select(
-                                    'sms.provider',
-                                    array(
-                                        'twilio' => 'Twilio',
-                                        'nexmo' => 'Vonage (Nexmo)',
-                                        'sns' => 'Amazon SNS'
-                                    ),
-                                    array(
-                                        'class' => 'form-select',
-                                        'value' => getSettingValue($notificationSettings, 'sms.provider', 'twilio')
-                                    )
-                                ); ?>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-check mt-4 pt-2">
-                                <?php echo $this->Form->checkbox(
-                                    'sms.enabled',
-                                    array(
-                                        'class' => 'form-check-input',
-                                        'checked' => getSettingValue($notificationSettings, 'sms.enabled', false)
-                                    )
-                                ); ?>
-                                <label class="form-check-label">
-                                    <strong>Enable SMS Notifications</strong>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Account SID / API Key</label>
-                                <?php echo $this->Form->text(
-                                    'sms.api_key',
-                                    array(
-                                        'class' => 'form-control',
-                                        'value' => getSettingValue($notificationSettings, 'sms.api_key', ''),
-                                        'placeholder' => 'Your Account SID or API Key'
-                                    )
-                                ); ?>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Auth Token / API Secret</label>
-                                <?php echo $this->Form->password(
-                                    'sms.api_secret',
-                                    array(
-                                        'class' => 'form-control',
-                                        'value' => getSettingValue($notificationSettings, 'sms.api_secret', '') ? '••••••••••••' : '',
-                                        'placeholder' => 'Your Auth Token or API Secret'
-                                    )
-                                ); ?>
-                                <small class="form-text text-muted">Stored encrypted</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Sender Phone Number</label>
-                                <?php echo $this->Form->tel(
-                                    'sms.from_number',
-                                    array(
-                                        'class' => 'form-control',
-                                        'value' => getSettingValue($notificationSettings, 'sms.from_number', ''),
-                                        'placeholder' => '+1234567890'
-                                    )
-                                ); ?>
-                                <small class="form-text text-muted">Include country code (e.g., +1 for US)</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Notification Preferences -->
-            <div class="card mb-4">
-                <div class="card-header bg-warning">
-                    <h5 class="mb-0"><i class="fas fa-sliders-h"></i> Notification Preferences</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-12">
-                            <h6>Send Notifications For:</h6>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-check mb-3">
-                                <?php echo $this->Form->checkbox(
-                                    'notify_new_case',
-                                    array(
-                                        'class' => 'form-check-input',
-                                        'checked' => getSettingValue($notificationSettings, 'notify_new_case', true)
-                                    )
-                                ); ?>
-                                <label class="form-check-label">
-                                    New Case Assignments
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check mb-3">
-                                <?php echo $this->Form->checkbox(
-                                    'notify_case_status',
-                                    array(
-                                        'class' => 'form-check-input',
-                                        'checked' => getSettingValue($notificationSettings, 'notify_case_status', true)
-                                    )
-                                ); ?>
-                                <label class="form-check-label">
-                                    Case Status Changes
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check mb-3">
-                                <?php echo $this->Form->checkbox(
-                                    'notify_ai_report',
-                                    array(
-                                        'class' => 'form-check-input',
-                                        'checked' => getSettingValue($notificationSettings, 'notify_ai_report', true)
-                                    )
-                                ); ?>
-                                <label class="form-check-label">
-                                    AI Report Completion
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-check mb-3">
-                                <?php echo $this->Form->checkbox(
-                                    'notify_comments',
-                                    array(
-                                        'class' => 'form-check-input',
-                                        'checked' => getSettingValue($notificationSettings, 'notify_comments', true)
-                                    )
-                                ); ?>
-                                <label class="form-check-label">
-                                    New Comments
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check mb-3">
-                                <?php echo $this->Form->checkbox(
-                                    'notify_budget_alert',
-                                    array(
-                                        'class' => 'form-check-input',
-                                        'checked' => getSettingValue($notificationSettings, 'notify_budget_alert', true)
-                                    )
-                                ); ?>
-                                <label class="form-check-label">
-                                    Budget Alerts
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check mb-3">
-                                <?php echo $this->Form->checkbox(
-                                    'notify_system_alerts',
-                                    array(
-                                        'class' => 'form-check-input',
-                                        'checked' => getSettingValue($notificationSettings, 'notify_system_alerts', true)
-                                    )
-                                ); ?>
-                                <label class="form-check-label">
-                                    System Alerts
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <?php echo $this->Html->link(
-                                '<i class="fas fa-arrow-left"></i> Cancel',
-                                array('action' => 'index'),
-                                array('class' => 'btn btn-outline-secondary', 'escape' => false)
-                            ); ?>
                         </div>
                         <div>
-                            <?php echo $this->Form->button(
-                                '<i class="fas fa-save"></i> Save Notification Settings',
-                                array('class' => 'btn btn-warning', 'type' => 'submit', 'escapeTitle' => false)
-                            ); ?>
+                            <h2 class="mb-2 fw-bold text-white">
+                                Notification Settings
+                            </h2>
+                            <p class="mb-0 text-white-50 fs-5">
+                                <i class="fas fa-envelope me-2"></i>Configure email and SMS notification providers
+                            </p>
                         </div>
                     </div>
                 </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-arrow-left me-2"></i>Back to Settings',
+                        ['action' => 'index'],
+                        ['class' => 'btn btn-outline-warning btn-lg', 'escape' => false]
+                    ); ?>
+                </div>
             </div>
-
-            <?php echo $this->Form->end(); ?>
         </div>
     </div>
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const providerSelect = document.getElementById('emailProvider');
-    const smtpSettings = document.getElementById('smtpSettings');
-    const apiSettings = document.getElementById('apiSettings');
+    <?php echo $this->Form->create(null, ['url' => ['action' => 'notifications']]); ?>
     
-    function toggleEmailSettings() {
-        const provider = providerSelect.value;
-        
-        if (provider === 'smtp') {
-            smtpSettings.style.display = 'block';
-            apiSettings.style.display = 'none';
-        } else {
-            smtpSettings.style.display = 'none';
-            apiSettings.style.display = 'block';
-        }
-    }
-    
-    providerSelect.addEventListener('change', toggleEmailSettings);
-    toggleEmailSettings();
-});
-</script>
+    <!-- Notification Info -->
+    <div class="alert alert-info border-0 shadow mb-4" role="alert">
+        <div class="d-flex align-items-center">
+            <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                <i class="fas fa-info-circle"></i>
+            </div>
+            <div>
+                <h6 class="mb-1 fw-bold">Notification Configuration</h6>
+                <p class="mb-0">Configure email and SMS providers to enable system notifications for your hospital staff and patients.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Email Configuration -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow h-100 border-start border-primary border-4">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-envelope text-primary me-2"></i>Email Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-server me-1 text-info"></i>SMTP Host
+                        </label>
+                        <?php echo $this->Form->control('email.host', [
+                            'type' => 'text',
+                            'class' => 'form-control',
+                            'label' => false,
+                            'placeholder' => 'smtp.gmail.com',
+                            'value' => getSettingValue($notificationSettings, 'email.host', ''),
+                            'div' => false
+                        ]); ?>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>Your email provider's SMTP server
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-plug me-1 text-success"></i>Port
+                            </label>
+                            <?php echo $this->Form->control('email.port', [
+                                'type' => 'number',
+                                'class' => 'form-control',
+                                'label' => false,
+                                'value' => getSettingValue($notificationSettings, 'email.port', 587),
+                                'min' => 1,
+                                'max' => 65535,
+                                'div' => false
+                            ]); ?>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-shield-alt me-1 text-warning"></i>Encryption
+                            </label>
+                            <?php echo $this->Form->control('email.encryption', [
+                                'type' => 'select',
+                                'options' => [
+                                    'tls' => 'TLS (Recommended)',
+                                    'ssl' => 'SSL',
+                                    'none' => 'None'
+                                ],
+                                'class' => 'form-select',
+                                'label' => false,
+                                'value' => getSettingValue($notificationSettings, 'email.encryption', 'tls'),
+                                'div' => false
+                            ]); ?>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-user me-1 text-primary"></i>Username
+                        </label>
+                        <?php echo $this->Form->control('email.username', [
+                            'type' => 'email',
+                            'class' => 'form-control',
+                            'label' => false,
+                            'placeholder' => 'your-email@domain.com',
+                            'value' => getSettingValue($notificationSettings, 'email.username', ''),
+                            'div' => false
+                        ]); ?>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-key me-1 text-danger"></i>Password
+                        </label>
+                        <?php echo $this->Form->control('email.password', [
+                            'type' => 'password',
+                            'class' => 'form-control',
+                            'label' => false,
+                            'placeholder' => getSettingValue($notificationSettings, 'email.password') ? '••••••••••••' : 'Enter email password',
+                            'div' => false
+                        ]); ?>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>Password is stored encrypted
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-paper-plane me-1 text-success"></i>From Name
+                        </label>
+                        <?php echo $this->Form->control('email.from_name', [
+                            'type' => 'text',
+                            'class' => 'form-control',
+                            'label' => false,
+                            'placeholder' => 'Hospital Notification System',
+                            'value' => getSettingValue($notificationSettings, 'email.from_name', ''),
+                            'div' => false
+                        ]); ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SMS Configuration -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow h-100 border-start border-success border-4">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-sms text-success me-2"></i>SMS Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-building me-1 text-info"></i>SMS Provider
+                        </label>
+                        <?php echo $this->Form->control('sms.provider', [
+                            'type' => 'select',
+                            'options' => [
+                                'twilio' => 'Twilio (Recommended)',
+                                'nexmo' => 'Vonage (Nexmo)',
+                                'aws_sns' => 'AWS SNS',
+                                'custom' => 'Custom Provider'
+                            ],
+                            'class' => 'form-select',
+                            'label' => false,
+                            'value' => getSettingValue($notificationSettings, 'sms.provider', 'twilio'),
+                            'div' => false
+                        ]); ?>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-key me-1 text-warning"></i>API Key / Account SID
+                        </label>
+                        <?php echo $this->Form->control('sms.api_key', [
+                            'type' => 'password',
+                            'class' => 'form-control',
+                            'label' => false,
+                            'placeholder' => getSettingValue($notificationSettings, 'sms.api_key') ? '••••••••••••' : 'Enter API key',
+                            'div' => false
+                        ]); ?>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>API key is stored encrypted
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-lock me-1 text-danger"></i>API Secret / Auth Token
+                        </label>
+                        <?php echo $this->Form->control('sms.api_secret', [
+                            'type' => 'password',
+                            'class' => 'form-control',
+                            'label' => false,
+                            'placeholder' => getSettingValue($notificationSettings, 'sms.api_secret') ? '••••••••••••' : 'Enter API secret',
+                            'div' => false
+                        ]); ?>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-phone me-1 text-primary"></i>From Number
+                        </label>
+                        <?php echo $this->Form->control('sms.from_number', [
+                            'type' => 'tel',
+                            'class' => 'form-control',
+                            'label' => false,
+                            'placeholder' => '+1234567890',
+                            'value' => getSettingValue($notificationSettings, 'sms.from_number', ''),
+                            'div' => false
+                        ]); ?>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>Your SMS provider's phone number
+                        </div>
+                    </div>
+                    
+                    <div class="form-check form-switch">
+                        <?php echo $this->Form->control('sms.enabled', [
+                            'type' => 'checkbox',
+                            'class' => 'form-check-input',
+                            'label' => false,
+                            'checked' => getSettingValue($notificationSettings, 'sms.enabled', false),
+                            'div' => false
+                        ]); ?>
+                        <label class="form-check-label fw-semibold">
+                            <i class="fas fa-toggle-on me-1 text-success"></i>Enable SMS Notifications
+                        </label>
+                        <div class="form-text">SMS charges may apply from your provider</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Preferences -->
+        <div class="col-12">
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-cogs text-info me-2"></i>Notification Preferences
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-primary bg-opacity-10 rounded">
+                                <div class="form-check form-switch mb-2">
+                                    <?php echo $this->Form->control('email.case_notifications', [
+                                        'type' => 'checkbox',
+                                        'class' => 'form-check-input',
+                                        'label' => false,
+                                        'checked' => getSettingValue($notificationSettings, 'email.case_notifications', true),
+                                        'div' => false
+                                    ]); ?>
+                                    <label class="form-check-label fw-semibold">
+                                        <i class="fas fa-briefcase-medical me-1 text-primary"></i>Case Updates
+                                    </label>
+                                </div>
+                                <div class="form-text">Email notifications for case status changes</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-warning bg-opacity-10 rounded">
+                                <div class="form-check form-switch mb-2">
+                                    <?php echo $this->Form->control('email.system_alerts', [
+                                        'type' => 'checkbox',
+                                        'class' => 'form-check-input',
+                                        'label' => false,
+                                        'checked' => getSettingValue($notificationSettings, 'email.system_alerts', true),
+                                        'div' => false
+                                    ]); ?>
+                                    <label class="form-check-label fw-semibold">
+                                        <i class="fas fa-exclamation-triangle me-1 text-warning"></i>System Alerts
+                                    </label>
+                                </div>
+                                <div class="form-text">Critical system notifications and alerts</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-success bg-opacity-10 rounded">
+                                <div class="form-check form-switch mb-2">
+                                    <?php echo $this->Form->control('email.reminders', [
+                                        'type' => 'checkbox',
+                                        'class' => 'form-check-input',
+                                        'label' => false,
+                                        'checked' => getSettingValue($notificationSettings, 'email.reminders', false),
+                                        'div' => false
+                                    ]); ?>
+                                    <label class="form-check-label fw-semibold">
+                                        <i class="fas fa-clock me-1 text-success"></i>Appointment Reminders
+                                    </label>
+                                </div>
+                                <div class="form-text">Email reminders for upcoming appointments</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="card border-0 shadow mt-4">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1 fw-bold">Ready to save your notification settings?</h6>
+                    <p class="mb-0 text-muted">Changes will be applied immediately to your hospital's notification system.</p>
+                </div>
+                <div>
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-times me-2"></i>Cancel',
+                        ['action' => 'index'],
+                        ['class' => 'btn btn-outline-secondary me-3', 'escape' => false]
+                    ); ?>
+                    <?php echo $this->Form->button(
+                        '<i class="fas fa-save me-2"></i>Save Notification Settings',
+                        ['type' => 'submit', 'class' => 'btn btn-primary btn-lg', 'escapeTitle' => false]
+                    ); ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <?php echo $this->Form->end(); ?>
+</div>

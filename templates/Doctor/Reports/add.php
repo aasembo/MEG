@@ -11,7 +11,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
 ?>
 
 <!-- Include Custom Rich Text Editor -->
-<script src="<?= $this->Url->build('/assets/js/rich-text-editor.js') ?>"></script>
+<script src="<?php echo  $this->Url->build('/assets/js/rich-text-editor.js') ?>"></script>
 
 <div class="container-fluid px-4 py-4">
     <!-- Page Header -->
@@ -20,26 +20,26 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2 class="mb-2 fw-bold">
-                        <i class="fas fa-file-medical-alt me-2"></i><?= $isEdit ? 'Edit Medical Report' : 'Create Medical Report' ?>
+                        <i class="fas fa-file-medical-alt me-2"></i><?php echo  $isEdit ? 'Edit Medical Report' : 'Create Medical Report' ?>
                     </h2>
                     <?php if (isset($case)): ?>
                     <p class="mb-0">
-                        <i class="fas fa-user-injured me-2"></i><?= $this->PatientMask->displayName($case->patient_user) ?>
-                        <span class="ms-3"><i class="fas fa-hospital me-2"></i><?= h($case->hospital->name) ?></span>
+                        <i class="fas fa-user-injured me-2"></i><?php echo  $this->PatientMask->displayName($case->patient_user) ?>
+                        <span class="ms-3"><i class="fas fa-hospital me-2"></i><?php echo  h($case->hospital->name) ?></span>
                     </p>
                     <?php endif; ?>
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <div class="btn-group" role="group">
                         <?php if ($isEdit): ?>
-                            <?= $this->Html->link(
+                            <?php echo  $this->Html->link(
                                 '<i class="fas fa-eye me-1"></i>Preview',
                                 ['action' => 'preview', $report->id],
                                 ['class' => 'btn btn-light', 'escape' => false, 'target' => '_blank']
                             ); ?>
                         <?php endif; ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-arrow-left me-1"></i>Back',
                             ['action' => 'index'],
                             ['class' => 'btn btn-outline-light', 'escape' => false]
@@ -60,7 +60,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
             <div class="flex-grow-1 ms-3">
                 <h6 class="alert-heading mb-1">Workflow Context</h6>
                 <p class="mb-2">
-                    This doctor report is being created based on the scientific review (Report #<?= h($scientistReport->id) ?>).
+                    This doctor report is being created based on the scientific review (Report #<?php echo  h($scientistReport->id) ?>).
                     The content below has been pre-loaded from the scientist's report for your review and approval.
                 </p>
                 <small class="text-muted">
@@ -111,7 +111,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
         </div>
     </div>
 
-    <?= $this->Form->create($report, ['type' => 'post']) ?>
+    <?php echo  $this->Form->create($report, ['type' => 'post']) ?>
     
     <div class="row">
         <div class="col-lg-8">
@@ -123,7 +123,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
                     </h5>
                 </div>
                 <div class="card-body p-4">
-                    <?= $this->Form->control('report_content', [
+                    <?php echo  $this->Form->control('report_content', [
                         'type' => 'textarea',
                         'label' => false,
                         'value' => $reportContent,
@@ -154,7 +154,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
                 <div class="card-body p-3">
                     <!-- Status Selection -->
                     <div class="mb-3">
-                        <?= $this->Form->control('status', [
+                        <?php echo  $this->Form->control('status', [
                             'options' => [
                                 'pending' => 'Pending (Draft)',
                                 'reviewed' => 'Ready for Review',
@@ -172,7 +172,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
 
                     <!-- Confidence Score -->
                     <div class="mb-3">
-                        <?= $this->Form->control('confidence_score', [
+                        <?php echo  $this->Form->control('confidence_score', [
                             'type' => 'number',
                             'min' => 0,
                             'max' => 100,
@@ -197,7 +197,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
                     </h6>
                 </div>
                 <div class="card-body p-3">
-                    <?= $this->Form->control('doctor_notes', [
+                    <?php echo  $this->Form->control('doctor_notes', [
                         'type' => 'textarea',
                         'label' => 'Doctor Notes & Approval Comments',
                         'class' => 'form-control',
@@ -226,30 +226,30 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
                     <div class="row g-2">
                         <div class="col-12">
                             <label class="form-label small fw-bold text-muted">CASE ID</label>
-                            <div class="fw-semibold">#<?= h($case->id) ?></div>
+                            <div class="fw-semibold">#<?php echo  h($case->id) ?></div>
                         </div>
                         
                         <div class="col-12">
                             <label class="form-label small fw-bold text-muted">PATIENT</label>
-                            <div class="fw-semibold"><?= $this->PatientMask->displayName($case->patient_user) ?></div>
+                            <div class="fw-semibold"><?php echo  $this->PatientMask->displayName($case->patient_user) ?></div>
                         </div>
                         
                         <div class="col-12">
                             <label class="form-label small fw-bold text-muted">HOSPITAL</label>
-                            <div class="fw-semibold"><?= h($case->hospital->name) ?></div>
+                            <div class="fw-semibold"><?php echo  h($case->hospital->name) ?></div>
                         </div>
                         
                         <?php if (isset($case->department)): ?>
                         <div class="col-12">
                             <label class="form-label small fw-bold text-muted">DEPARTMENT</label>
-                            <div class="fw-semibold"><?= h($case->department->name) ?></div>
+                            <div class="fw-semibold"><?php echo  h($case->department->name) ?></div>
                         </div>
                         <?php endif; ?>
                         
                         <?php if ($case->case_date): ?>
                         <div class="col-12">
                             <label class="form-label small fw-bold text-muted">CASE DATE</label>
-                            <div class="fw-semibold"><?= h($case->case_date->format('M j, Y')) ?></div>
+                            <div class="fw-semibold"><?php echo  h($case->case_date->format('M j, Y')) ?></div>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -303,7 +303,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
             <div class="card border-0 shadow">
                 <div class="card-body p-3">
                     <div class="d-grid gap-2">
-                        <?= $this->Form->button(
+                        <?php echo  $this->Form->button(
                             '<i class="fas fa-save me-2"></i>' . ($isEdit ? 'Update Report' : 'Create Report'),
                             [
                                 'type' => 'submit',
@@ -312,7 +312,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
                             ]
                         ) ?>
                         
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-times me-2"></i>Cancel',
                             ['action' => 'index'],
                             ['class' => 'btn btn-outline-secondary', 'escape' => false]
@@ -323,7 +323,7 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
         </div>
     </div>
     
-    <?= $this->Form->end() ?>
+    <?php echo  $this->Form->end() ?>
 </div>
 
 <style>

@@ -17,20 +17,17 @@ $cakeDescription = 'Hospital Admin Panel';
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome for icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Flash Messages CSS -->
-    <?php echo $this->Html->css('flash-messages') ?>
-    <!-- Admin CSS -->
-    <?php echo $this->Html->css('/assets/admin/css/admin.css') ?>
     
     <?php echo $this->fetch('meta') ?>
     <?php echo $this->fetch('css') ?>
 </head>
 <body class="bg-light">
     <!-- Top Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark admin-navbar sticky-top shadow">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow">
         <div class="container-fluid">
             <a class="navbar-brand fw-bold" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Dashboard', 'action' => 'index']) ?>">
-                <i class="fas fa-hospital me-2"></i>Hospital Admin
+                <i class="fas fa-shield-alt me-2 text-warning"></i>
+                <span class="text-warning">Hospital</span> <span class="text-white">Admin</span>
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -80,10 +77,25 @@ $cakeDescription = 'Hospital Admin Panel';
                         </ul>
                     </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-chart-bar me-1"></i>Reports
                         </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Reports', 'action' => 'index']) ?>">
+                                <i class="fas fa-list me-2"></i>All Reports
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Reports', 'action' => 'index', '?' => ['status' => 'pending']]) ?>">
+                                <i class="fas fa-clock me-2 text-warning"></i>Pending
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Reports', 'action' => 'index', '?' => ['status' => 'reviewed']]) ?>">
+                                <i class="fas fa-eye me-2 text-info"></i>Reviewed
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Reports', 'action' => 'index', '?' => ['status' => 'approved']]) ?>">
+                                <i class="fas fa-check-double me-2 text-success"></i>Approved
+                            </a></li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Settings', 'action' => 'index']) ?>">
@@ -97,7 +109,7 @@ $cakeDescription = 'Hospital Admin Panel';
                 <div class="navbar-nav">
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-circle me-1"></i>
+                            <i class="fas fa-user-shield me-1 text-warning"></i>
                             <?php echo h($this->getRequest()->getAttribute('identity')->get('email')) ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
@@ -119,77 +131,119 @@ $cakeDescription = 'Hospital Admin Panel';
     </nav>
 
     <!-- Main Content Area -->
-    <div class="container-fluid mt-4">
+    <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <nav class="col-md-3 col-lg-2 d-md-block bg-dark sidebar border-end vh-100 position-sticky top-0">
                 <div class="position-sticky pt-3">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-header bg-white border-bottom">
-                            <h6 class="card-title mb-0">
-                                <i class="fas fa-bars me-2"></i>Quick Actions
-                            </h6>
+                    <!-- Quick Navigation -->
+                    <div class="mb-3">
+                        <h6 class="px-3 mb-3 text-uppercase text-warning small fw-bold">
+                            <i class="fas fa-shield-alt me-2"></i>Administration
+                        </h6>
+                        <ul class="nav flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-light" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Dashboard', 'action' => 'index']) ?>">
+                                    <i class="fas fa-tachometer-alt me-3 text-warning"></i>
+                                    <span>Dashboard</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-light" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Users', 'action' => 'index']) ?>">
+                                    <i class="fas fa-users me-3 text-info"></i>
+                                    <span>Users</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-light" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Cases', 'action' => 'index']) ?>">
+                                    <i class="fas fa-briefcase-medical me-3 text-success"></i>
+                                    <span>Cases</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-light" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Departments', 'action' => 'index']) ?>">
+                                    <i class="fas fa-building me-3 text-primary"></i>
+                                    <span>Departments</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-light" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Reports', 'action' => 'index']) ?>">
+                                    <i class="fas fa-chart-bar me-3 text-warning"></i>
+                                    <span>Reports</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-2 text-light" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Settings', 'action' => 'index']) ?>">
+                                    <i class="fas fa-cogs me-3 text-secondary"></i>
+                                    <span>Settings</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="mb-3">
+                        <h6 class="px-3 mb-3 text-uppercase text-warning small fw-bold">
+                            <i class="fas fa-bolt me-2"></i>Quick Actions
+                        </h6>
+                        <div class="px-3">
+                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Users', 'action' => 'add']) ?>" 
+                               class="btn btn-warning btn-sm w-100 mb-2 text-dark fw-bold">
+                                <i class="fas fa-user-plus me-2"></i>Add User
+                            </a>
+                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Users', 'action' => 'index']) ?>" 
+                               class="btn btn-outline-warning btn-sm w-100 mb-2">
+                                <i class="fas fa-users me-2"></i>Manage Users
+                            </a>
+                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Departments', 'action' => 'index']) ?>" 
+                               class="btn btn-outline-light btn-sm w-100">
+                                <i class="fas fa-building me-2"></i>Departments
+                            </a>
                         </div>
-                        <div class="list-group list-group-flush">
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Dashboard', 'action' => 'index']) ?>" 
-                               class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-home me-2 text-primary"></i>Dashboard
-                            </a>
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Cases', 'action' => 'index']) ?>" 
-                               class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-briefcase-medical me-2 text-primary"></i>Cases
-                            </a>
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Users', 'action' => 'index']) ?>" class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-users me-2 text-success"></i>Manage Users
-                            </a>
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Departments', 'action' => 'index']) ?>" class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-building me-2 text-info"></i>Departments
-                            </a>
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Exams', 'action' => 'index']) ?>" class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-file-medical me-2 text-primary"></i>Exams
-                            </a>
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Procedures', 'action' => 'index']) ?>" class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-procedures me-2 text-warning"></i>Procedures
-                            </a>
-                            <a href="#" class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-chart-bar me-2 text-info"></i>Reports
-                            </a>
-                            <a href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Settings', 'action' => 'index']) ?>" class="list-group-item list-group-item-action border-0">
-                                <i class="fas fa-cog me-2 text-warning"></i>Settings
-                            </a>
-                        </div>
+                    </div>
+
+                    <!-- Medical Data Management -->
+                    <div class="mb-3">
+                        <h6 class="px-3 mb-3 text-uppercase text-warning small fw-bold">
+                            <i class="fas fa-stethoscope me-2"></i>Medical Data
+                        </h6>
+                        <ul class="nav flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-1 text-light small" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Exams', 'action' => 'index']) ?>">
+                                    <i class="fas fa-file-medical me-3 text-info"></i>
+                                    <span>Exams</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-1 text-light small" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Procedures', 'action' => 'index']) ?>">
+                                    <i class="fas fa-procedures me-3 text-success"></i>
+                                    <span>Procedures</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-1 text-light small" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Modalities', 'action' => 'index']) ?>">
+                                    <i class="fas fa-x-ray me-3 text-primary"></i>
+                                    <span>Modalities</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center px-3 py-1 text-light small" href="<?php echo $this->Url->build(['prefix' => 'Admin', 'controller' => 'Sedations', 'action' => 'index']) ?>">
+                                    <i class="fas fa-syringe me-3 text-warning"></i>
+                                    <span>Sedations</span>
+                                </a>
+                            </li>
+                        </ul>
                     </div>
                     
-                    <!-- System Status Card -->
-                    <div class="card border-0 shadow-sm mt-3">
-                        <div class="card-header bg-white border-bottom">
-                            <h6 class="card-title mb-0">
-                                <i class="fas fa-server me-2"></i>System Status
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small text-muted">Server</span>
-                                <span class="badge bg-success">Online</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small text-muted">Database</span>
-                                <span class="badge bg-success">Connected</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="small text-muted">Cache</span>
-                                <span class="badge bg-info">Active</span>
-                            </div>
-                        </div>
-                    </div>
+                    
                 </div>
-            </div>
+            </nav>
 
             <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
                 <!-- Flash Messages -->
                 <div class="flash-messages">
-                    <?php echo $this->CustomFlash->renderAll() ?>
+                    <?php echo $this->Flash->render() ?>
                 </div>
                 
                 <!-- Page Content -->
@@ -201,22 +255,20 @@ $cakeDescription = 'Hospital Admin Panel';
     </div>
 
     <!-- Footer -->
-    <footer class="bg-light text-center text-muted py-3 mt-5 border-top">
+    <footer class="bg-white text-center text-muted py-4 mt-5 border-top">
         <div class="container">
-            <small class="d-flex align-items-center justify-content-center">
-                © <?php echo date('Y') ?> Hospital Admin Panel. 
-                <i class="fas fa-heart text-danger mx-1"></i> 
-                Secure Healthcare Management Platform
-            </small>
+            <div class="d-flex align-items-center justify-content-center">
+                <i class="fas fa-shield-alt text-warning me-2"></i>
+                <small>
+                    © <?php echo date('Y') ?> Hospital Admin Panel • 
+                    <span class="text-warning">Secure Healthcare Management Platform</span>
+                </small>
+            </div>
         </div>
     </footer>
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Flash Messages JS -->
-    <?php echo $this->Html->script('flash-messages') ?>
-    <!-- Hospital Admin Panel JS -->
-    <?php echo $this->Html->script('/assets/admin/js/admin.js') ?>
     
     <?php echo $this->fetch('script') ?>
 </body>

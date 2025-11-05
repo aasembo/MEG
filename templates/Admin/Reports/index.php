@@ -4,6 +4,9 @@
  * @var iterable<\App\Model\Entity\Report> $reports
  */
 
+$this->setLayout('admin');
+$this->assign('title', 'Reports Management');
+
 // Helper function to determine report creator role
 function getReportCreatorRole($report) {
     // First check if we have the user relationship loaded with role
@@ -73,15 +76,17 @@ foreach ($reportsByCase as &$caseData) {
 <div class="container-fluid px-4 py-4">
     <!-- Page Header -->
     <div class="card border-0 shadow mb-4">
-        <div class="card-body bg-danger text-white p-4">
+        <div class="card-body bg-dark text-white p-4">
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2 class="mb-2 fw-bold">
-                        <i class="fas fa-file-alt me-2"></i>Medical Reports Management
+                        <i class="fas fa-file-alt me-2"></i>Reports Management
                     </h2>
-                    <p class="mb-0">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Reports are organized by case showing the workflow hierarchy: Technician → Scientist → Doctor
+                    <p class="mb-1">
+                        <i class="fas fa-hospital me-2"></i>Administrative overview of all reports
+                    </p>
+                    <p class="mb-0 text-warning small">
+                        <i class="fas fa-shield-alt me-1"></i>Administrative view - Read-only access
                     </p>
                 </div>
                 <div class="col-md-4 text-md-end">
@@ -91,10 +96,10 @@ foreach ($reportsByCase as &$caseData) {
                             <i class="fas fa-circle text-info me-1"></i> Technician Report
                         </div>
                         <div class="mb-1">
-                            <i class="fas fa-circle text-warning me-1"></i> Scientist Report
+                            <i class="fas fa-circle text-success me-1"></i> Scientist Report
                         </div>
                         <div class="mb-1">
-                            <i class="fas fa-circle text-light me-1"></i> Doctor Approved
+                            <i class="fas fa-circle text-danger me-1"></i> Doctor Approved
                         </div>
                     </div>
                 </div>
@@ -111,7 +116,7 @@ foreach ($reportsByCase as &$caseData) {
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h5 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-folder-open me-2 text-danger"></i>
+                        <i class="fas fa-folder-open me-2 text-warning"></i>
                         Case #<?php echo  h($caseId) ?>
                         <?php if (isset($caseData['case']->patient_user)): ?>
                             - <?php echo  $this->PatientMask->displayName($caseData['case']->patient_user) ?>
@@ -119,9 +124,14 @@ foreach ($reportsByCase as &$caseData) {
                     </h5>
                 </div>
                 <div class="col-md-4 text-md-end">
-                    <span class="badge bg-danger">
+                    <span class="badge bg-warning text-dark">
                         <?php echo  count($caseData['reports']) ?> Report<?php echo  count($caseData['reports']) !== 1 ? 's' : '' ?>
                     </span>
+                    <?php echo  $this->Html->link(
+                        '<i class="fas fa-eye me-1"></i>View Case',
+                        ['controller' => 'Cases', 'action' => 'view', $caseId],
+                        ['class' => 'btn btn-sm btn-outline-primary ms-2', 'escape' => false]
+                    ) ?>
                 </div>
             </div>
         </div>
@@ -131,7 +141,7 @@ foreach ($reportsByCase as &$caseData) {
                     <thead class="table-light">
                         <tr>
                             <th class="border-0 fw-semibold text-uppercase small text-muted ps-4">Report</th>
-                            <th class="border-0 fw-semibold text-uppercase small text-muted">Creator Role</th>
+                            <th class="border-0 fw-semibold text-uppercase small text-muted">Creator</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Hospital</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Status</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Workflow Stage</th>
@@ -146,10 +156,10 @@ foreach ($reportsByCase as &$caseData) {
                         $roleLevel = getRoleLevel($creatorRole);
                         $isFirstReport = $index === 0;
                         
-                        // Role-based styling
+                        // Role-based styling with admin color scheme
                         $roleColors = [
                             'technician' => 'info',
-                            'scientist' => 'warning', 
+                            'scientist' => 'success', 
                             'doctor' => 'danger'
                         ];
                         $roleColor = $roleColors[$creatorRole] ?? 'secondary';
@@ -200,15 +210,15 @@ foreach ($reportsByCase as &$caseData) {
                                         <i class="fas <?php echo  $hierarchyIcon ?> me-1"></i>
                                         <?php echo  h(ucfirst($creatorRole)) ?>
                                     </span>
-                                    <?php if ($roleLevel > 1): ?>
-                                    <small class="text-muted">
-                                        Level <?php echo  $roleLevel ?>
-                                    </small>
+                                    <?php if (!empty($report->user)): ?>
+                                    <div class="small text-muted">
+                                        <?php echo  h($report->user->first_name . ' ' . $report->user->last_name) ?>
+                                    </div>
                                     <?php endif; ?>
                                 </div>
                             </td>
                             <td>
-                                <span class="badge rounded-pill bg-danger">
+                                <span class="badge rounded-pill bg-warning text-dark">
                                     <?php echo  h($report->hospital->name ?? 'Unknown') ?>
                                 </span>
                             </td>
@@ -259,52 +269,46 @@ foreach ($reportsByCase as &$caseData) {
                                         '<i class="fas fa-eye"></i>',
                                         ['action' => 'view', $report->id],
                                         [
-                                            'class' => 'btn btn-sm btn-outline-danger',
+                                            'class' => 'btn btn-sm btn-outline-primary',
                                             'escape' => false,
                                             'data-bs-toggle' => 'tooltip',
                                             'title' => 'View Report'
                                         ]
                                     ) ?>
                                     
-                                    <?php 
-                                    $currentUserId = $this->request->getAttribute('identity')?->getIdentifier();
-                                    if ($creatorRole === 'doctor' && $currentUserId && $report->user_id == $currentUserId): 
-                                    ?>
                                     <?php echo  $this->Html->link(
-                                        '<i class="fas fa-edit"></i>',
-                                        ['action' => 'edit', $report->id],
+                                        '<i class="fas fa-search"></i>',
+                                        ['action' => 'preview', $report->id],
                                         [
-                                            'class' => 'btn btn-sm btn-outline-primary',
+                                            'class' => 'btn btn-sm btn-outline-info',
                                             'escape' => false,
                                             'data-bs-toggle' => 'tooltip',
-                                            'title' => 'Edit Report'
+                                            'title' => 'Preview Report'
                                         ]
                                     ) ?>
-                                    <?php endif; ?>
                                     
                                     <?php echo  $this->Html->link(
                                         '<i class="fas fa-download"></i>',
                                         ['action' => 'download', $report->id, 'pdf'],
                                         [
-                                            'class' => 'btn btn-sm btn-outline-info',
+                                            'class' => 'btn btn-sm btn-outline-success',
                                             'escape' => false,
                                             'data-bs-toggle' => 'tooltip',
                                             'title' => 'Download PDF'
                                         ]
                                     ) ?>
                                     
-                                    <?php if ($creatorRole === 'scientist'): ?>
-                                    <?php echo  $this->Html->link(
-                                        '<i class="fas fa-level-up-alt"></i>',
-                                        ['action' => 'add', '?' => ['case_id' => $caseId]],
+                                    <?php echo  $this->Form->postLink(
+                                        '<i class="fas fa-trash"></i>',
+                                        ['action' => 'delete', $report->id],
                                         [
-                                            'class' => 'btn btn-sm btn-outline-success',
+                                            'class' => 'btn btn-sm btn-outline-danger',
                                             'escape' => false,
                                             'data-bs-toggle' => 'tooltip',
-                                            'title' => 'Create Doctor Report'
+                                            'title' => 'Delete Report',
+                                            'confirm' => 'Are you sure you want to delete this report?'
                                         ]
                                     ) ?>
-                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -331,7 +335,7 @@ foreach ($reportsByCase as &$caseData) {
             <?php echo  $this->Html->link(
                 '<i class="fas fa-arrow-left me-2"></i>Go to Cases',
                 ['controller' => 'Cases', 'action' => 'index'],
-                ['class' => 'btn btn-danger', 'escape' => false]
+                ['class' => 'btn btn-warning', 'escape' => false]
             ) ?>
         </div>
     </div>
@@ -341,7 +345,7 @@ foreach ($reportsByCase as &$caseData) {
 <style>
 /* Hierarchy styling */
 .table-active {
-    --bs-table-bg: rgba(220, 53, 69, 0.05) !important;
+    --bs-table-bg: rgba(13, 110, 253, 0.05) !important;
 }
 
 .progress {
@@ -355,7 +359,7 @@ foreach ($reportsByCase as &$caseData) {
 
 /* Role-based hover effects */
 .table-hover tbody tr:hover {
-    background-color: rgba(220, 53, 69, 0.02) !important;
+    background-color: rgba(13, 110, 253, 0.02) !important;
 }
 
 /* Hierarchy line styling */

@@ -112,15 +112,15 @@ foreach ($reportsByCase as &$caseData) {
                 <div class="col-md-8">
                     <h5 class="mb-0 fw-bold text-dark">
                         <i class="fas fa-folder-open me-2 text-success"></i>
-                        Case #<?= h($caseId) ?>
+                        Case #<?php echo  h($caseId) ?>
                         <?php if (isset($caseData['case']->patient_user)): ?>
-                            - <?= $this->PatientMask->displayName($caseData['case']->patient_user) ?>
+                            - <?php echo  $this->PatientMask->displayName($caseData['case']->patient_user) ?>
                         <?php endif; ?>
                     </h5>
                 </div>
                 <div class="col-md-4 text-md-end">
                     <span class="badge bg-success">
-                        <?= count($caseData['reports']) ?> Report<?= count($caseData['reports']) !== 1 ? 's' : '' ?>
+                        <?php echo  count($caseData['reports']) ?> Report<?php echo  count($caseData['reports']) !== 1 ? 's' : '' ?>
                     </span>
                 </div>
             </div>
@@ -170,7 +170,7 @@ foreach ($reportsByCase as &$caseData) {
                             default => 'Unknown'
                         };
                         ?>
-                        <tr class="<?= $isFirstReport ? 'table-active' : '' ?>">
+                        <tr class="<?php echo  $isFirstReport ? 'table-active' : '' ?>">
                             <td class="ps-4">
                                 <div class="d-flex align-items-center">
                                     <!-- Hierarchy Line for non-first reports -->
@@ -182,34 +182,34 @@ foreach ($reportsByCase as &$caseData) {
                                     </div>
                                     <?php endif; ?>
                                     
-                                    <div class="bg-<?= $roleColor ?> text-white rounded d-flex align-items-center justify-content-center me-3" 
+                                    <div class="bg-<?php echo  $roleColor ?> text-white rounded d-flex align-items-center justify-content-center me-3" 
                                          style="width: 40px; height: 40px;">
-                                        <i class="fas <?= $hierarchyIcon ?>"></i>
+                                        <i class="fas <?php echo  $hierarchyIcon ?>"></i>
                                     </div>
                                     <div>
-                                        <span class="fw-semibold">Report #<?= h($report->id) ?></span>
+                                        <span class="fw-semibold">Report #<?php echo  h($report->id) ?></span>
                                         <br><small class="text-muted">
-                                            <?= $isFirstReport ? 'Primary Report' : 'Follow-up Report' ?>
+                                            <?php echo  $isFirstReport ? 'Primary Report' : 'Follow-up Report' ?>
                                         </small>
                                     </div>
                                 </div>
                             </td>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <span class="badge bg-<?= $roleColor ?> me-2">
-                                        <i class="fas <?= $hierarchyIcon ?> me-1"></i>
-                                        <?= h(ucfirst($creatorRole)) ?>
+                                    <span class="badge bg-<?php echo  $roleColor ?> me-2">
+                                        <i class="fas <?php echo  $hierarchyIcon ?> me-1"></i>
+                                        <?php echo  h(ucfirst($creatorRole)) ?>
                                     </span>
                                     <?php if ($roleLevel > 1): ?>
                                     <small class="text-muted">
-                                        Level <?= $roleLevel ?>
+                                        Level <?php echo  $roleLevel ?>
                                     </small>
                                     <?php endif; ?>
                                 </div>
                             </td>
                             <td>
                                 <span class="badge rounded-pill bg-success">
-                                    <?= h($report->hospital->name ?? 'Unknown') ?>
+                                    <?php echo  h($report->hospital->name ?? 'Unknown') ?>
                                 </span>
                             </td>
                             <td>
@@ -222,40 +222,40 @@ foreach ($reportsByCase as &$caseData) {
                                     default => 'secondary'
                                 };
                                 ?>
-                                <span class="badge bg-<?= $statusClass ?>">
-                                    <?= h(ucfirst($report->status)) ?>
+                                <span class="badge bg-<?php echo  $statusClass ?>">
+                                    <?php echo  h(ucfirst($report->status)) ?>
                                 </span>
                                 
                                 <?php if ($report->confidence_score): ?>
                                 <br><small class="text-muted">
-                                    Confidence: <?= h($report->confidence_score) ?>%
+                                    Confidence: <?php echo  h($report->confidence_score) ?>%
                                 </small>
                                 <?php endif; ?>
                             </td>
                             <td>
                                 <div class="d-flex flex-column">
-                                    <span class="fw-semibold text-<?= $roleColor ?>"><?= $workflowStage ?></span>
+                                    <span class="fw-semibold text-<?php echo  $roleColor ?>"><?php echo  $workflowStage ?></span>
                                     
                                     <!-- Progress indicators -->
                                     <div class="progress mt-1" style="height: 4px;">
-                                        <div class="progress-bar bg-<?= $roleColor ?>" 
-                                             style="width: <?= ($roleLevel / 3) * 100 ?>%"></div>
+                                        <div class="progress-bar bg-<?php echo  $roleColor ?>" 
+                                             style="width: <?php echo  ($roleLevel / 3) * 100 ?>%"></div>
                                     </div>
                                     
                                     <small class="text-muted mt-1">
-                                        Step <?= $roleLevel ?> of 3
+                                        Step <?php echo  $roleLevel ?> of 3
                                     </small>
                                 </div>
                             </td>
                             <td>
                                 <div class="d-flex flex-column">
-                                    <span class="fw-semibold"><?= h($report->created->format('M j, Y')) ?></span>
-                                    <small class="text-muted"><?= h($report->created->format('g:i A')) ?></small>
+                                    <span class="fw-semibold"><?php echo  h($report->created->format('M j, Y')) ?></span>
+                                    <small class="text-muted"><?php echo  h($report->created->format('g:i A')) ?></small>
                                 </div>
                             </td>
                             <td class="text-center">
                                 <div class="btn-group" role="group">
-                                    <?= $this->Html->link(
+                                    <?php echo  $this->Html->link(
                                         '<i class="fas fa-eye"></i>',
                                         ['action' => 'view', $report->id],
                                         [
@@ -270,7 +270,7 @@ foreach ($reportsByCase as &$caseData) {
                                     $currentUserId = $this->request->getAttribute('identity')?->getIdentifier();
                                     if ($creatorRole === 'scientist' && $currentUserId && $report->user_id == $currentUserId): 
                                     ?>
-                                    <?= $this->Html->link(
+                                    <?php echo  $this->Html->link(
                                         '<i class="fas fa-edit"></i>',
                                         ['action' => 'edit', $report->id],
                                         [
@@ -282,7 +282,7 @@ foreach ($reportsByCase as &$caseData) {
                                     ) ?>
                                     <?php endif; ?>
                                     
-                                    <?= $this->Html->link(
+                                    <?php echo  $this->Html->link(
                                         '<i class="fas fa-download"></i>',
                                         ['action' => 'download', $report->id, 'pdf'],
                                         [
@@ -294,7 +294,7 @@ foreach ($reportsByCase as &$caseData) {
                                     ) ?>
                                     
                                     <?php if ($creatorRole === 'technician'): ?>
-                                    <?= $this->Html->link(
+                                    <?php echo  $this->Html->link(
                                         '<i class="fas fa-level-up-alt"></i>',
                                         ['action' => 'add', '?' => ['case_id' => $caseId]],
                                         [
@@ -328,7 +328,7 @@ foreach ($reportsByCase as &$caseData) {
                     <small>The workflow hierarchy is: <strong>Technician → Scientist → Doctor</strong></small>
                 </p>
             </div>
-            <?= $this->Html->link(
+            <?php echo  $this->Html->link(
                 '<i class="fas fa-arrow-left me-2"></i>Go to Cases',
                 ['controller' => 'Cases', 'action' => 'index'],
                 ['class' => 'btn btn-success', 'escape' => false]

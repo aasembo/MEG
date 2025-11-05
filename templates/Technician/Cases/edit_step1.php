@@ -16,7 +16,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 1: Patient Informati
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2 class="mb-2 fw-bold">
-                        <i class="fas fa-edit me-2"></i>Edit Case #<?= h($case->id) ?>
+                        <i class="fas fa-edit me-2"></i>Edit Case #<?php echo  h($case->id) ?>
                     </h2>
                     <p class="mb-0">
                         <i class="fas fa-user-injured me-2"></i>Step 1: Patient Information
@@ -24,12 +24,12 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 1: Patient Informati
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <div class="btn-group" role="group">
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-eye me-2"></i>View Case',
                             ['action' => 'view', $case->id],
                             ['class' => 'btn btn-light', 'escape' => false]
                         ) ?>
-                        <?= $this->Html->link(
+                        <?php echo  $this->Html->link(
                             '<i class="fas fa-list me-2"></i>All Cases',
                             ['action' => 'index'],
                             ['class' => 'btn btn-light', 'escape' => false]
@@ -95,23 +95,23 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 1: Patient Informati
                     <div class="row g-2">
                         <div class="col-md-3">
                             <small class="text-muted fw-semibold">Case ID:</small>
-                            <div class="fw-medium">#<?= h($case->id) ?></div>
+                            <div class="fw-medium">#<?php echo  h($case->id) ?></div>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted fw-semibold">Status:</small>
                             <div>
-                                <span class="badge bg-<?= $case->status === 'completed' ? 'success' : ($case->status === 'in_progress' ? 'warning' : 'secondary') ?>">
-                                    <?= h(ucfirst(str_replace('_', ' ', $case->status))) ?>
+                                <span class="badge bg-<?php echo  $case->status === 'completed' ? 'success' : ($case->status === 'in_progress' ? 'warning' : 'secondary') ?>">
+                                    <?php echo  h(ucfirst(str_replace('_', ' ', $case->status))) ?>
                                 </span>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted fw-semibold">Created:</small>
-                            <div class="fw-medium"><?= h($case->created->format('M d, Y')) ?></div>
+                            <div class="fw-medium"><?php echo  h($case->created->format('M d, Y')) ?></div>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted fw-semibold">Current Patient:</small>
-                            <div class="fw-medium"><?= h($case->patient->masked_name ?? 'N/A') ?></div>
+                            <div class="fw-medium"><?php echo  h($case->patient->masked_name ?? 'N/A') ?></div>
                         </div>
                     </div>
                 </div>
@@ -138,12 +138,12 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 1: Patient Informati
                                     <select name="patient_id" id="patient_id" class="form-select form-select-lg" required>
                                         <option value="">Choose a patient...</option>
                                         <?php foreach ($patients as $id => $name): ?>
-                                            <option value="<?= h($id) ?>" <?= (isset($caseData['patient_id']) && $caseData['patient_id'] == $id) ? 'selected' : '' ?>>
-                                                <?= h($name) ?>
+                                            <option value="<?php echo  h($id) ?>" <?php echo  (isset($caseData['patient_id']) && $caseData['patient_id'] == $id) ? 'selected' : '' ?>>
+                                                <?php echo  h($name) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <?= $this->Html->link(
+                                    <?php echo  $this->Html->link(
                                         '<i class="fas fa-plus"></i>',
                                         ['prefix' => 'Technician', 'controller' => 'Patients', 'action' => 'add'],
                                         [
@@ -174,7 +174,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 1: Patient Informati
                                     name="date" 
                                     id="date" 
                                     class="form-control form-control-lg" 
-                                    value="<?= h($caseData['date'] ?? date('Y-m-d')) ?>"
+                                    value="<?php echo  h($caseData['date'] ?? date('Y-m-d')) ?>"
                                     required
                                 >
                                 <div class="invalid-feedback">
@@ -197,7 +197,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 1: Patient Informati
                                     name="time" 
                                     id="time" 
                                     class="form-control form-control-lg" 
-                                    value="<?= h($caseData['time'] ?? '') ?>"
+                                    value="<?php echo  h($caseData['time'] ?? '') ?>"
                                 >
                                 <div class="form-text">
                                     <i class="fas fa-info-circle me-1"></i>
@@ -218,7 +218,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 1: Patient Informati
                                     rows="4"
                                     placeholder="Describe the patient's symptoms, complaints, or reason for examination..."
                                     required
-                                ><?= h($caseData['symptoms'] ?? '') ?></textarea>
+                                ><?php echo  h($caseData['symptoms'] ?? '') ?></textarea>
                                 <div class="invalid-feedback">
                                     Please describe the patient's symptoms.
                                 </div>
@@ -232,7 +232,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 1: Patient Informati
                         <div id="alertContainer" class="mt-4"></div>
 
                         <div class="d-flex justify-content-between align-items-center pt-4 border-top mt-4">
-                            <?= $this->Html->link(
+                            <?php echo  $this->Html->link(
                                 '<i class="fas fa-times me-2"></i>Cancel',
                                 ['action' => 'view', $case->id],
                                 ['class' => 'btn btn-outline-secondary btn-lg', 'escape' => false]
@@ -258,7 +258,7 @@ $this->assign('title', 'Edit Case #' . $case->id . ' - Step 1: Patient Informati
                 <div class="d-flex align-items-center">
                     <i class="fas fa-info-circle me-3 fa-lg"></i>
                     <div>
-                        <h6 class="mb-1">Step 1 of 3 - Editing Case #<?= h($case->id) ?></h6>
+                        <h6 class="mb-1">Step 1 of 3 - Editing Case #<?php echo  h($case->id) ?></h6>
                         <div class="small mb-0">
                             Update patient information and case details. Changes will be saved when you proceed to the next step.
                         </div>
@@ -303,11 +303,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = Object.fromEntries(formData);
 
             // Send AJAX request to save step 1
-            const response = await fetch('<?= $this->Url->build(['action' => 'saveEditStep1', $case->id]) ?>', {
+            const response = await fetch('<?php echo  $this->Url->build(['action' => 'saveEditStep1', $case->id]) ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': '<?= $this->request->getAttribute('csrfToken') ?>'
+                    'X-CSRF-Token': '<?php echo  $this->request->getAttribute('csrfToken') ?>'
                 },
                 body: JSON.stringify(data)
             });
@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Redirect to step 2 after short delay
                 setTimeout(() => {
-                    window.location.href = '<?= $this->Url->build(['action' => 'editStep2', $case->id]) ?>';
+                    window.location.href = '<?php echo  $this->Url->build(['action' => 'editStep2', $case->id]) ?>';
                 }, 1000);
             } else {
                 // Show errors

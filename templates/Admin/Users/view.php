@@ -4,378 +4,271 @@
  * @var \App\Model\Entity\User $user
  */
 ?>
-<?php $this->assign('title', 'View User'); ?>
+<?php $this->assign('title', 'User Details'); ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h3 mb-0">
-            <i class="fas fa-user me-2 text-primary"></i>User Details
-        </h1>
-        <p class="text-muted mb-0">View user account information</p>
+<div class="container-fluid px-4 py-4">
+    <!-- Page Header -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-dark text-warning p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-2 fw-bold">
+                        <i class="fas fa-user-shield me-2"></i><?php echo h($user->first_name . ' ' . $user->last_name) ?>
+                    </h2>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <div class="btn-group" role="group">
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-edit me-1"></i>Edit User',
+                            ['action' => 'edit', $user->id],
+                            ['class' => 'btn btn-warning text-dark fw-bold', 'escape' => false]
+                        ) ?>
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-arrow-left me-1"></i>Back',
+                            ['action' => 'index'],
+                            ['class' => 'btn btn-outline-warning', 'escape' => false]
+                        ) ?>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div>
-        <?php echo $this->Html->link(
-            '<i class="fas fa-edit me-2"></i>Edit',
-            ['action' => 'edit', $user->id],
-            ['class' => 'btn btn-primary me-2', 'escape' => false]
-        ) ?>
-        <?php echo $this->Html->link(
-            '<i class="fas fa-arrow-left me-2"></i>Back to Users',
-            ['action' => 'index'],
-            ['class' => 'btn btn-secondary', 'escape' => false]
-        ) ?>
-    </div>
-</div>
 
-<div class="row">
-    <div class="col-lg-8">
-        <!-- User Profile Card -->
-        <div class="card border-0 shadow-sm">
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-auto">
-                        <div class="avatar-lg">
-                            <div class="avatar-img bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 80px; height: 80px; font-size: 2rem;">
-                                <?php echo strtoupper(substr(h($user->email), 0, 1)) ?>
-                            </div>
+    <div class="row">
+        <!-- User Information -->
+        <div class="col-md-8">
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-user-circle me-2 text-warning"></i>User Information
+                    </h5>
+                </div>
+                <div class="card-body bg-white">
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-semibold text-muted">Full Name:</div>
+                        <div class="col-sm-8 text-dark"><?php echo h($user->first_name . ' ' . $user->last_name) ?></div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-semibold text-muted">Username:</div>
+                        <div class="col-sm-8">
+                            <span class="badge rounded-pill bg-secondary">
+                                <i class="fas fa-user-circle me-1"></i><?php echo h($user->username) ?>
+                            </span>
                         </div>
                     </div>
-                    <div class="col">
-                        <div class="d-flex align-items-center mb-2">
-                            <h3 class="mb-0 me-3"><?php echo h($user->email) ?></h3>
-                            <?php if ($user->active): ?>
-                                <span class="badge bg-success">
-                                    <i class="fas fa-check me-1"></i>Active
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-semibold text-muted">Email:</div>
+                        <div class="col-sm-8">
+                            <i class="fas fa-envelope me-1 text-warning"></i>
+                            <a href="mailto:<?php echo h($user->email) ?>" class="text-decoration-none">
+                                <?php echo h($user->email) ?>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-semibold text-muted">User ID:</div>
+                        <div class="col-sm-8">
+                            <span class="badge bg-light text-dark border">
+                                <i class="fas fa-hashtag"></i><?php echo h($user->id) ?>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-semibold text-muted">Role:</div>
+                        <div class="col-sm-8">
+                            <?php if ($user->role): ?>
+                                <span class="badge rounded-pill <?php echo $this->Role->badgeClass($user->role->type); ?>">
+                                    <i class="fas fa-<?php echo $user->role->type === 'super' ? 'crown' : ($user->role->type === 'administrator' ? 'user-shield' : 'user') ?> me-1"></i>
+                                    <?php echo h($this->Role->label($user->role->type)); ?>
                                 </span>
                             <?php else: ?>
-                                <span class="badge bg-danger">
-                                    <i class="fas fa-times me-1"></i>Inactive
+                                <span class="badge rounded-pill bg-secondary">
+                                    <i class="fas fa-question me-1"></i>No role
                                 </span>
                             <?php endif; ?>
                         </div>
-                        
-                        <?php if ($user->role): ?>
-                            <?php
-                            $roleColors = [
-                                'super' => 'warning',
-                                'admin' => 'info',
-                                'user' => 'secondary'
-                            ];
-                            $roleColor = $roleColors[$user->role->type] ?? 'secondary';
-                            ?>
-                            <div class="mb-2">
-                                <span class="badge bg-<?php echo $roleColor ?> fs-6">
-                                    <?php if ($user->role->type === 'super'): ?>
-                                        <i class="fas fa-crown me-1"></i>
-                                    <?php elseif ($user->role->type === 'admin'): ?>
-                                        <i class="fas fa-user-shield me-1"></i>
-                                    <?php else: ?>
-                                        <i class="fas fa-user me-1"></i>
-                                    <?php endif; ?>
-                                    <?php echo h(ucfirst($user->role->type)) ?>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-semibold text-muted">Status:</div>
+                        <div class="col-sm-8">
+                            <?php if ($user->status === 'active'): ?>
+                                <span class="badge rounded-pill bg-success text-white">
+                                    <i class="fas fa-check-circle me-1"></i>Active
                                 </span>
-                            </div>
-                        <?php else: ?>
-                            <div class="mb-2">
-                                <span class="badge bg-light text-dark fs-6">
-                                    <i class="fas fa-user-times me-1"></i>No Role
+                            <?php else: ?>
+                                <span class="badge rounded-pill bg-danger text-white">
+                                    <i class="fas fa-pause-circle me-1"></i>Inactive
                                 </span>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <p class="text-muted mb-0">
-                            User ID: <strong>#<?php echo h($user->id) ?></strong>
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Account Information -->
-        <div class="card border-0 shadow-sm mt-4">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-info-circle me-2"></i>Account Information
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <table class="table table-borderless">
-                            <tr>
-                                <td class="text-muted fw-semibold">Email Address:</td>
-                                <td><?php echo h($user->email) ?></td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted fw-semibold">Hospital:</td>
-                                <td>
-                                    <?php if ($user->role && $user->role->type === 'super'): ?>
-                                        <span class="badge bg-warning">
-                                            <i class="fas fa-crown me-1"></i>Super User - No Hospital
-                                        </span>
-                                    <?php elseif ($user->hospital): ?>
-                                        <strong><?php echo h($user->hospital->name) ?></strong>
-                                        <br><small class="text-muted">Subdomain: <?php echo h($user->hospital->subdomain) ?></small>
-                                    <?php else: ?>
-                                        <span class="badge bg-danger">Not Assigned</span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted fw-semibold">User ID:</td>
-                                <td><span class="badge bg-light text-dark">#<?php echo h($user->id) ?></span></td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted fw-semibold">Role:</td>
-                                <td>
-                                    <?php if ($user->role): ?>
-                                        <?php
-                                        $roleColors = [
-                                            'super' => 'warning',
-                                            'admin' => 'info',
-                                            'user' => 'secondary'
-                                        ];
-                                        $roleColor = $roleColors[$user->role->type] ?? 'secondary';
-                                        ?>
-                                        <span class="badge bg-<?php echo $roleColor ?>">
-                                            <?php echo h(ucfirst($user->role->type)) ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="badge bg-light text-dark">No Role</span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted fw-semibold">Status:</td>
-                                <td>
-                                    <?php if ($user->status === 'active'): ?>
-                                        <span class="badge bg-success">
-                                            <i class="fas fa-check me-1"></i>Active
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="badge bg-danger">
-                                            <i class="fas fa-times me-1"></i>Inactive
-                                        </span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <table class="table table-borderless">
-                            <tr>
-                                <td class="text-muted fw-semibold" style="width: 140px;">Created:</td>
-                                <td>
-                                    <?php echo $user->created->format('F j, Y') ?><br>
-                                    <small class="text-muted"><?php echo $user->created->format('g:i A') ?></small>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted fw-semibold">Last Modified:</td>
-                                <td>
-                                    <?php echo $user->modified->format('F j, Y') ?><br>
-                                    <small class="text-muted"><?php echo $user->modified->format('g:i A') ?></small>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted fw-semibold">Account Age:</td>
-                                <td>
-                                    <?php
-                                    $diff = $user->created->diff(new DateTime());
-                                    if ($diff->days > 0) {
-                                        echo $diff->days . ' day' . ($diff->days > 1 ? 's' : '');
-                                    } else {
-                                        echo 'Less than a day';
-                                    }
-                                    ?>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Role Permissions -->
-        <?php if ($user->role): ?>
-        <div class="card border-0 shadow-sm mt-4">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-key me-2"></i>Role Permissions
-                </h5>
-            </div>
-            <div class="card-body">
-                <?php
-                $permissions = [
-                    'super' => [
-                        'Full system administration',
-                        'User management',
-                        'Role management',
-                        'System settings',
-                        'Database management',
-                        'Security configuration',
-                        'All features access'
-                    ],
-                    'admin' => [
-                        'User management',
-                        'Content management',
-                        'Basic reports',
-                        'Limited system settings',
-                        'Most features access'
-                    ],
-                    'user' => [
-                        'Basic profile management',
-                        'View own data',
-                        'Standard user features',
-                        'Limited access'
-                    ]
-                ];
-                
-                $userPermissions = $permissions[$user->role->type] ?? ['Custom permissions'];
-                ?>
-                
-                <div class="row">
-                    <?php foreach (array_chunk($userPermissions, ceil(count($userPermissions) / 2)) as $chunk): ?>
-                    <div class="col-md-6">
-                        <ul class="list-unstyled">
-                            <?php foreach ($chunk as $permission): ?>
-                            <li class="mb-2">
-                                <i class="fas fa-check text-success me-2"></i>
-                                <?php echo h($permission) ?>
-                            </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-    </div>
-    
-    <div class="col-lg-4">
-        <!-- Quick Actions -->
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-cogs me-2"></i>Quick Actions
-                </h6>
-            </div>
-            <div class="card-body">
-                <?php
-                // Prevent actions on current user
-                $currentUser = $this->getRequest()->getAttribute('identity');
-                $isCurrentUser = $currentUser && $currentUser->get('id') == $user->id;
-                ?>
-                
-                <div class="d-grid gap-2">
-                    <?php echo $this->Html->link(
-                        '<i class="fas fa-edit me-2"></i>Edit User',
-                        ['action' => 'edit', $user->id],
-                        ['class' => 'btn btn-primary', 'escape' => false]
-                    ) ?>
-                    
-                    <?php if (!$isCurrentUser): ?>
-                    <?php echo $this->Form->postLink(
-                        (($user->status === 'active') ? '<i class="fas fa-user-slash me-2"></i>Deactivate' : '<i class="fas fa-user-check me-2"></i>Activate') . ' User',
-                        ['action' => 'toggleStatus', $user->id],
-                        [
-                            'class' => 'btn ' . (($user->status === 'active') ? 'btn-warning' : 'btn-success'),
-                            'escape' => false,
-                            'confirm' => 'Are you sure you want to ' . (($user->status === 'active') ? 'deactivate' : 'activate') . ' this user?'
-                        ]
-                    ) ?>
-                    
-                    <?php echo $this->Form->postLink(
-                        '<i class="fas fa-trash me-2"></i>Delete User',
-                        ['action' => 'delete', $user->id],
-                        [
-                            'class' => 'btn btn-danger',
-                            'escape' => false,
-                            'confirm' => 'Are you sure you want to delete this user? This action cannot be undone.'
-                        ]
-                    ) ?>
-                    <?php else: ?>
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>Note:</strong> This is your account. You cannot deactivate or delete your own account.
+                            <?php endif; ?>
                         </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-semibold text-muted">Hospital:</div>
+                        <div class="col-sm-8">
+                            <?php if ($user->role && $user->role->type === 'super'): ?>
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-crown me-1"></i>Super User - All Hospitals
+                                </span>
+                            <?php elseif (!empty($user->hospital_id)): ?>
+                                <?php if (isset($user->hospital) && $user->hospital): ?>
+                                    <div class="text-dark">
+                                        <strong><?php echo h($user->hospital->name) ?></strong>
+                                    </div>
+                                    <div class="text-muted small mt-1">
+                                        <i class="fas fa-globe me-1"></i>Subdomain: <?php echo h($user->hospital->subdomain) ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="text-dark">
+                                        <strong>Hospital ID: <?php echo h($user->hospital_id) ?></strong>
+                                    </div>
+                                    <div class="text-muted small mt-1">
+                                        <i class="fas fa-info-circle me-1"></i>Hospital details not loaded
+                                    </div>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <span class="badge bg-danger text-white">Not assigned</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 fw-semibold text-muted">Registered:</div>
+                        <div class="col-sm-8">
+                            <i class="fas fa-calendar-plus me-1 text-info"></i>
+                            <?php echo $user->created->format('F d, Y \a\t g:i A') ?>
+                            <div class="text-muted small"><?php echo $user->created->timeAgoInWords() ?></div>
+                        </div>
+                    </div>
+                    <?php if ($user->modified != $user->created): ?>
+                    <div class="row mb-0">
+                        <div class="col-sm-4 fw-semibold text-muted">Last Updated:</div>
+                        <div class="col-sm-8">
+                            <i class="fas fa-clock me-1 text-muted"></i>
+                            <?php echo $user->modified->format('F d, Y \a\t g:i A') ?>
+                            <div class="text-muted small"><?php echo $user->modified->timeAgoInWords() ?></div>
+                        </div>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
-        
-        <!-- User Statistics -->
-        <div class="card border-0 shadow-sm mt-3">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-chart-bar me-2"></i>Account Statistics
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-6">
-                        <div class="border-end">
-                            <div class="h4 mb-0 text-primary">
-                                <?php
-                                $diff = $user->created->diff(new DateTime());
-                                echo $diff->days;
-                                ?>
-                            </div>
-                            <small class="text-muted">Days Active</small>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="h4 mb-0 text-success">
-                            <?php echo ($user->status === 'active') ? '✓' : '✗' ?>
-                        </div>
-                        <small class="text-muted">Status</small>
-                    </div>
+
+        <!-- Quick Stats & Actions -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-chart-line me-2 text-warning"></i>Account Stats
+                    </h5>
                 </div>
-                
-                <hr>
-                
-                <div class="small text-muted">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span>Account Status:</span>
-                        <span class="<?php echo ($user->status === 'active') ? 'text-success' : 'text-danger' ?>">
-                            <?php echo ($user->status === 'active') ? 'Active' : 'Inactive' ?>
+                <div class="card-body bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                        <span class="text-muted">Account Age:</span>
+                        <span class="badge rounded-pill bg-info fs-6">
+                            <?php
+                            $diff = $user->created->diff(new DateTime());
+                            echo $diff->days . ' day' . ($diff->days != 1 ? 's' : '');
+                            ?>
                         </span>
                     </div>
-                    <div class="d-flex justify-content-between">
-                        <span>Last Updated:</span>
-                        <span><?php echo $user->modified->timeAgoInWords() ?></span>
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                        <span class="text-muted">Account Status:</span>
+                        <span class="badge rounded-pill bg-<?php echo $user->status === 'active' ? 'success' : 'danger' ?> text-white">
+                            <?php echo ucfirst($user->status) ?>
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                        <span class="text-muted">Role Level:</span>
+                        <span class="badge rounded-pill bg-warning text-dark">
+                            <?php echo $user->role ? h($this->Role->label($user->role->type)) : 'No Role' ?>
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Registered:</span>
+                        <span class="text-dark small fw-semibold">
+                            <?php echo $user->created->format('M d, Y') ?>
+                        </span>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Navigation -->
-        <div class="card border-0 shadow-sm mt-3">
-            <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="fas fa-compass me-2"></i>Navigation
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <?php echo $this->Html->link(
-                        '<i class="fas fa-list me-2"></i>All Users',
-                        ['action' => 'index'],
-                        ['class' => 'btn btn-outline-secondary btn-sm', 'escape' => false]
-                    ) ?>
-                    <?php echo $this->Html->link(
-                        '<i class="fas fa-plus me-2"></i>Add New User',
-                        ['action' => 'add'],
-                        ['class' => 'btn btn-outline-primary btn-sm', 'escape' => false]
-                    ) ?>
-                    <?php echo $this->Html->link(
-                        '<i class="fas fa-home me-2"></i>Dashboard',
-                        ['controller' => 'Dashboard', 'action' => 'index'],
-                        ['class' => 'btn btn-outline-info btn-sm', 'escape' => false]
-                    ) ?>
+
+            <!-- Quick Actions -->
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-bolt me-2 text-warning"></i>Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body bg-white">
+                    <?php
+                    // Prevent actions on current user
+                    $currentUser = $this->getRequest()->getAttribute('identity');
+                    $isCurrentUser = $currentUser && $currentUser->get('id') == $user->id;
+                    ?>
+                    
+                    <div class="d-grid gap-2">
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-edit me-2"></i>Edit User',
+                            ['action' => 'edit', $user->id],
+                            ['class' => 'btn btn-warning text-dark fw-bold', 'escape' => false]
+                        ) ?>
+                        
+                        <?php if (!$isCurrentUser): ?>
+                        <?php echo $this->Form->postLink(
+                            (($user->status === 'active') ? '<i class="fas fa-user-slash me-2"></i>Deactivate User' : '<i class="fas fa-user-check me-2"></i>Activate User'),
+                            ['action' => 'toggleStatus', $user->id],
+                            [
+                                'class' => 'btn ' . (($user->status === 'active') ? 'btn-outline-danger' : 'btn-outline-success'),
+                                'escape' => false,
+                                'confirm' => 'Are you sure you want to ' . (($user->status === 'active') ? 'deactivate' : 'activate') . ' this user?'
+                            ]
+                        ) ?>
+                        
+                        <?php echo $this->Form->postLink(
+                            '<i class="fas fa-trash me-2"></i>Delete User',
+                            ['action' => 'delete', $user->id],
+                            [
+                                'class' => 'btn btn-outline-danger',
+                                'escape' => false,
+                                'confirm' => 'Are you sure you want to delete this user? This action cannot be undone.'
+                            ]
+                        ) ?>
+                        <?php else: ?>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> This is your account. You cannot deactivate or delete your own account.
+                            </div>
+                        <?php endif; ?>
+                        
+                        <hr class="my-3">
+                        
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-list me-2"></i>All Users',
+                            ['action' => 'index'],
+                            ['class' => 'btn btn-outline-secondary', 'escape' => false]
+                        ) ?>
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-plus me-2"></i>Add New User',
+                            ['action' => 'add'],
+                            ['class' => 'btn btn-outline-primary', 'escape' => false]
+                        ) ?>
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-tachometer-alt me-2"></i>Dashboard',
+                            ['controller' => 'Dashboard', 'action' => 'index'],
+                            ['class' => 'btn btn-outline-info', 'escape' => false]
+                        ) ?>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>

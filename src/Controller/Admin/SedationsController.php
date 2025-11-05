@@ -19,6 +19,53 @@ class SedationsController extends AppController {
         $query = $this->Sedations->find()
             ->contain(['Hospitals'])
             ->where(['Sedations.hospital_id' => $hospitalId]);
+        
+        // Handle search
+        $searchTerm = $this->request->getQuery('search');
+        if (!empty($searchTerm)) {
+            $query->where([
+                'OR' => [
+                    'Sedations.level LIKE' => '%' . $searchTerm . '%',
+                    'Sedations.type LIKE' => '%' . $searchTerm . '%',
+                    'Sedations.description LIKE' => '%' . $searchTerm . '%',
+                    'Sedations.medications LIKE' => '%' . $searchTerm . '%'
+                ]
+            ]);
+        }
+        
+        // Handle sort dropdown - apply to query directly
+        $sortParam = $this->request->getQuery('sort');
+        if (!empty($sortParam)) {
+            switch ($sortParam) {
+                case 'level':
+                    $query->orderAsc('Sedations.level');
+                    break;
+                case 'level DESC':
+                    $query->orderDesc('Sedations.level');
+                    break;
+                case 'created':
+                    $query->orderAsc('Sedations.created');
+                    break;
+                case 'created DESC':
+                    $query->orderDesc('Sedations.created');
+                    break;
+                default:
+                    $query->orderDesc('Sedations.created');
+                    break;
+            }
+        } else {
+            $query->orderDesc('Sedations.created');
+        }
+        
+        // Set pagination options
+        $this->paginate = [
+            'limit' => 25,
+            'sortableFields' => [
+                'Sedations.level',
+                'Sedations.type', 
+                'Sedations.created'
+            ]
+        ];
             
         $sedations = $this->paginate($query);
         
