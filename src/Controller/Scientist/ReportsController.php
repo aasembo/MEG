@@ -152,6 +152,9 @@ class ReportsController extends AppController
         if ($this->request->is('post')) {
             $data = $this->request->getData();
             
+            // Debug: Log the received data
+            \Cake\Log\Log::info('Scientist Report Data Received: ' . json_encode($data));
+            
             // Store the single editor content as report_data
             $reportDataStructure = [
                 'content' => $data['report_content'] ?? ''
@@ -172,9 +175,18 @@ class ReportsController extends AppController
             $data['status'] = $data['status'] ?? 'pending';
             $data['user_id'] = $userId;
             
+            // Debug: Log the final data being saved
+            \Cake\Log\Log::info('Scientist Report Final Data: ' . json_encode($data));
+            
             $report = $this->Reports->patchEntity($report, $data);
             
+            // Debug: Log any validation errors
+            if ($report->getErrors()) {
+                \Cake\Log\Log::error('Scientist Report Validation Errors: ' . json_encode($report->getErrors()));
+            }
+            
             if ($this->Reports->save($report)) {
+                \Cake\Log\Log::info('Scientist Report Saved Successfully with ID: ' . $report->id);
                 $this->Flash->success(__('The scientist report has been saved.'));
                 return $this->redirect(['action' => 'view', $report->id]);
             }

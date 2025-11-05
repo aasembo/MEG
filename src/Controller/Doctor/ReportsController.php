@@ -164,6 +164,9 @@ class ReportsController extends AppController
         if ($this->request->is('post')) {
             $data = $this->request->getData();
             
+            // Debug: Log the received data
+            \Cake\Log\Log::info('Doctor Report Data Received: ' . json_encode($data));
+            
             // Structure the report data with doctor approval
             $reportDataStructure = [
                 'content' => $data['report_content'] ?? $reportContent
@@ -182,9 +185,18 @@ class ReportsController extends AppController
                 'notes' => $data['doctor_notes'] ?? ''
             ]);
             
+            // Debug: Log the final data being saved
+            \Cake\Log\Log::info('Doctor Report Final Data: ' . json_encode($data));
+            
             $report = $this->Reports->patchEntity($report, $data);
             
+            // Debug: Log any validation errors
+            if ($report->getErrors()) {
+                \Cake\Log\Log::error('Doctor Report Validation Errors: ' . json_encode($report->getErrors()));
+            }
+            
             if ($this->Reports->save($report)) {
+                \Cake\Log\Log::info('Doctor Report Saved Successfully with ID: ' . $report->id);
                 $this->Flash->success(__('The doctor report has been created successfully.'));
                 return $this->redirect(['action' => 'view', $report->id]);
             } else {

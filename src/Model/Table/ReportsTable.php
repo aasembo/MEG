@@ -89,6 +89,10 @@ class ReportsTable extends Table
             ->allowEmptyString('report_data');
 
         $validator
+            ->scalar('technician_notes')
+            ->allowEmptyString('technician_notes');
+
+        $validator
             ->scalar('doctor_notes')
             ->allowEmptyString('doctor_notes');
 
