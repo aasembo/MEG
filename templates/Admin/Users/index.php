@@ -19,11 +19,6 @@
                         ['action' => 'add'],
                         ['class' => 'btn btn-warning btn-lg text-dark fw-bold', 'escape' => false]
                     ) ?>
-                    <?php echo $this->Html->link(
-                        '<i class="fas fa-download me-2"></i>Export',
-                        ['action' => 'export'],
-                        ['class' => 'btn btn-outline-warning ms-2', 'escape' => false]
-                    ) ?>
                 </div>
             </div>
         </div>
