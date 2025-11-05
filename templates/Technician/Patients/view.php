@@ -13,7 +13,7 @@ $this->assign('title', 'Patient Details');
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h2 class="mb-2 fw-bold">
-                        <i class="fas fa-user-injured me-2"></i><?php echo h($patient->user->first_name . ' ' . $patient->user->last_name) ?>
+                        <i class="fas fa-user-injured me-2"></i><?php echo h($this->PatientMask->displayName($patient)) ?>
                     </h2>
                     <p class="mb-0">
                         <i class="fas fa-hospital me-2"></i><?php echo h($currentHospital->name) ?>
@@ -49,13 +49,13 @@ $this->assign('title', 'Patient Details');
                 <div class="card-body bg-white">
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Full Name:</div>
-                        <div class="col-sm-8 text-dark"><?php echo h($patient->user->first_name . ' ' . $patient->user->last_name) ?></div>
+                        <div class="col-sm-8 text-dark"><?php echo h($this->PatientMask->displayName($patient)) ?></div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Username:</div>
                         <div class="col-sm-8">
                             <span class="badge rounded-pill bg-secondary">
-                                <i class="fas fa-user-circle me-1"></i><?php echo h($patient->user->username) ?>
+                                <i class="fas fa-user-circle me-1"></i><?php echo h($patient->username) ?>
                             </span>
                         </div>
                     </div>
@@ -63,16 +63,24 @@ $this->assign('title', 'Patient Details');
                         <div class="col-sm-4 fw-semibold text-muted">Email:</div>
                         <div class="col-sm-8">
                             <i class="fas fa-envelope me-1 text-primary"></i>
-                            <a href="mailto:<?php echo h($patient->user->email) ?>" class="text-decoration-none">
-                                <?php echo h($patient->user->email) ?>
-                            </a>
+                            <?php 
+                            $displayedEmail = $this->PatientMask->displayEmail($patient);
+                            if (strpos($displayedEmail, '@') !== false && !str_contains($displayedEmail, '***')): ?>
+                                <a href="mailto:<?php echo h($displayedEmail) ?>" class="text-decoration-none">
+                                    <?php echo h($displayedEmail) ?>
+                                </a>
+                            <?php else: ?>
+                                <?php echo h($displayedEmail) ?>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Phone:</div>
                         <div class="col-sm-8">
-                            <?php if ($patient->phone): ?>
-                                <i class="fas fa-phone me-1 text-success"></i><?php echo h($patient->phone) ?>
+                            <?php 
+                            $displayedPhone = $this->PatientMask->displayPhone($patient);
+                            if ($displayedPhone): ?>
+                                <i class="fas fa-phone me-1 text-success"></i><?php echo h($displayedPhone) ?>
                             <?php else: ?>
                                 <span class="text-muted">Not provided</span>
                             <?php endif; ?>
@@ -81,13 +89,15 @@ $this->assign('title', 'Patient Details');
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Gender:</div>
                         <div class="col-sm-8">
-                            <?php if ($patient->gender): ?>
+                            <?php 
+                            $displayedGender = $this->PatientMask->displayGender($patient);
+                            if ($displayedGender && $displayedGender !== 'N/A'): ?>
                                 <?php
-                                $genderConfig = match($patient->gender) {
-                                    'M' => ['class' => 'primary', 'icon' => 'mars', 'text' => 'Male'],
-                                    'F' => ['class' => 'danger', 'icon' => 'venus', 'text' => 'Female'],
-                                    'O' => ['class' => 'warning', 'icon' => 'transgender', 'text' => 'Other'],
-                                    default => ['class' => 'secondary', 'icon' => 'user', 'text' => h($patient->gender)]
+                                $genderConfig = match(strtolower($displayedGender)) {
+                                    'male' => ['class' => 'primary', 'icon' => 'mars', 'text' => 'Male'],
+                                    'female' => ['class' => 'danger', 'icon' => 'venus', 'text' => 'Female'],
+                                    'other' => ['class' => 'warning', 'icon' => 'transgender', 'text' => 'Other'],
+                                    default => ['class' => 'secondary', 'icon' => 'user', 'text' => h($displayedGender)]
                                 };
                                 $badgeClass = 'badge rounded-pill bg-' . $genderConfig['class'];
                                 $badgeClass .= ($genderConfig['class'] === 'warning') ? ' text-dark' : ' text-white';
@@ -103,12 +113,12 @@ $this->assign('title', 'Patient Details');
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Date of Birth:</div>
                         <div class="col-sm-8">
-                            <?php if ($patient->dob): ?>
-                                <i class="fas fa-birthday-cake me-1 text-warning"></i>
-                                <?php echo $patient->dob->format('F j, Y') ?>
-                                <span class="badge bg-light text-dark ms-2">
-                                    <?php echo $this->DateTime->formatAge($patient->dob) ?>
-                                </span>
+                            <?php 
+                            $displayedDob = $this->PatientMask->displayDob($patient);
+                            if ($displayedDob && $displayedDob !== 'N/A'): ?>
+                            <div class="text-dark">
+                                <?php echo h($displayedDob); ?>
+                            </div>
                             <?php else: ?>
                                 <span class="text-muted">Not provided</span>
                             <?php endif; ?>
@@ -117,9 +127,11 @@ $this->assign('title', 'Patient Details');
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Medical Record #:</div>
                         <div class="col-sm-8">
-                            <?php if ($patient->medical_record_number): ?>
+                            <?php 
+                            $displayedMrn = $this->PatientMask->displayMrn($patient);
+                            if ($displayedMrn): ?>
                                 <span class="badge bg-info text-white">
-                                    <i class="fas fa-file-medical me-1"></i><?php echo h($patient->medical_record_number) ?>
+                                    <i class="fas fa-file-medical me-1"></i><?php echo h($displayedMrn) ?>
                                 </span>
                             <?php else: ?>
                                 <span class="text-muted">Not assigned</span>
@@ -129,32 +141,42 @@ $this->assign('title', 'Patient Details');
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Financial Record #:</div>
                         <div class="col-sm-8">
-                            <?php if ($patient->financial_record_number): ?>
+                            <?php 
+                            $maskedFin = $this->PatientMask->displayFin($patient);
+                            if ($maskedFin): ?>
                                 <span class="badge bg-success text-white">
-                                    <i class="fas fa-dollar-sign me-1"></i><?php echo h($patient->financial_record_number) ?>
+                                    <i class="fas fa-credit-card me-1"></i><?php echo h($maskedFin) ?>
                                 </span>
                             <?php else: ?>
                                 <span class="text-muted">Not assigned</span>
                             <?php endif; ?>
                         </div>
                     </div>
-                    <?php if ($patient->address): ?>
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Address:</div>
                         <div class="col-sm-8">
-                            <i class="fas fa-map-marker-alt me-1 text-danger"></i>
-                            <?php echo nl2br(h($patient->address)) ?>
+                            <?php 
+                            $displayedAddress = $this->PatientMask->displayAddress($patient);
+                            if ($displayedAddress && $displayedAddress !== 'N/A'): ?>
+                                <i class="fas fa-map-marker-alt me-1 text-danger"></i>
+                                <?php echo nl2br(h($displayedAddress)) ?>
+                            <?php else: ?>
+                                <span class="text-muted">Not provided</span>
+                            <?php endif; ?>
                         </div>
                     </div>
-                    <?php endif; ?>
                     <div class="row mb-3">
                         <div class="col-sm-4 fw-semibold text-muted">Emergency Contact:</div>
                         <div class="col-sm-8">
-                            <?php if ($patient->emergency_contact_name): ?>
-                                <div><i class="fas fa-user-shield me-1 text-warning"></i><?php echo h($patient->emergency_contact_name) ?></div>
-                                <?php if ($patient->emergency_contact_phone): ?>
+                            <?php 
+                            $emergencyContactName = $this->PatientMask->displayEmergencyContactName($patient);
+                            $emergencyContactPhone = $this->PatientMask->displayEmergencyContactPhone($patient);
+                            
+                            if ($emergencyContactName && $emergencyContactName !== 'N/A'): ?>
+                                <div><i class="fas fa-user-shield me-1 text-warning"></i><?php echo h($emergencyContactName) ?></div>
+                                <?php if ($emergencyContactPhone && $emergencyContactPhone !== 'N/A'): ?>
                                     <div class="text-muted small mt-1">
-                                        <i class="fas fa-phone me-1"></i><?php echo h($patient->emergency_contact_phone) ?>
+                                        <i class="fas fa-phone me-1"></i><?php echo h($emergencyContactPhone) ?>
                                     </div>
                                 <?php endif; ?>
                             <?php else: ?>
@@ -166,11 +188,11 @@ $this->assign('title', 'Patient Details');
                         <div class="col-sm-4 fw-semibold text-muted">Status:</div>
                         <div class="col-sm-8">
                             <?php
-                            $statusConfig = match($patient->user->status) {
+                            $statusConfig = match($patient->status) {
                                 'active' => ['class' => 'success', 'icon' => 'check-circle', 'text' => 'Active'],
                                 'inactive' => ['class' => 'secondary', 'icon' => 'minus-circle', 'text' => 'Inactive'],
                                 'suspended' => ['class' => 'danger', 'icon' => 'ban', 'text' => 'Suspended'],
-                                default => ['class' => 'secondary', 'icon' => 'circle', 'text' => ucfirst($patient->user->status)]
+                                default => ['class' => 'secondary', 'icon' => 'circle', 'text' => ucfirst($patient->status)]
                             };
                             $statusBadge = 'badge rounded-pill bg-' . $statusConfig['class'] . ' text-white';
                             ?>
@@ -223,7 +245,7 @@ $this->assign('title', 'Patient Details');
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="text-muted">Registered:</span>
                         <span class="text-dark small fw-semibold">
-                            <?php echo $patient->user->created->format('M d, Y') ?>
+                            <?php echo $patient->created->format('M d, Y') ?>
                         </span>
                     </div>
                 </div>
@@ -240,12 +262,12 @@ $this->assign('title', 'Patient Details');
                     <div class="d-grid gap-2">
                         <?php echo $this->Html->link(
                             '<i class="fas fa-plus-circle me-2"></i>Create New Case', 
-                            ['controller' => 'Cases', 'action' => 'add', '?' => ['patient_id' => $patient->user_id]], 
+                            ['controller' => 'Cases', 'action' => 'add', '?' => ['patient_id' => $patient->id]], 
                             ['class' => 'btn btn-success', 'escape' => false]
                         ) ?>
                         <?php echo $this->Html->link(
                             '<i class="fas fa-folder-open me-2"></i>View All Cases', 
-                            ['controller' => 'Cases', 'action' => 'index', '?' => ['search' => $patient->user->username]], 
+                            ['controller' => 'Cases', 'action' => 'index', '?' => ['search' => $patient->username]], 
                             ['class' => 'btn btn-outline-primary', 'escape' => false]
                         ) ?>
                         <?php echo $this->Html->link(
@@ -271,7 +293,7 @@ $this->assign('title', 'Patient Details');
                         </h5>
                         <?php echo $this->Html->link(
                             '<i class="fas fa-external-link-alt me-1"></i>View All', 
-                            ['controller' => 'Cases', 'action' => 'index', '?' => ['search' => $patient->user->username]], 
+                            ['controller' => 'Cases', 'action' => 'index', '?' => ['search' => $patient->username]], 
                             ['class' => 'btn btn-sm btn-outline-primary', 'escape' => false]
                         ) ?>
                     </div>

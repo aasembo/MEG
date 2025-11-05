@@ -16,9 +16,9 @@
     
     <!-- Patient Demographics Section -->
     <div style="margin-bottom: 20px;">
-        <p style="margin: 3px 0;"><strong>Name:</strong> <?= h($case->patient_user->last_name ?? '') ?>, <?= h($case->patient_user->first_name ?? '') ?></p>
-        <p style="margin: 3px 0;"><strong>Date of Birth:</strong> <?= $case->patient_user->date_of_birth ? h($case->patient_user->date_of_birth->format('m/d/Y')) : 'XX/XX/XXXX' ?></p>
-        <p style="margin: 3px 0;"><strong>MRN:</strong> <?= h($case->patient_user->medical_record_number ?? 'XXXXX') ?> <strong>-FIN:</strong> <?= h($case->patient_user->financial_record_number ?? 'XXXXX') ?></p>
+        <p style="margin: 3px 0;"><strong>Name:</strong> <?= $this->PatientMask->displayName($case->patient_user) ?></p>
+        <p style="margin: 3px 0;"><strong>Date of Birth:</strong> <?= $this->PatientMask->displayDob($case->patient_user) ?></p>
+        <p style="margin: 3px 0;"><strong>MRN:</strong> <?= $this->PatientMask->displayMrn($case->patient_user) ?> <strong>-FIN:</strong> <?= $this->PatientMask->displayFin($case->patient_user) ?></p>
         <p style="margin: 3px 0;"><strong>Date of Study:</strong> <?= $case->date ? h($case->date->format('m/d/Y')) : 'XX/XX/XXXX' ?></p>
         <p style="margin: 3px 0;"><strong>Referring Physician:</strong> <?= h($case->user->first_name ?? '') ?> <?= h($case->user->last_name ?? '') ?>, MD</p>
         <p style="margin: 3px 0;"><strong>MEG ID:</strong> <?php 
@@ -32,22 +32,24 @@
     <div style="margin-bottom: 20px;">
         <p style="margin: 8px 0 4px 0;"><strong>Patient History:</strong></p>
         <?php 
-        $age = 'XX';
-        $gender = 'XXX';
-        if ($case->patient_user->date_of_birth) {
-            $birthDate = $case->patient_user->date_of_birth;
-            $age = date('Y') - $birthDate->format('Y');
-            if (date('md') < $birthDate->format('md')) {
-                $age--;
-            }
-        }
-        if ($case->patient_user->gender) {
-            $gender = $case->patient_user->gender === 'male' ? 'male' : ($case->patient_user->gender === 'female' ? 'female' : $case->patient_user->gender);
+        // Use masked values for age and gender
+        $maskedAge = $this->PatientMask->displayDob($case->patient_user);
+        $maskedGender = $this->PatientMask->displayGender($case->patient_user);
+        
+        // Extract age from masked DOB if possible
+        if (is_numeric($maskedAge)) {
+            $ageDisplay = $maskedAge;
+        } elseif (strpos($maskedAge, 'years old') !== false) {
+            // Extract numeric age if it's in "XX years old" format
+            preg_match('/(\d+)/', $maskedAge, $matches);
+            $ageDisplay = $matches[1] ?? 'XX';
+        } else {
+            $ageDisplay = 'XX';
         }
         ?>
-        <p style="margin: 3px 0;"><?= h($age) ?> yo <?= h($gender) ?>.</p>
+        <p style="margin: 3px 0;"><?= h($ageDisplay) ?> yo <?= h($maskedGender) ?>.</p>
         <p style="margin: 8px 0 0 0;"><strong>Medication:</strong></p>
-        <p style="margin: 3px 0;"><?= h($case->patient_user->medications ?? '') ?></p>
+        <p style="margin: 3px 0;">Available to authorized personnel</p>
     </div>
     
     <!-- MEG Recordings Section -->

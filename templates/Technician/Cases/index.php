@@ -194,10 +194,10 @@ $this->assign('title', 'Case Management');
                                 <?php if ($case->patient_id && isset($case->patient_user)): ?>
                                     <div>
                                         <div class="fw-semibold text-dark">
-                                            <?php echo h($case->patient_user->first_name . ' ' . $case->patient_user->last_name); ?>
+                                            <?php echo $this->PatientMask->displayField($case->patient_user, 'name', ['icon' => false]); ?>
                                         </div>
                                         <div class="text-muted small">
-                                            <i class="fas fa-id-card me-1"></i>ID: <?php echo h($case->patient_user->id) ?>
+                                            <i class="fas fa-id-card me-1"></i>MRN: <?php echo $this->PatientMask->displayMrn($case->patient_user); ?>
                                         </div>
                                     </div>
                                 <?php elseif ($case->patient_id): ?>

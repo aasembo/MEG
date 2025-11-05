@@ -10,371 +10,290 @@
  * @var int $completedCases
  * @var int $cancelledCases
  * @var int $urgentCases
- * @var int $highPriorityCase                    <div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="small">Cancelled</span>
-                            <span class="small fw-semibold"><?php echo $cancelledCases; ?></span>
-                        </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-danger" style="width: <?php echo $totalCases > 0 ? round(($cancelledCases / $totalCases * 100), 1) : 0; ?>%"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>              </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-danger" style="width: <?php echo $totalCases > 0 ? round(($cancelledCases / $totalCases * 100), 1) : 0; ?>%"></div>
-                        </div>
-                    </div>var \Cake\ORM\ResultSet $recentCases
+ * @var int $highPriorityCases
+ * @var \Cake\ORM\ResultSet $recentCases
  */
-$this->setLayout('doctor');
-$this->assign('title', 'Dashboard');
+$this->assign('title', 'Medical Dashboard');
 ?>
 
-<div class="dashboard-content">
+<div class="container-fluid px-4 py-4">
     <!-- Welcome Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1">
-                <i class="fas fa-tachometer-alt me-2 text-primary"></i>Dashboard
-            </h2>
-            <p class="text-muted mb-0">Welcome back, Dr. <?php echo h($userWithRole->first_name . ' ' . $userWithRole->last_name); ?></p>
-        </div>
-        <div>
-            <?php if ($currentHospital): ?>
-                <span class="badge bg-success fs-6 px-3 py-2">
-                    <i class="fas fa-hospital me-2"></i><?php echo h($currentHospital->name); ?>
-                </span>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <!-- Statistics Cards -->
-    <div class="row g-4 mb-4">
-        <!-- Total Cases -->
-        <div class="col-lg-3 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-danger text-white p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center">
+                        <div class="me-4">
+                            <div class="bg-white text-danger rounded-circle d-flex align-items-center justify-content-center" style="width: 70px; height: 70px; font-size: 2rem;">
+                                <i class="fas fa-user-md"></i>
+                            </div>
+                        </div>
                         <div>
-                            <p class="text-muted mb-1">Total Cases</p>
-                            <h3 class="mb-0 fw-bold"><?php echo number_format($totalCases); ?></h3>
+                            <h2 class="mb-2 fw-bold">Welcome back, Dr. <?php echo h($userWithRole->first_name . ' ' . $userWithRole->last_name); ?>!</h2>
+                            <p class="mb-0 fs-5">
+                                <i class="fas fa-stethoscope me-2"></i>Medical Dashboard - Provide expert medical care and oversight
+                            </p>
                         </div>
-                        <div class="stat-icon bg-primary bg-opacity-10 text-primary">
-                            <i class="fas fa-folder-open"></i>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <?php echo $this->Html->link(
-                            'View All Cases <i class="fas fa-arrow-right ms-1"></i>',
-                            array('controller' => 'Cases', 'action' => 'index'),
-                            array('class' => 'text-primary text-decoration-none small', 'escape' => false)
-                        ); ?>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- In Progress -->
-        <div class="col-lg-3 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <p class="text-muted mb-1">In Progress</p>
-                            <h3 class="mb-0 fw-bold text-warning"><?php echo number_format($inProgressCases); ?></h3>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <?php if ($currentHospital): ?>
+                        <div class="d-inline-block bg-white bg-opacity-25 rounded-pill px-4 py-2">
+                            <i class="fas fa-hospital me-2"></i>
+                            <strong><?php echo h($currentHospital->name); ?></strong>
                         </div>
-                        <div class="stat-icon bg-warning bg-opacity-10 text-warning">
-                            <i class="fas fa-spinner"></i>
+                    <?php else: ?>
+                        <div class="d-inline-block bg-white bg-opacity-25 rounded-pill px-4 py-2">
+                            <i class="fas fa-globe me-2"></i>
+                            <strong>System Wide</strong>
                         </div>
-                    </div>
-                    <div class="mt-3">
-                        <?php echo $this->Html->link(
-                            'View Active Cases <i class="fas fa-arrow-right ms-1"></i>',
-                            array('controller' => 'Cases', 'action' => 'index', '?' => array('status' => 'in_progress')),
-                            array('class' => 'text-warning text-decoration-none small', 'escape' => false)
-                        ); ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Assigned Cases -->
-        <div class="col-lg-3 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <p class="text-muted mb-1">Assigned</p>
-                            <h3 class="mb-0 fw-bold text-info"><?php echo number_format($assignedCases); ?></h3>
-                        </div>
-                        <div class="stat-icon bg-info bg-opacity-10 text-info">
-                            <i class="fas fa-clipboard-check"></i>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <?php echo $this->Html->link(
-                            'View Assigned <i class="fas fa-arrow-right ms-1"></i>',
-                            array('controller' => 'Cases', 'action' => 'index', '?' => array('status' => 'assigned')),
-                            array('class' => 'text-info text-decoration-none small', 'escape' => false)
-                        ); ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Completed Cases -->
-        <div class="col-lg-3 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <p class="text-muted mb-1">Completed</p>
-                            <h3 class="mb-0 fw-bold text-success"><?php echo number_format($completedCases); ?></h3>
-                        </div>
-                        <div class="stat-icon bg-success bg-opacity-10 text-success">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <?php echo $this->Html->link(
-                            'View Completed <i class="fas fa-arrow-right ms-1"></i>',
-                            array('controller' => 'Cases', 'action' => 'index', '?' => array('status' => 'completed')),
-                            array('class' => 'text-success text-decoration-none small', 'escape' => false)
-                        ); ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Priority Alerts -->
-    <?php if ($urgentCases > 0 || $highPriorityCases > 0): ?>
-    <div class="alert alert-warning border-0 shadow-sm mb-4">
-        <div class="d-flex align-items-center">
-            <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-triangle fa-2x"></i>
-            </div>
-            <div class="flex-grow-1 ms-3">
-                <h5 class="alert-heading mb-1">Priority Cases Require Attention</h5>
-                <p class="mb-0">
-                    <?php if ($urgentCases > 0): ?>
-                        <span class="badge bg-danger me-2"><?php echo $urgentCases; ?> Urgent</span>
                     <?php endif; ?>
-                    <?php if ($highPriorityCases > 0): ?>
-                        <span class="badge bg-warning"><?php echo $highPriorityCases; ?> High Priority</span>
-                    <?php endif; ?>
-                </p>
-            </div>
-            <div class="flex-shrink-0">
-                <?php echo $this->Html->link(
-                    'Review Cases',
-                    array('controller' => 'Cases', 'action' => 'index', '?' => array('priority' => 'urgent,high')),
-                    array('class' => 'btn btn-warning')
-                ); ?>
+                    <div class="mt-2">
+                        <small><i class="fas fa-clock me-1"></i><?php echo date('l, F j, Y'); ?></small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <?php endif; ?>
 
-    <!-- Quick Actions -->
+    <!-- Management Action Cards -->
     <div class="row g-4 mb-4">
+        <div class="col-lg-6 col-md-6">
+            <div class="card border-0 shadow h-100">
+                <div class="card-body text-center p-4">
+                    <div class="bg-danger bg-opacity-10 text-danger rounded d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; font-size: 2.5rem;">
+                        <i class="fas fa-folder-medical"></i>
+                    </div>
+                    <h5 class="card-title fw-bold mb-2">Manage Cases</h5>
+                    <p class="card-text text-muted small mb-3">Review, approve, and oversee medical cases</p>
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-arrow-right me-2"></i>Go to Cases',
+                        ['prefix' => 'Doctor', 'controller' => 'Cases', 'action' => 'index'],
+                        ['class' => 'btn btn-danger btn-sm', 'escape' => false]
+                    ); ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 col-md-6">
+            <div class="card border-0 shadow h-100">
+                <div class="card-body text-center p-4">
+                    <div class="bg-warning bg-opacity-10 text-warning rounded d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; font-size: 2.5rem;">
+                        <i class="fas fa-file-medical-alt"></i>
+                    </div>
+                    <h5 class="card-title fw-bold mb-2">Manage Reports</h5>
+                    <p class="card-text text-muted small mb-3">Create, review, and approve medical reports</p>
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-arrow-right me-2"></i>Go to Reports',
+                        ['prefix' => 'Doctor', 'controller' => 'Reports', 'action' => 'index'],
+                        ['class' => 'btn btn-outline-warning btn-sm', 'escape' => false]
+                    ); ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity Section -->
+    <div class="row g-4">
+        <!-- Recent Cases -->
         <div class="col-lg-8">
-            <!-- Recent Cases -->
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 py-3">
+            <div class="card border-0 shadow h-100">
+                <div class="card-header bg-light py-3">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-clock me-2 text-primary"></i>Recent Cases
+                        <h5 class="mb-0 fw-bold text-dark">
+                            <i class="fas fa-clock text-danger me-2"></i>Recent Medical Cases
                         </h5>
                         <?php echo $this->Html->link(
-                            'View All',
-                            array('controller' => 'Cases', 'action' => 'index'),
-                            array('class' => 'btn btn-sm btn-outline-primary')
+                            'View All <i class="fas fa-arrow-right ms-1"></i>',
+                            ['prefix' => 'Doctor', 'controller' => 'Cases', 'action' => 'index'],
+                            ['class' => 'btn btn-sm btn-outline-danger', 'escape' => false]
                         ); ?>
                     </div>
                 </div>
                 <div class="card-body p-0">
-                    <?php if ($recentCases->count() > 0): ?>
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Case ID</th>
-                                        <th>Patient</th>
-                                        <th>Department</th>
-                                        <th>Priority</th>
-                                        <th>Status</th>
-                                        <th>Last Updated</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($recentCases as $case): ?>
-                                    <tr>
-                                        <td>
-                                            <span class="fw-semibold text-primary">#<?php echo h($case->id); ?></span>
-                                        </td>
-                                        <td>
-                                            <?php if ($case->patient_user): ?>
-                                                <?php echo h($case->patient_user->first_name . ' ' . $case->patient_user->last_name); ?>
-                                            <?php else: ?>
-                                                <span class="text-muted">N/A</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <?php if ($case->department): ?>
-                                                <small><?php echo h($case->department->name); ?></small>
-                                            <?php else: ?>
-                                                <span class="text-muted">N/A</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <?php echo $this->Status->priorityBadge($case->priority); ?>
-                                        </td>
-                                        <td>
-                                            <?php echo $this->Status->roleBadge($case, 'doctor', $userWithRole); ?>
-                                        </td>
-                                        <td>
-                                            <small class="text-muted">
-                                                <?php echo $case->modified ? $case->modified->format('M d, Y') : 'N/A'; ?>
-                                            </small>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm">
-                                                <?php echo $this->Html->link(
-                                                    '<i class="fas fa-eye"></i>',
-                                                    array('controller' => 'Cases', 'action' => 'view', $case->id),
-                                                    array('class' => 'btn btn-outline-primary', 'escape' => false, 'title' => 'View')
-                                                ); ?>
+                    <?php if (!empty($recentCases) && $recentCases->count() > 0): ?>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0 ps-4 fw-semibold text-uppercase small">Case ID</th>
+                                    <th class="border-0 fw-semibold text-uppercase small">Patient</th>
+                                    <th class="border-0 fw-semibold text-uppercase small">Status</th>
+                                    <th class="border-0 fw-semibold text-uppercase small">Date</th>
+                                    <th class="border-0 text-end pe-4 fw-semibold text-uppercase small">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($recentCases as $case): ?>
+                                <tr>
+                                    <td class="ps-4">
+                                        <strong class="text-danger">#<?php echo $case->id; ?></strong>
+                                    </td>
+                                    <td>
+                                        <?php if (isset($case->patient_user) && $case->patient_user): ?>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-sm bg-light text-danger rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                    <i class="fas fa-user"></i>
+                                                </div>
+                                                <span><?php echo $this->PatientMask->displayName($case->patient_user); ?></span>
                                             </div>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                        <?php else: ?>
+                                            <span class="text-muted">No patient</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="badge rounded-pill <?php 
+                                            echo match($case->doctor_status ?? $case->status ?? 'draft') {
+                                                'draft' => 'bg-secondary',
+                                                'assigned' => 'bg-info',
+                                                'in_progress' => 'bg-warning',
+                                                'review' => 'bg-danger',
+                                                'completed' => 'bg-success',
+                                                'cancelled' => 'bg-dark',
+                                                default => 'bg-secondary'
+                                            };
+                                        ?>"><?php echo h(ucfirst(str_replace('_', ' ', $case->doctor_status ?? $case->status ?? 'draft'))); ?></span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            <i class="far fa-calendar-alt me-1"></i>
+                                            <?php echo $case->created->format('M j, Y'); ?>
+                                        </small>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <?php echo $this->Html->link(
+                                            '<i class="fas fa-eye"></i>',
+                                            ['prefix' => 'Doctor', 'controller' => 'Cases', 'action' => 'view', $case->id],
+                                            ['class' => 'btn btn-sm btn-outline-danger', 'escape' => false, 'title' => 'View Case']
+                                        ); ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                     <?php else: ?>
-                        <div class="text-center py-5">
-                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                            <p class="text-muted">No cases assigned yet.</p>
+                    <div class="text-center py-5">
+                        <div class="mb-4">
+                            <i class="fas fa-user-md fa-4x text-muted opacity-50"></i>
                         </div>
+                        <h5 class="fw-bold mb-3">Welcome to Medical Platform!</h5>
+                        <p class="text-muted mb-4">As a doctor, you can:</p>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded">
+                                    <i class="fas fa-stethoscope text-danger me-2"></i>
+                                    Review and approve medical cases
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded">
+                                    <i class="fas fa-file-medical-alt text-info me-2"></i>
+                                    Create final medical reports
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded">
+                                    <i class="fas fa-user-check text-success me-2"></i>
+                                    Provide medical oversight
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded">
+                                    <i class="fas fa-signature text-warning me-2"></i>
+                                    Sign off on treatments
+                                </div>
+                            </div>
+                        </div>
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-stethoscope me-2"></i>Start Medical Review',
+                            ['prefix' => 'Doctor', 'controller' => 'Cases', 'action' => 'index'],
+                            ['class' => 'btn btn-danger btn-lg', 'escape' => false]
+                        ); ?>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
-
+        
+        <!-- Sidebar with Profile and System Status -->
         <div class="col-lg-4">
-            <!-- Quick Actions Card -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0">
-                        <i class="fas fa-bolt me-2 text-warning"></i>Quick Actions
+            <!-- Profile Card -->
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-user-circle text-danger me-2"></i>Medical Profile
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <?php echo $this->Html->link(
-                            '<i class="fas fa-folder-open me-2"></i>View All Cases',
-                            array('controller' => 'Cases', 'action' => 'index'),
-                            array('class' => 'btn btn-primary', 'escape' => false)
-                        ); ?>
-                        <?php echo $this->Html->link(
-                            '<i class="fas fa-filter me-2"></i>Filter by Status',
-                            array('controller' => 'Cases', 'action' => 'index'),
-                            array('class' => 'btn btn-outline-primary', 'escape' => false)
-                        ); ?>
-                        <?php echo $this->Html->link(
-                            '<i class="fas fa-exclamation-triangle me-2"></i>Priority Cases',
-                            array('controller' => 'Cases', 'action' => 'index', '?' => array('priority' => 'urgent,high')),
-                            array('class' => 'btn btn-outline-warning', 'escape' => false)
-                        ); ?>
+                    <div class="text-center mb-3">
+                        <div class="bg-danger text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-user-md fa-2x"></i>
+                        </div>
+                        <h5 class="fw-bold mb-1">Dr. <?php echo h($userWithRole->first_name . ' ' . $userWithRole->last_name); ?></h5>
+                        <?php if (isset($userWithRole->role) && $userWithRole->role): ?>
+                            <span class="badge bg-danger rounded-pill">
+                                Medical Doctor
+                            </span>
+                        <?php endif; ?>
+                    </div>
+                    <hr>
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small"><i class="fas fa-user me-2"></i>Username</span>
+                            <strong class="small"><?php echo h($userWithRole->username ?? 'N/A'); ?></strong>
+                        </div>
+                        <?php if ($currentHospital): ?>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small"><i class="fas fa-hospital me-2"></i>Hospital</span>
+                            <strong class="small"><?php echo h($currentHospital->name); ?></strong>
+                        </div>
+                        <?php endif; ?>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small"><i class="fas fa-clock me-2"></i>Last Active</span>
+                            <strong class="small"><?php echo $this->Time->format($userWithRole->modified ?? 'now', 'MMM d, HH:mm'); ?></strong>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Status Distribution -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0">
-                        <i class="fas fa-chart-pie me-2 text-info"></i>Case Status Distribution
+            
+            <!-- System Status Card -->
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-server text-danger me-2"></i>System Status
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="small">Assigned</span>
-                            <span class="small fw-semibold"><?php echo $assignedCases; ?></span>
+                    <div class="status-item d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
+                        <div>
+                            <i class="fas fa-database text-success me-2"></i>
+                            <span class="fw-semibold">Database</span>
                         </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-info" style="width: <?php echo $totalCases > 0 ? round(($assignedCases / $totalCases * 100), 1) : 0; ?>%"></div>
-                        </div>
+                        <span class="badge bg-success rounded-pill">
+                            <i class="fas fa-check-circle me-1"></i>Online
+                        </span>
                     </div>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="small">In Progress</span>
-                            <span class="small fw-semibold"><?php echo $inProgressCases; ?></span>
+                    <div class="status-item d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
+                        <div>
+                            <i class="fas fa-network-wired text-success me-2"></i>
+                            <span class="fw-semibold">Network</span>
                         </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-warning" style="width: <?php echo $totalCases > 0 ? round(($inProgressCases / $totalCases * 100), 1) : 0; ?>%"></div>
-                        </div>
+                        <span class="badge bg-success rounded-pill">
+                            <i class="fas fa-check-circle me-1"></i>Connected
+                        </span>
                     </div>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="small">Completed</span>
-                            <span class="small fw-semibold"><?php echo $completedCases; ?></span>
+                    <div class="status-item d-flex justify-content-between align-items-center p-2 rounded bg-light">
+                        <div>
+                            <i class="fas fa-chart-line text-success me-2"></i>
+                            <span class="fw-semibold">Services</span>
                         </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-success" style="width: <?php echo $totalCases > 0 ? round(($completedCases / $totalCases * 100), 1) : 0; ?>%"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="small">Cancelled</span>
-                            <span class="small fw-semibold"><?php echo $cancelledCases; ?></span>
-                        </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-danger" style="width: <?php echo $totalCases > 0 ? round(($cancelledCases / $totalCases * 100), 1) : 0; ?>%"></div>
-                        </div>
+                        <span class="badge bg-success rounded-pill">
+                            <i class="fas fa-check-circle me-1"></i>Operational
+                        </span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-.stat-icon {
-    width: 50px;
-    height: 50px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-}
-
-.card {
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
-}
-
-.table tbody tr {
-    transition: background-color 0.2s;
-}
-
-.table tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
-}
-
-.progress {
-    background-color: #e9ecef;
-}
-
-.alert {
-    border-left: 4px solid #ffc107;
-}
-</style>

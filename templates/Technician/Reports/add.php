@@ -23,7 +23,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                     </h2>
                     <?php if (isset($case)): ?>
                     <p class="mb-0">
-                        <i class="fas fa-user-injured me-2"></i><?= h($case->patient_user->first_name . ' ' . $case->patient_user->last_name) ?>
+                        <i class="fas fa-user-injured me-2"></i><?= $this->PatientMask->displayName($case->patient_user) ?>
                         <span class="ms-3"><i class="fas fa-hospital me-2"></i><?= h($case->hospital->name) ?></span>
                     </p>
                     <?php endif; ?>
@@ -45,6 +45,26 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                         ); ?>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multiple Reports Policy Notice -->
+    <div class="alert alert-info border-0 shadow-sm mb-4">
+        <div class="d-flex align-items-center">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle fa-2x text-info"></i>
+            </div>
+            <div class="flex-grow-1 ms-3">
+                <h6 class="alert-heading mb-1 text-info">Report Creation Policy</h6>
+                <p class="mb-2">
+                    <strong>Only one technician can be assigned to each case.</strong> As the assigned technician, you can create and edit the technician report for this case. 
+                    You can view reports created by scientists and doctors for the same case as part of the workflow hierarchy.
+                </p>
+                <small class="text-muted">
+                    <i class="fas fa-user-cog me-1"></i>
+                    This allows collaborative technical analysis while maintaining individual accountability for each technician's work.
+                </small>
             </div>
         </div>
     </div>
@@ -72,7 +92,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Patient:</td>
-                                    <td><?= h($case->patient_user->first_name . ' ' . $case->patient_user->last_name) ?></td>
+                                    <td><?= $this->PatientMask->displayName($case->patient_user) ?></td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Hospital:</td>
@@ -252,6 +272,58 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                                 'escape' => false
                             ]
                         ); ?>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medical Approval Workflow -->
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-route me-2 text-primary"></i>Workflow Progress
+                    </h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="workflow-steps">
+                        <div class="workflow-step active">
+                            <div class="step-icon bg-info text-white">
+                                <i class="fas fa-user-cog"></i>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-title">Technician Analysis</div>
+                                <small class="text-muted">Initial technical assessment</small>
+                            </div>
+                        </div>
+                        
+                        <div class="workflow-step pending">
+                            <div class="step-icon bg-light text-muted">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-title">Scientific Review</div>
+                                <small class="text-muted">Expert scientific analysis</small>
+                            </div>
+                        </div>
+                        
+                        <div class="workflow-step pending">
+                            <div class="step-icon bg-light text-muted">
+                                <i class="fas fa-user-md"></i>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-title">Medical Approval</div>
+                                <small class="text-muted">Final medical authorization</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-info-circle text-info me-2"></i>
+                            <span class="small">
+                                <strong>Current Stage:</strong> You are performing the initial technical analysis. 
+                                This report will proceed through scientific review and medical approval.
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -671,5 +743,56 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .btn.btn-success {
     animation: buttonSuccess 0.5s ease;
+}
+
+/* Workflow Progress Styles */
+.workflow-steps {
+    position: relative;
+}
+
+.workflow-step {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.workflow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 40px;
+    width: 2px;
+    height: 20px;
+    background-color: #dee2e6;
+}
+
+.workflow-step.completed::after,
+.workflow-step.active::after {
+    background-color: #28a745;
+}
+
+.step-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex-grow: 1;
+}
+
+.step-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.workflow-step.active .step-title {
+    color: #0d6efd;
 }
 </style>

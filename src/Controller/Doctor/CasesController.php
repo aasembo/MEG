@@ -9,9 +9,8 @@ use App\Lib\UserActivityLogger;
 use App\Constants\SiteConstants;
 use Cake\Log\Log;
 use App\Service\DocumentContentService;
-use App\Service\AiReportGenerationService;
-use App\Service\ReportAssemblyService;
 use App\Service\CaseStatusService;
+use App\Service\DocumentAnalysisService;
 use Cake\Core\Configure;
 
 /**
@@ -50,11 +49,19 @@ class CasesController extends AppController
         parent::initialize();
         $this->activityLogger = new UserActivityLogger();
         $this->caseStatusService = new CaseStatusService();
-        
-        // Set doctor layout for all actions
-        $this->viewBuilder()->setLayout('doctor');
     }
-
+    
+    /**
+     * Before filter callback
+     *
+     * @param \Cake\Event\EventInterface $event The beforeFilter event
+     * @return \Cake\Http\Response|null
+     */
+    public function beforeFilter(\Cake\Event\EventInterface $event): ?\Cake\Http\Response
+    {
+        parent::beforeFilter($event);
+        return null;
+    }
     /**
      * Index method - Shows only cases assigned to the current doctor
      *
@@ -174,7 +181,7 @@ class CasesController extends AppController
             $statusCounts[$statusValue] = $count;
         }
 
-        $this->set(compact('cases', 'currentHospital', 'statusCounts'));
+        $this->set(compact('cases', 'currentHospital', 'statusCounts', 'user'));
     }
 
     /**
@@ -221,11 +228,11 @@ class CasesController extends AppController
                         'Users' => array('Roles'),
                         'sort' => array('CaseAssignments.timestamp' => 'DESC')
                     ),
-                    'CaseAudits' => array(
-                        'Users',
-                        'sort' => array('CaseAudits.timestamp' => 'DESC'),
-                        'limit' => 50
-                    ),
+                    'CaseAudits' => function($q) {
+                        return $q->contain(['ChangedByUsers'])
+                                ->orderBy(['CaseAudits.timestamp' => 'DESC'])
+                                ->limit(50);
+                    },
                     'Documents' => array(
                         'Users',
                         'sort' => array('Documents.created' => 'DESC')
@@ -261,6 +268,13 @@ class CasesController extends AppController
         // Check if S3 is enabled
         $isS3Enabled = Configure::read('S3.enabled', false);
 
+        // Check if case has any reports
+        $reportsTable = $this->fetchTable('Reports');
+        $existingReports = $reportsTable->find()
+            ->contain(['Users' => ['Roles']]) // Include user information
+            ->where(['case_id' => $id])
+            ->all();
+
         // Get case version history
         $caseVersionsTable = $this->fetchTable('CaseVersions');
         $caseVersions = $caseVersionsTable->find()
@@ -269,7 +283,7 @@ class CasesController extends AppController
             ->orderBy(array('version_number' => 'DESC'))
             ->all();
 
-        $this->set(compact('case', 'caseVersions', 'currentHospital', 'isS3Enabled'));
+        $this->set(compact('case', 'caseVersions', 'currentHospital', 'isS3Enabled', 'existingReports'));
         // Pass user with roles for role badge helper
         $this->set('user', $userWithRoles);
     }
@@ -296,6 +310,8 @@ class CasesController extends AppController
      */
     public function uploadDocument($id = null)
     {
+        $this->request->allowMethod(array('post', 'put'));
+        
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
         
@@ -334,123 +350,92 @@ class CasesController extends AppController
         if ($this->request->is(array('post', 'put'))) {
             $data = $this->request->getData();
             
-            // Validate uploaded file
-            if (!isset($data['file']) || $data['file']->getError() !== UPLOAD_ERR_OK) {
-                $this->Flash->error(__('Please select a valid file to upload.'));
+            // Get the uploaded file (it's an UploadedFile object in CakePHP 5)
+            $uploadedFile = $data['document_file'] ?? null;
+            
+            if (empty($uploadedFile) || !is_object($uploadedFile)) {
+                $this->Flash->error(__('Please select a file to upload.'));
+                return $this->redirect(array('action' => 'view', $case->id));
+            }
+            
+            // Check for upload errors with specific messages
+            $uploadError = $uploadedFile->getError();
+            if ($uploadError !== UPLOAD_ERR_OK) {
+                $errorMessage = $this->getUploadErrorMessage($uploadError);
+                $this->Flash->error($errorMessage);
                 return $this->redirect(array('action' => 'view', $case->id));
             }
 
-            $file = $data['file'];
-            $fileName = $file->getClientFilename();
-            $fileSize = $file->getSize();
-            $fileType = $file->getClientMediaType();
-
-            // Check file size (max 50MB)
-            $maxSize = 50 * 1024 * 1024; // 50MB in bytes
-            if ($fileSize > $maxSize) {
-                $this->Flash->error(__('File size exceeds the maximum allowed size of 50MB.'));
-                return $this->redirect(array('action' => 'view', $case->id));
+            // Get and validate procedure ID (convert empty string to null, cast to int)
+            $procedureId = null;
+            if (!empty($data['cases_exams_procedure_id'])) {
+                $procedureId = (int)$data['cases_exams_procedure_id'];
             }
 
-            // Allowed file types
-            $allowedTypes = array(
-                'application/pdf',
-                'image/jpeg',
-                'image/jpg',
-                'image/png',
-                'application/msword',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'application/vnd.ms-excel',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            // Load S3 service
+            $s3Service = new \App\Lib\S3DocumentService();
+            
+            // Upload to S3 (S3DocumentService should handle UploadedFile object)
+            $uploadResult = $s3Service->uploadDocument(
+                $uploadedFile,
+                $case->id,
+                $case->patient_id ?? null,
+                $data['document_type'] ?? 'other',
+                $procedureId
             );
 
-            if (!in_array($fileType, $allowedTypes)) {
-                $this->Flash->error(__('Invalid file type. Allowed types: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX.'));
-                return $this->redirect(array('action' => 'view', $case->id));
-            }
+            if ($uploadResult['success']) {
+                // Save document record to database
+                $documentsTable = $this->fetchTable('Documents');
+                $document = $documentsTable->newEntity(array(
+                    'case_id' => $case->id,
+                    'user_id' => $user->id,
+                    'cases_exams_procedure_id' => $data['cases_exams_procedure_id'] ?? null,
+                    'document_type' => $data['document_type'] ?? 'other',
+                    'file_path' => $uploadResult['file_path'],
+                    'file_type' => $uploadResult['mime_type'],
+                    'file_size' => $uploadResult['file_size'],
+                    'original_filename' => $uploadResult['original_name'],
+                    'description' => $data['description'] ?? '',
+                    'uploaded_at' => new \DateTime()
+                ));
 
-            // Generate unique filename
-            $ext = pathinfo($fileName, PATHINFO_EXTENSION);
-            $uniqueFileName = uniqid('doc_') . '_' . time() . '.' . $ext;
+                if ($documentsTable->save($document)) {
+                    // If linked to a procedure, update its status to completed
+                    if (!empty($data['cases_exams_procedure_id'])) {
+                        $cepTable = $this->fetchTable('CasesExamsProcedures');
+                        $cep = $cepTable->get((int)$data['cases_exams_procedure_id']);
+                        $cep->status = SiteConstants::CASE_STATUS_COMPLETED;
+                        $cepTable->save($cep);
+                    }
 
-            // Determine storage path
-            $isS3Enabled = Configure::read('S3.enabled', false);
-            $filePath = '';
-
-            if ($isS3Enabled) {
-                // Upload to S3
-                try {
-                    $s3Client = \Aws\S3\S3Client::factory(array(
-                        'version' => 'latest',
-                        'region' => Configure::read('S3.region'),
-                        'credentials' => array(
-                            'key' => Configure::read('S3.key'),
-                            'secret' => Configure::read('S3.secret')
+                    // Log activity
+                    $this->activityLogger->log(
+                        SiteConstants::EVENT_DOCUMENT_UPLOADED,
+                        array(
+                            'user_id' => $user->id,
+                            'request' => $this->request,
+                            'event_data' => array(
+                                'case_id' => $case->id,
+                                'document_id' => $document->id,
+                                'document_type' => $document->document_type,
+                                'hospital_id' => $currentHospital->id
+                            )
                         )
-                    ));
+                    );
 
-                    $bucket = Configure::read('S3.bucket');
-                    $s3Path = 'documents/' . $currentHospital->id . '/' . $case->id . '/' . $uniqueFileName;
-
-                    $result = $s3Client->putObject(array(
-                        'Bucket' => $bucket,
-                        'Key' => $s3Path,
-                        'Body' => $file->getStream(),
-                        'ContentType' => $fileType,
-                        'ACL' => 'private'
-                    ));
-
-                    $filePath = $s3Path;
+                    $this->Flash->success(__('Document uploaded successfully.'));
+                } else {
+                    // Log validation errors for debugging
+                    $errors = $document->getErrors();
+                    Log::error('Failed to save document: ' . json_encode($errors));
                     
-                } catch (\Exception $e) {
-                    Log::error('S3 upload error: ' . $e->getMessage());
-                    $this->Flash->error(__('Failed to upload file to cloud storage.'));
-                    return $this->redirect(array('action' => 'view', $case->id));
+                    $this->Flash->error(__('Failed to save document record. Please try again.'));
+                    // Clean up S3 file if database save failed
+                    $s3Service->deleteDocument($uploadResult['file_path']);
                 }
             } else {
-                // Upload to local filesystem
-                $uploadPath = WWW_ROOT . 'files' . DS . 'documents' . DS . $currentHospital->id . DS . $case->id . DS;
-                
-                if (!file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
-                }
-
-                $file->moveTo($uploadPath . $uniqueFileName);
-                $filePath = 'documents/' . $currentHospital->id . '/' . $case->id . '/' . $uniqueFileName;
-            }
-
-            // Save document record
-            $documentsTable = $this->fetchTable('Documents');
-            $document = $documentsTable->newEntity(array(
-                'case_id' => $case->id,
-                'uploaded_by' => $user->id,
-                'file_name' => $fileName,
-                'file_path' => $filePath,
-                'file_size' => $fileSize,
-                'file_type' => $fileType,
-                'description' => isset($data['description']) ? $data['description'] : '',
-                'document_type' => isset($data['document_type']) ? $data['document_type'] : 'other',
-                'is_s3' => $isS3Enabled ? 1 : 0
-            ));
-
-            if ($documentsTable->save($document)) {
-                // Log activity
-                $this->activityLogger->log(
-                    SiteConstants::EVENT_DOCUMENT_UPLOADED,
-                    array(
-                        'user_id' => $user->id,
-                        'request' => $this->request,
-                        'event_data' => array(
-                            'case_id' => $case->id,
-                            'document_id' => $document->id,
-                            'hospital_id' => $currentHospital->id
-                        )
-                    )
-                );
-
-                $this->Flash->success(__('Document has been uploaded successfully.'));
-            } else {
-                $this->Flash->error(__('Failed to save document record.'));
+                $this->Flash->error(__('Upload failed: {0}', $uploadResult['error'] ?? 'Unknown error'));
             }
 
             return $this->redirect(array('action' => 'view', $case->id));
@@ -548,81 +533,6 @@ class CasesController extends AppController
     }
 
     /**
-     * Download Report method
-     *
-     * @param string|null $id Case id.
-     * @return \Psr\Http\Message\ResponseInterface|null Sends PDF download
-     */
-    public function downloadReport($id = null)
-    {
-        $user = $this->getAuthUser();
-        $currentHospital = $this->request->getSession()->read('Hospital.current');
-        
-        try {
-            $case = $this->Cases->get($id, array(
-                'contain' => array(
-                    'Users',
-                    'PatientUsers',
-                    'Hospitals',
-                    'Departments',
-                    'Sedations',
-                    'CaseVersions' => array('Users'),
-                    'CasesExamsProcedures' => array(
-                        'ExamsProcedures' => array(
-                            'Exams' => array('Modalities', 'Departments'),
-                            'Procedures'
-                        ),
-                        'Documents'
-                    ),
-                    'Documents' => array('Users'),
-                    'CaseAssignments' => array(
-                        'AssignedToUsers',
-                        'Users'
-                    )
-                )
-            ));
-
-            // Check if doctor has access to this case
-            $hasAssignment = false;
-            if ($case->current_user_id === $user->id) {
-                $hasAssignment = true;
-            } else {
-                foreach ($case->case_assignments as $assignment) {
-                    if ($assignment->user_id === $user->id) {
-                        $hasAssignment = true;
-                        break;
-                    }
-                }
-            }
-            
-            if (!$hasAssignment) {
-                throw new RecordNotFoundException(__('Case not found or access denied.'));
-            }
-
-        } catch (RecordNotFoundException $e) {
-            $this->Flash->error(__('Case not found or access denied.'));
-            return $this->redirect(array('action' => 'index'));
-        }
-
-        // Generate PDF report
-        $reportAssemblyService = new ReportAssemblyService();
-        $pdfContent = $reportAssemblyService->generatePdfReport($case, $currentHospital);
-
-        if (!$pdfContent) {
-            $this->Flash->error(__('Failed to generate report.'));
-            return $this->redirect(array('action' => 'view', $id));
-        }
-
-        // Send PDF as download
-        $this->response = $this->response
-            ->withType('application/pdf')
-            ->withStringBody($pdfContent)
-            ->withDownload('case_report_' . $case->id . '.pdf');
-
-        return $this->response;
-    }
-
-    /**
      * Add method - DISABLED for doctors
      * Doctors cannot create new cases
      *
@@ -669,5 +579,443 @@ class CasesController extends AppController
     {
         $identity = $this->request->getAttribute('identity');
         return $identity->getOriginalData();
+    }
+
+    /**
+     * Analyze Document method - AI analysis for uploaded documents
+     *
+     * @param string|null $id Case id.
+     * @return \Psr\Http\Message\ResponseInterface JSON response with analysis results.
+     */
+    public function analyzeDocument($id = null)
+    {
+        $this->request->allowMethod(array('post'));
+        $this->viewBuilder()->setClassName('Json');
+        
+        $user = $this->getAuthUser();
+        $currentHospital = $this->request->getSession()->read('Hospital.current');
+        
+        if (!$currentHospital || !isset($currentHospital->id)) {
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode(array(
+                    'success' => false,
+                    'error' => 'No hospital context found'
+                )));
+        }
+
+        try {
+            $case = $this->Cases->get($id, array(
+                'contain' => array(
+                    'CasesExamsProcedures' => array(
+                        'ExamsProcedures' => array(
+                            'Exams' => array('Modalities'),
+                            'Procedures'
+                        )
+                    ),
+                    'CaseAssignments'
+                )
+            ));
+            
+            // Verify hospital access
+            if ($case->hospital_id !== $currentHospital->id) {
+                throw new RecordNotFoundException(__('Case not found.'));
+            }
+
+            // Check if user has access (current assignee OR was ever assigned)
+            $hasAssignment = false;
+            if ($case->current_user_id === $user->id) {
+                $hasAssignment = true;
+            } else {
+                // Check if user was ever assigned to this case
+                foreach ($case->case_assignments as $assignment) {
+                    if ($assignment->user_id === $user->id) {
+                        $hasAssignment = true;
+                        break;
+                    }
+                }
+            }
+            if (!$hasAssignment) {
+                throw new RecordNotFoundException(__('Case not found.'));
+            }
+
+        } catch (RecordNotFoundException $e) {
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode(array(
+                    'success' => false,
+                    'error' => 'Case not found'
+                )));
+        }
+
+        // Get uploaded file
+        $file = $this->request->getData('file');
+        
+        if (empty($file)) {
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode(array(
+                    'success' => false,
+                    'error' => 'No file provided'
+                )));
+        }
+
+        // Convert UploadedFile object to array for analysis service
+        try {
+            // Check if it's already an array (shouldn't happen, but defensive coding)
+            if (is_array($file)) {
+                $fileData = $file;
+            } else {
+                // It's an UploadedFile object
+                $stream = $file->getStream();
+                $tmpPath = $stream->getMetadata('uri');
+                
+                // If stream metadata doesn't give us a path, save to temp file
+                if (empty($tmpPath) || !file_exists($tmpPath)) {
+                    $tmpPath = tempnam(sys_get_temp_dir(), 'doc_analysis_');
+                    $stream->rewind();
+                    file_put_contents($tmpPath, $stream->getContents());
+                    $cleanupTempFile = true;
+                } else {
+                    $cleanupTempFile = false;
+                }
+                
+                $fileData = array(
+                    'name' => $file->getClientFilename(),
+                    'type' => $file->getClientMediaType(),
+                    'tmp_name' => $tmpPath,
+                    'size' => $file->getSize(),
+                    'error' => $file->getError()
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error('File conversion error: ' . $e->getMessage());
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode(array(
+                    'success' => false,
+                    'error' => 'Failed to process uploaded file'
+                )));
+        }
+
+        // Prepare procedures list for analysis
+        $procedureOptions = array();
+        if (!empty($case->cases_exams_procedures)) {
+            foreach ($case->cases_exams_procedures as $cep) {
+                $examName = $cep->exams_procedure->exam->name ?? 'Unknown';
+                $procedureName = $cep->exams_procedure->procedure->name ?? 'Unknown';
+                $modalityName = $cep->exams_procedure->exam->modality->name ?? '';
+                $label = "{$examName} - {$procedureName}";
+                if ($modalityName) {
+                    $label .= " ({$modalityName})";
+                }
+                $procedureOptions[$cep->id] = $label;
+            }
+        }
+
+        // Analyze document
+        $analysisService = new \App\Service\DocumentAnalysisService();
+        $analysis = $analysisService->analyzeDocument($fileData, $procedureOptions);
+
+        // Clean up temporary file if we created one
+        if (isset($cleanupTempFile) && $cleanupTempFile && isset($fileData['tmp_name']) && file_exists($fileData['tmp_name'])) {
+            @unlink($fileData['tmp_name']);
+        }
+
+        // Log activity
+        if ($analysis['success']) {
+            $this->activityLogger->log(
+                SiteConstants::EVENT_CASE_UPDATED,
+                array(
+                    'user_id' => $user->id,
+                    'request' => $this->request,
+                    'event_data' => array(
+                        'case_id' => $case->id,
+                        'action' => 'document_analyzed',
+                        'hospital_id' => $currentHospital->id,
+                        'detected_type' => $analysis['detected_type'] ?? null,
+                        'method' => $analysis['method'] ?? 'unknown'
+                    )
+                )
+            );
+        }
+
+        return $this->response->withType('application/json')
+            ->withStringBody(json_encode($analysis));
+    }
+
+    /**
+     * View Document method - Returns document info for preview modal
+     *
+     * @param string|null $id Document id.
+     * @return \Psr\Http\Message\ResponseInterface JSON response with document info.
+     */
+    public function viewDocument($id = null)
+    {
+        $user = $this->getAuthUser();
+        $currentHospital = $this->request->getSession()->read('Hospital.current');
+        
+        if (!$currentHospital || !isset($currentHospital->id)) {
+            $this->Flash->error(__('No hospital context found. Please contact your administrator.'));
+            return $this->redirect(array('action' => 'index'));
+        }
+
+        try {
+            $documentsTable = $this->fetchTable('Documents');
+            $document = $documentsTable->get($id, array(
+                'contain' => array('Cases' => ['CaseAssignments'])
+            ));
+            
+            // Verify hospital access
+            if ($document->case->hospital_id !== $currentHospital->id) {
+                throw new RecordNotFoundException(__('Document not found.'));
+            }
+
+            // Check if user has access (current assignee OR was ever assigned)
+            $hasAssignment = false;
+            if ($document->case->current_user_id === $user->id) {
+                $hasAssignment = true;
+            } else {
+                // Check if user was ever assigned to this case
+                foreach ($document->case->case_assignments as $assignment) {
+                    if ($assignment->user_id === $user->id) {
+                        $hasAssignment = true;
+                        break;
+                    }
+                }
+            }
+            if (!$hasAssignment) {
+                throw new RecordNotFoundException(__('Document not found.'));
+            }
+
+        } catch (RecordNotFoundException $e) {
+            $this->Flash->error(__('Document not found.'));
+            return $this->redirect(array('action' => 'index'));
+        }
+
+        // Get download URL from S3 (or local path)
+        $s3Service = new \App\Lib\S3DocumentService();
+        $fileUrl = $s3Service->getDownloadUrl($document->file_path);
+
+        if ($fileUrl) {
+            // Log activity
+            $this->activityLogger->log(
+                'document_viewed',
+                array(
+                    'user_id' => $user->id,
+                    'request' => $this->request,
+                    'event_data' => array(
+                        'case_id' => $document->case_id,
+                        'document_id' => $document->id,
+                        'document_type' => $document->document_type,
+                        'hospital_id' => $currentHospital->id
+                    )
+                )
+            );
+
+            // Return JSON with document info for preview modal
+            $this->viewBuilder()->setLayout('ajax');
+            $this->set(compact('document', 'fileUrl'));
+            $this->set('_serialize', array('document', 'fileUrl'));
+            
+            // Set response as JSON
+            $this->response = $this->response->withType('application/json');
+            $this->response = $this->response->withStringBody(json_encode(array(
+                'success' => true,
+                'document' => array(
+                    'id' => $document->id,
+                    'filename' => $document->original_filename,
+                    'type' => $document->file_type,
+                    'size' => $document->file_size,
+                    'url' => $fileUrl
+                )
+            )));
+            
+            return $this->response;
+        } else {
+            $this->response = $this->response->withType('application/json');
+            $this->response = $this->response->withStringBody(json_encode(array(
+                'success' => false,
+                'error' => 'Failed to generate view link'
+            )));
+            return $this->response;
+        }
+    }
+
+    /**
+     * Proxy document method - Serves document content through application
+     *
+     * @param string|null $id Document id.
+     * @return \Psr\Http\Message\ResponseInterface|null|void
+     */
+    public function proxyDocument($id = null)
+    {
+        $this->viewBuilder()->disableAutoLayout();
+        $user = $this->getAuthUser();
+        $currentHospital = $this->request->getSession()->read('Hospital.current');
+        
+        if (!$currentHospital || !isset($currentHospital->id)) {
+            throw new \Cake\Http\Exception\ForbiddenException(__('No hospital context found'));
+        }
+
+        try {
+            $documentsTable = $this->fetchTable('Documents');
+            $document = $documentsTable->get($id, array(
+                'contain' => array('Cases' => ['CaseAssignments'])
+            ));
+            
+            // Verify hospital access
+            if ($document->case->hospital_id !== $currentHospital->id) {
+                throw new RecordNotFoundException(__('Document not found or you do not have access to this document.'));
+            }
+
+            // Check if user has access (current assignee OR was ever assigned)
+            $hasAssignment = false;
+            if ($document->case->current_user_id === $user->id) {
+                $hasAssignment = true;
+            } else {
+                // Check if user was ever assigned to this case
+                foreach ($document->case->case_assignments as $assignment) {
+                    if ($assignment->user_id === $user->id) {
+                        $hasAssignment = true;
+                        break;
+                    }
+                }
+            }
+            if (!$hasAssignment) {
+                throw new RecordNotFoundException(__('Document not found or you do not have access to this document.'));
+            }
+
+            // Get file content
+                // Get file content (S3 or local)
+                $s3DocumentService = new \App\Lib\S3DocumentService();
+                if ($s3DocumentService->isS3Enabled() && strpos($document->file_path, 'uploads/') !== 0) {
+                    $s3Client = $s3DocumentService->getS3Client();
+                    $result = $s3Client->getObject([
+                        'Bucket' => $s3DocumentService->getBucket(),
+                        'Key' => $document->file_path
+                    ]);
+                    $fileContent = $result['Body']->getContents();
+                } else {
+                    $fullPath = WWW_ROOT . str_replace('/', DS, $document->file_path);
+                    if (!file_exists($fullPath)) {
+                        throw new \Exception('File not found');
+                    }
+                    $fileContent = file_get_contents($fullPath);
+                }
+                // Return file with proper content type
+                return $this->response
+                    ->withType($document->file_type)
+                    ->withStringBody($fileContent);
+
+        } catch (RecordNotFoundException $e) {
+            throw new \Cake\Http\Exception\NotFoundException(__('Document not found or you do not have access to this document.'));
+        } catch (\Exception $e) {
+            throw new \Cake\Http\Exception\InternalErrorException(__('Error retrieving document'));
+        }
+    }
+
+    /**
+     * Get user-friendly error message for file upload errors
+     *
+     * @param int $errorCode PHP upload error code
+     * @return string User-friendly error message
+     */
+    private function getUploadErrorMessage($errorCode)
+    {
+        switch ($errorCode) {
+            case UPLOAD_ERR_INI_SIZE:
+                return __('The uploaded file is too large. Maximum allowed size is determined by server configuration. Please contact your administrator or try a smaller file.');
+            case UPLOAD_ERR_FORM_SIZE:
+                return __('The uploaded file exceeds the maximum file size of 50MB.');
+            case UPLOAD_ERR_PARTIAL:
+                return __('The file was only partially uploaded. Please try again.');
+            case UPLOAD_ERR_NO_FILE:
+                return __('No file was uploaded. Please select a file.');
+            case UPLOAD_ERR_NO_TMP_DIR:
+                return __('Server error: Missing temporary folder. Please contact your administrator.');
+            case UPLOAD_ERR_CANT_WRITE:
+                return __('Server error: Failed to write file to disk. Please contact your administrator.');
+            case UPLOAD_ERR_EXTENSION:
+                return __('Server error: File upload was stopped by a PHP extension. Please contact your administrator.');
+            default:
+                return __('An unknown error occurred during file upload. Please try again.');
+        }
+    }
+
+    /**
+     * Complete method - Mark a case as completed
+     *
+     * @param string|null $id Case id.
+     * @return \Psr\Http\Message\ResponseInterface|null|void Redirects on successful completion.
+     */
+    public function complete($id = null)
+    {
+        $this->request->allowMethod(['post', 'get']);
+        
+        $user = $this->getAuthUser();
+        $currentHospital = $this->request->getSession()->read('Hospital.current');
+        
+        if (!$currentHospital || !isset($currentHospital->id)) {
+            $this->Flash->error(__('No hospital context found. Please contact your administrator.'));
+            return $this->redirect(['action' => 'index']);
+        }
+
+        try {
+            $case = $this->Cases->get($id, [
+                'contain' => ['CaseAssignments']
+            ]);
+
+            // Check if doctor has access to this case
+            $hasAssignment = false;
+            
+            // Check if user is current assignee
+            if ($case->current_user_id === $user->id) {
+                $hasAssignment = true;
+            } else {
+                // Check if user was ever assigned to this case
+                foreach ($case->case_assignments as $assignment) {
+                    if ($assignment->user_id === $user->id) {
+                        $hasAssignment = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!$hasAssignment) {
+                throw new RecordNotFoundException(__('Case not found or you do not have access to this case.'));
+            }
+
+            // Check if case is already completed
+            if ($case->status === SiteConstants::CASE_STATUS_COMPLETED) {
+                $this->Flash->warning(__('This case is already completed.'));
+                return $this->redirect(['action' => 'view', $id]);
+            }
+
+            // Use CaseStatusService to cascade completion to all roles
+            if ($this->caseStatusService->cascadeCompletion($case, $user->id)) {
+                // Log activity
+                $this->activityLogger->log(
+                    SiteConstants::EVENT_CASE_COMPLETED,
+                    [
+                        'user_id' => $user->id,
+                        'request' => $this->request,
+                        'event_data' => [
+                            'case_id' => $case->id,
+                            'hospital_id' => $currentHospital->id,
+                            'completed_by_role' => 'doctor'
+                        ]
+                    ]
+                );
+
+                $this->Flash->success(__('Case has been successfully completed.'));
+            } else {
+                $this->Flash->error(__('Unable to complete the case. Please try again.'));
+            }
+
+        } catch (RecordNotFoundException $e) {
+            $this->Flash->error(__('Case not found or you do not have access to this case.'));
+        } catch (\Exception $e) {
+            Log::error("Error completing case #{$id}: " . $e->getMessage());
+            $this->Flash->error(__('An error occurred while completing the case. Please try again.'));
+        }
+
+        return $this->redirect(['action' => 'index']);
     }
 }

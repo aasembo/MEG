@@ -20,7 +20,7 @@ $this->assign('title', 'Report Preview #' . $report->id);
                     </h2>
                     <p class="mb-0">
                         <?php if (isset($report->case->patient_user)): ?>
-                            <i class="fas fa-user-injured me-2"></i><?= h($report->case->patient_user->first_name . ' ' . $report->case->patient_user->last_name) ?>
+                            <i class="fas fa-user-injured me-2"></i><?= $this->PatientMask->displayName($report->case->patient_user) ?>
                         <?php endif; ?>
                         <?php if (isset($report->hospital)): ?>
                             <span class="ms-3"><i class="fas fa-hospital me-2"></i><?= h($report->hospital->name) ?></span>
@@ -146,7 +146,7 @@ $this->assign('title', 'Report Preview #' . $report->id);
                             <td class="fw-semibold">Patient:</td>
                             <td>
                                 <?php if (isset($report->case->patient_user)): ?>
-                                    <?= h($report->case->patient_user->first_name . ' ' . $report->case->patient_user->last_name) ?>
+                                    <?= $this->PatientMask->displayName($report->case->patient_user) ?>
                                 <?php else: ?>
                                     <span class="text-muted">Not assigned</span>
                                 <?php endif; ?>

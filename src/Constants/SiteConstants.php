@@ -35,6 +35,7 @@ class SiteConstants
     public const EVENT_CASE_ASSIGNED = 'case_assigned';
     public const EVENT_CASE_UNASSIGNED = 'case_unassigned';
     public const EVENT_CASE_STATUS_CHANGED = 'case_status_changed';
+    public const EVENT_CASE_COMPLETED = 'case_completed';
     public const EVENT_CASE_VIEWED = 'case_viewed';
     public const EVENT_CASE_LIST_VIEWED = 'case_list_viewed';
     public const EVENT_CASES_VIEWED = 'cases_viewed';

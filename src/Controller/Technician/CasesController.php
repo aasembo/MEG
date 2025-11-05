@@ -9,23 +9,37 @@ use App\Lib\UserActivityLogger;
 use App\Constants\SiteConstants;
 use Cake\Log\Log;
 use App\Service\DocumentContentService;
-use App\Service\AiReportGenerationService;
-use App\Service\ReportAssemblyService;
 use App\Service\CaseStatusService;
+use App\Service\PatientMaskingService;
 use Cake\Core\Configure;
 
 class CasesController extends AppController {
     private $activityLogger;
     private $caseStatusService;
+    private $patientMaskingService;
+    
     public function initialize(): void {
         parent::initialize();
         $this->activityLogger = new UserActivityLogger();
         $this->caseStatusService = new CaseStatusService();
+        $this->patientMaskingService = new PatientMaskingService();
         
         // Set technician layout for all actions
         $this->viewBuilder()->setLayout('technician');
     }
-
+    
+    /**
+     * Before filter callback
+     *
+     * @param \Cake\Event\EventInterface $event The beforeFilter event
+     * @return \Cake\Http\Response|null
+     */
+    public function beforeFilter(\Cake\Event\EventInterface $event): ?\Cake\Http\Response
+    {
+        parent::beforeFilter($event);
+        return null;
+    }
+    
     public function index() {
         $user = $this->getAuthUser();
         $currentHospital = $this->request->getSession()->read('Hospital.current');
@@ -42,20 +56,21 @@ class CasesController extends AppController {
 
         // Build query
         $query = $this->Cases->find()
-            ->contain([
+            ->contain(array(
                 'Users', 
-                'PatientUsers', 
+                'PatientUsers' => ['Patient'], 
                 'CurrentUsers', 
                 'Hospitals',
                 'Departments',
                 'Sedations',
-                'CasesExamsProcedures' => [
-                    'ExamsProcedures' => [
-                        'Exams' => ['Modalities'],
+                'CasesExamsProcedures' => array(
+                    'ExamsProcedures' => array(
+                        'Exams' => array('Modalities'),
                         'Procedures'
-                    ]
-                ]
-            ])
+                    )
+                ),
+                'CaseAssignments'
+            ))
             ->where(['Cases.hospital_id' => $currentHospital->id]);
 
         // Apply filters
@@ -102,6 +117,9 @@ class CasesController extends AppController {
         ];
 
         $cases = $this->paginate($query);
+
+        // Apply patient masking to all cases
+        // (Removed - now handled by PatientMask helper in templates)
 
         // Get filter options
         $statusOptions = [
@@ -230,8 +248,12 @@ class CasesController extends AppController {
         // Check if case has any reports
         $reportsTable = $this->fetchTable('Reports');
         $existingReports = $reportsTable->find()
+            ->contain(['Users' => ['Roles']]) // Include user information
             ->where(['case_id' => $id])
             ->all();
+
+        // Apply patient masking
+        // (Removed - now handled by PatientMask helper in templates)
 
         $this->set(compact('case', 'currentHospital', 'isS3Enabled', 'user', 'existingReports'));
         // Pass user with roles for role badge helper
@@ -254,22 +276,50 @@ class CasesController extends AppController {
             return $this->redirect(['prefix' => 'Technician', 'controller' => 'Dashboard', 'action' => 'index']);
         }
 
-        // Get patients for this hospital
-        $patientsTable = $this->fetchTable('Users');
-        $patients = $patientsTable->find('list', [
-            'keyField' => 'id',
-            'valueField' => function($user) {
-                return $user->first_name . ' ' . $user->last_name . ' (' . $user->username . ')';
+        // Get patients for this hospital (build masked list for dropdowns)
+        $patientsTable = $this->fetchTable('Patients');
+        $patientsQuery = $patientsTable->find()
+            ->contain(['Users' => ['Roles']])
+            ->where([
+                'Patients.hospital_id' => $currentHospital->id,
+                'Users.status' => 'active',
+                'Roles.type' => 'patient'
+            ])
+            ->order(['Users.last_name' => 'ASC', 'Users.first_name' => 'ASC'])
+            ->all();
+
+        $patients = [];
+        foreach ($patientsQuery as $patientEntity) {
+            $userEntity = $patientEntity->user ?? null;
+            // Build masked display: Name (Gender initial/Age)
+            $masked = $this->patientMaskingService->maskPatientForUser($patientEntity, $user);
+            $first = $masked->masked_first_name ?? ($userEntity->first_name ?? '');
+            $last = $masked->masked_last_name ?? ($userEntity->last_name ?? '');
+            $gender = $patientEntity->gender ?? '';
+            $genderInitial = $gender ? strtoupper(substr($gender, 0, 1)) : '';
+            
+            // Calculate age from DOB
+            $age = '';
+            if (!empty($patientEntity->dob)) {
+                $dobString = is_object($patientEntity->dob) ? $patientEntity->dob->format('Y-m-d') : $patientEntity->dob;
+                $dob = new \DateTime($dobString);
+                $now = new \DateTime();
+                $age = $dob->diff($now)->y;
             }
-        ])
-        ->innerJoinWith('Roles')
-        ->where([
-            'Users.hospital_id' => $currentHospital->id,
-            'Users.status' => 'active',
-            'Roles.type' => 'patient'
-        ])
-        ->orderBy(['Users.last_name' => 'ASC', 'Users.first_name' => 'ASC'])
-        ->toArray();
+            
+            $label = trim($first . ' ' . $last);
+            $extraInfo = [];
+            if (!empty($genderInitial)) {
+                $extraInfo[] = $genderInitial;
+            }
+            if (!empty($age)) {
+                $extraInfo[] = $age;
+            }
+            if (!empty($extraInfo)) {
+                $label .= ' (' . implode('/', $extraInfo) . ')';
+            }
+            $patients[$userEntity->id ?? $patientEntity->user_id] = $label;
+        }
 
         // Get session data if returning from later steps
         $caseData = $this->request->getSession()->read('CaseWizard.step1') ?? [];
@@ -325,7 +375,7 @@ class CasesController extends AppController {
 
         // Load exams procedures with their related data
         $examsProceduresTable = $this->fetchTable('ExamsProcedures');
-        $examsProceduresQuery = $examsProceduresTable->find()
+        $examsProcedures = $examsProceduresTable->find()
             ->contain([
                 'Exams' => ['Modalities', 'Departments'],
                 'Procedures'
@@ -333,19 +383,6 @@ class CasesController extends AppController {
             ->where([
                 'Exams.hospital_id' => $currentHospital->id
             ])
-            ->toArray();
-
-        $examsProcedures = collection($examsProceduresQuery)
-            ->combine('id', function($ep) {
-                $examName = $ep->exam->name ?? 'Unknown Exam';
-                $procedureName = $ep->procedure->name ?? 'Unknown Procedure';
-                $modalityName = $ep->exam->modality->name ?? '';
-                $displayName = $examName . ' - ' . $procedureName;
-                if ($modalityName) {
-                    $displayName .= ' (' . $modalityName . ')';
-                }
-                return $displayName;
-            })
             ->toArray();
 
         // Get step 2 data from session if returning
@@ -448,22 +485,50 @@ class CasesController extends AppController {
             return $this->redirect(['action' => 'index']);
         }
 
-        // Get patients for this hospital
-        $patientsTable = $this->fetchTable('Users');
-        $patients = $patientsTable->find('list', [
-            'keyField' => 'id',
-            'valueField' => function($user) {
-                return $user->first_name . ' ' . $user->last_name . ' (' . $user->username . ')';
+        // Get patients for this hospital (build masked list for dropdowns)
+        $patientsTable = $this->fetchTable('Patients');
+        $patientsQuery = $patientsTable->find()
+            ->contain(['Users' => ['Roles']])
+            ->where([
+                'Patients.hospital_id' => $currentHospital->id,
+                'Users.status' => 'active',
+                'Roles.type' => 'patient'
+            ])
+            ->order(['Users.last_name' => 'ASC', 'Users.first_name' => 'ASC'])
+            ->all();
+
+        $patients = [];
+        foreach ($patientsQuery as $patientEntity) {
+            $userEntity = $patientEntity->user ?? null;
+            // Build masked display: Name (Gender initial/Age)
+            $masked = $this->patientMaskingService->maskPatientForUser($patientEntity, $user);
+            $first = $masked->masked_first_name ?? ($userEntity->first_name ?? '');
+            $last = $masked->masked_last_name ?? ($userEntity->last_name ?? '');
+            $gender = $patientEntity->gender ?? '';
+            $genderInitial = $gender ? strtoupper(substr($gender, 0, 1)) : '';
+            
+            // Calculate age from DOB
+            $age = '';
+            if (!empty($patientEntity->dob)) {
+                $dobString = is_object($patientEntity->dob) ? $patientEntity->dob->format('Y-m-d') : $patientEntity->dob;
+                $dob = new \DateTime($dobString);
+                $now = new \DateTime();
+                $age = $dob->diff($now)->y;
             }
-        ])
-        ->innerJoinWith('Roles')
-        ->where([
-            'Users.hospital_id' => $currentHospital->id,
-            'Users.status' => 'active',
-            'Roles.type' => 'patient'
-        ])
-        ->orderBy(['Users.last_name' => 'ASC', 'Users.first_name' => 'ASC'])
-        ->toArray();
+            
+            $label = trim($first . ' ' . $last);
+            $extraInfo = [];
+            if (!empty($genderInitial)) {
+                $extraInfo[] = $genderInitial;
+            }
+            if (!empty($age)) {
+                $extraInfo[] = $age;
+            }
+            if (!empty($extraInfo)) {
+                $label .= ' (' . implode('/', $extraInfo) . ')';
+            }
+            $patients[$userEntity->id ?? $patientEntity->user_id] = $label;
+        }
 
         // Get session data if returning from later steps, otherwise use case data
         $caseData = $this->request->getSession()->read('CaseEditWizard.step1') ?? [
@@ -531,7 +596,7 @@ class CasesController extends AppController {
 
         // Load exams procedures
         $examsProceduresTable = $this->fetchTable('ExamsProcedures');
-        $examsProceduresQuery = $examsProceduresTable->find()
+        $examsProcedures = $examsProceduresTable->find()
             ->contain([
                 'Exams' => ['Modalities', 'Departments'],
                 'Procedures'
@@ -539,19 +604,6 @@ class CasesController extends AppController {
             ->where([
                 'Exams.hospital_id' => $currentHospital->id
             ])
-            ->toArray();
-
-        $examsProcedures = collection($examsProceduresQuery)
-            ->combine('id', function($ep) {
-                $examName = $ep->exam->name ?? 'Unknown Exam';
-                $procedureName = $ep->procedure->name ?? 'Unknown Procedure';
-                $modalityName = $ep->exam->modality->name ?? '';
-                $displayName = $examName . ' - ' . $procedureName;
-                if ($modalityName) {
-                    $displayName .= ' (' . $modalityName . ')';
-                }
-                return $displayName;
-            })
             ->toArray();
 
         // Get step 2 data from session if returning, otherwise use case data
@@ -675,10 +727,20 @@ class CasesController extends AppController {
                 ]));
         }
 
+        // Get patient data for display name
+        $patientsTable = $this->fetchTable('Users');
+        $patient = $patientsTable->get($data['patient_id']);
+        
+        // Create patient display name with masking
+        $patientMaskHelper = new \App\View\Helper\PatientMaskHelper(new \Cake\View\View());
+        $maskedPatientName = $patientMaskHelper->displayName($patient, $user);
+
         // Save to session
         $this->request->getSession()->write('CaseEditWizard.step1', [
             'patient_id' => $data['patient_id'],
+            'patient_name' => $maskedPatientName,
             'date' => $data['date'],
+            'time' => $data['time'] ?? null,
             'symptoms' => $data['symptoms']
         ]);
 
@@ -1770,10 +1832,20 @@ class CasesController extends AppController {
                 ]));
         }
 
+        // Get patient data
+        $patientsTable = $this->fetchTable('Users');
+        $patient = $patientsTable->get($data['patient_id']);
+        
+        // Create patient display name with masking
+        $patientMaskHelper = new \App\View\Helper\PatientMaskHelper(new \Cake\View\View());
+        $maskedPatientName = $patientMaskHelper->displayName($patient, $user);
+
         // Save to session
         $this->request->getSession()->write('CaseWizard.step1', [
             'patient_id' => $data['patient_id'],
+            'patient_name' => $maskedPatientName,
             'date' => $data['date'],
+            'time' => $data['time'] ?? null,
             'symptoms' => $data['symptoms']
         ]);
 
@@ -1796,8 +1868,9 @@ class CasesController extends AppController {
             
             // Calculate age from date of birth if available
             $age = 'unknown';
-            if (!empty($patient->date_of_birth)) {
-                $dob = new \DateTime($patient->date_of_birth);
+            if (!empty($patient->dob)) {
+                $dobString = is_object($patient->dob) ? $patient->dob->format('Y-m-d') : $patient->dob;
+                $dob = new \DateTime($dobString);
                 $now = new \DateTime();
                 $age = $dob->diff($now)->y;
             }
@@ -2130,7 +2203,7 @@ class CasesController extends AppController {
             'case_id' => $id,
             'hospital_id' => $case->hospital_id,
             'status' => 'pending',
-            'created_by' => $user->id,
+            'user_id' => $user->id,
             'report_data' => json_encode([
                 'content' => ''  // Empty content - will be dynamically generated in Reports controller
             ])

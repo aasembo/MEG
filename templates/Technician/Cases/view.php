@@ -18,7 +18,7 @@ $this->assign('title', 'Case #' . $case->id);
                     </h2>
                     <p class="mb-0">
                         <?php if ($case->patient_user): ?>
-                            <i class="fas fa-user-injured me-2"></i><?php echo h($case->patient_user->first_name . ' ' . $case->patient_user->last_name); ?>
+                            <i class="fas fa-user-injured me-2"></i><?php echo $this->PatientMask->displayName($case->patient_user); ?>
                         <?php endif; ?>
                     </p>
                 </div>
@@ -104,7 +104,7 @@ $this->assign('title', 'Case #' . $case->id);
                                     <td class="fw-semibold">Patient:</td>
                                     <td>
                                         <?php if ($case->patient_user): ?>
-                                            <?php echo h($case->patient_user->first_name . ' ' . $case->patient_user->last_name); ?>
+                                            <?php echo $this->PatientMask->displayName($case->patient_user); ?>
                                             <br><small class="text-muted">ID: <?php echo h($case->patient_user->id); ?></small>
                                         <?php else: ?>
                                             <span class="text-muted">No patient assigned</span>
@@ -683,6 +683,236 @@ $this->assign('title', 'Case #' . $case->id);
                     <?php endif; ?>
                 </div>
             </div>
+
+            <!-- Report Hierarchy Information -->
+            <?php if (!empty($existingReports)): ?>
+                <?php 
+                // Organize reports by role hierarchy
+                $reportHierarchy = [
+                    'technician' => null,
+                    'scientist' => null,
+                    'doctor' => null
+                ];
+                
+                // Categorize reports by creator role
+                foreach ($existingReports as $report) {
+                    if (!empty($report->user->role->type)) {
+                        $roleType = strtolower($report->user->role->type);
+                        if (array_key_exists($roleType, $reportHierarchy)) {
+                            $reportHierarchy[$roleType] = $report;
+                        }
+                    }
+                }
+                
+                // Find current user's role for ownership detection
+                $currentUserRole = strtolower($user->role->type ?? 'unknown');
+                $hasAnyReports = array_filter($reportHierarchy) !== [];
+                ?>
+                
+                <?php if ($hasAnyReports): ?>
+                <div class="card border-0 shadow mb-4">
+                    <div class="card-header bg-light border-0 py-3">
+                        <h6 class="mb-0 fw-bold text-dark">
+                            <i class="fas fa-file-medical-alt me-2 text-primary"></i>
+                            Report Workflow Hierarchy
+                        </h6>
+                    </div>
+                    <div class="card-body bg-white">
+                        <!-- Workflow Progress Indicator -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-semibold text-muted">Workflow Progress</span>
+                                <span class="small fw-bold text-primary">
+                                    <?php 
+                                    $completedStages = count(array_filter($reportHierarchy));
+                                    echo $completedStages . '/3 Stages Complete';
+                                    ?>
+                                </span>
+                            </div>
+                            <div class="progress mb-2" style="height: 8px;">
+                                <div class="progress-bar bg-primary" style="width: <?= ($completedStages / 3) * 100 ?>%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Hierarchical Report Display -->
+                        <div class="hierarchy-container">
+                            <?php 
+                            $hierarchyConfig = [
+                                'technician' => [
+                                    'title' => 'Technician Report',
+                                    'icon' => 'fa-user-cog',
+                                    'color' => 'info',
+                                    'description' => 'Initial Analysis & Data Collection'
+                                ],
+                                'scientist' => [
+                                    'title' => 'Scientist Report', 
+                                    'icon' => 'fa-user-graduate',
+                                    'color' => 'warning',
+                                    'description' => 'Scientific Review & Validation'
+                                ],
+                                'doctor' => [
+                                    'title' => 'Doctor Report',
+                                    'icon' => 'fa-user-md', 
+                                    'color' => 'danger',
+                                    'description' => 'Medical Review & Final Approval'
+                                ]
+                            ];
+                            ?>
+                            
+                            <?php foreach ($hierarchyConfig as $roleType => $config): ?>
+                                <?php $report = $reportHierarchy[$roleType]; ?>
+                                <?php $isCurrentUserRole = ($roleType === $currentUserRole); ?>
+                                <?php $isCompleted = ($report !== null); ?>
+                                
+                                <div class="hierarchy-stage mb-3 <?= $isCompleted ? 'completed' : 'pending' ?> <?= $isCurrentUserRole ? 'current-user' : '' ?>">
+                                    <div class="d-flex align-items-center p-3 rounded border <?= $isCompleted ? 'border-' . $config['color'] . ' bg-' . $config['color'] . ' bg-opacity-10' : 'border-light bg-light' ?>">
+                                        <!-- Stage Icon & Info -->
+                                        <div class="flex-shrink-0 me-3">
+                                            <div class="rounded-circle bg-<?= $isCompleted ? $config['color'] : 'light' ?> text-<?= $isCompleted ? 'white' : 'muted' ?> d-flex align-items-center justify-content-center" 
+                                                 style="width: 45px; height: 45px;">
+                                                <i class="fas <?= $config['icon'] ?> fa-lg"></i>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Stage Content -->
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <h6 class="mb-0 fw-bold text-<?= $isCompleted ? $config['color'] : 'muted' ?>">
+                                                    <?= $config['title'] ?>
+                                                    <?php if ($isCurrentUserRole): ?>
+                                                        <span class="badge bg-<?= $config['color'] ?> ms-2">You</span>
+                                                    <?php endif; ?>
+                                                </h6>
+                                                
+                                                <?php if ($isCompleted): ?>
+                                                    <span class="badge bg-<?= $config['color'] ?> px-2 py-1">
+                                                        <i class="fas fa-check-circle me-1"></i>Complete
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-light text-muted px-2 py-1">
+                                                        <i class="fas fa-clock me-1"></i>Pending
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                            
+                                            <p class="mb-2 small text-muted"><?= $config['description'] ?></p>
+                                            
+                                            <?php if ($isCompleted): ?>
+                                                <!-- Report Details -->
+                                                <div class="row align-items-center">
+                                                    <div class="col-md-8">
+                                                        <div class="small">
+                                                            <strong>Report #<?= h($report->id) ?></strong>
+                                                            <?php if (!$isCurrentUserRole && !empty($report->user)): ?>
+                                                                <span class="text-muted">
+                                                                    by <?= h($report->user->first_name . ' ' . $report->user->last_name) ?>
+                                                                </span>
+                                                            <?php endif; ?>
+                                                            <br>
+                                                            <span class="text-muted">
+                                                                <i class="fas fa-calendar me-1"></i>
+                                                                <?= $report->created->format('M j, Y g:i A') ?>
+                                                            </span>
+                                                            <?php 
+                                                            $statusClass = match($report->status) {
+                                                                'pending' => 'warning',
+                                                                'reviewed' => 'info', 
+                                                                'approved' => 'success',
+                                                                'rejected' => 'danger',
+                                                                default => 'secondary'
+                                                            };
+                                                            ?>
+                                                            <span class="badge bg-<?= $statusClass ?> ms-2"><?= h(ucfirst($report->status)) ?></span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4 text-end">
+                                                        <div class="btn-group btn-group-sm">
+                                                            <?= $this->Html->link(
+                                                                '<i class="fas fa-eye"></i>',
+                                                                ['controller' => 'Reports', 'action' => 'view', $report->id],
+                                                                [
+                                                                    'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
+                                                                    'escape' => false,
+                                                                    'title' => 'View Report'
+                                                                ]
+                                                            ); ?>
+                                                            
+                                                            <?php if ($isCurrentUserRole): ?>
+                                                                <?= $this->Html->link(
+                                                                    '<i class="fas fa-edit"></i>',
+                                                                    ['controller' => 'Reports', 'action' => 'edit', $report->id],
+                                                                    [
+                                                                        'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
+                                                                        'escape' => false,
+                                                                        'title' => 'Edit My Report'
+                                                                    ]
+                                                                ); ?>
+                                                            <?php endif; ?>
+                                                            
+                                                            <?= $this->Html->link(
+                                                                '<i class="fas fa-download"></i>',
+                                                                ['controller' => 'Reports', 'action' => 'download', $report->id, 'pdf'],
+                                                                [
+                                                                    'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
+                                                                    'escape' => false,
+                                                                    'title' => 'Download PDF'
+                                                                ]
+                                                            ); ?>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <?php else: ?>
+                                                <!-- No Report Available -->
+                                                <?php if ($isCurrentUserRole): ?>
+                                                    <div class="text-center">
+                                                        <?= $this->Html->link(
+                                                            '<i class="fas fa-plus me-2"></i>Create My ' . ucfirst($roleType) . ' Report',
+                                                            ['action' => 'createReport', $case->id],
+                                                            [
+                                                                'class' => 'btn btn-' . $config['color'] . ' btn-sm',
+                                                                'escape' => false,
+                                                                'confirm' => 'This will create a new ' . $roleType . ' report. Continue?'
+                                                            ]
+                                                        ); ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="text-center">
+                                                        <small class="text-muted">Awaiting <?= $roleType ?> to complete this stage</small>
+                                                    </div>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        
+                                        <!-- Hierarchy Connection Line -->
+                                        <?php if ($roleType !== 'doctor'): ?>
+                                            <div class="hierarchy-line"></div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        
+                        <!-- Workflow Summary -->
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <div class="row text-center small">
+                                <div class="col-4">
+                                    <strong class="text-info">Technician</strong><br>
+                                    <span class="text-muted">Data Collection</span>
+                                </div>
+                                <div class="col-4">
+                                    <strong class="text-warning">Scientist</strong><br>
+                                    <span class="text-muted">Analysis & Review</span>
+                                </div>
+                                <div class="col-4">
+                                    <strong class="text-danger">Doctor</strong><br>
+                                    <span class="text-muted">Final Approval</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+            <?php endif; ?>
 
             <!-- Case Overview -->
             <div class="card border-0 shadow mb-4">
@@ -2148,42 +2378,79 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-.timeline {
+/* Report Hierarchy Styling */
+.hierarchy-container .hierarchy-stage {
     position: relative;
 }
 
-.timeline-item {
-    position: relative;
-    padding-left: 2rem;
-    padding-bottom: 1rem;
+.hierarchy-stage.completed {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.timeline-item:not(:last-child)::before {
+.hierarchy-stage.current-user {
+    position: relative;
+}
+
+.hierarchy-stage.current-user::before {
     content: '';
     position: absolute;
-    left: 0.5rem;
-    top: 1.5rem;
-    bottom: -1rem;
-    width: 2px;
-    background-color: #dee2e6;
+    left: -3px;
+    top: -3px;
+    right: -3px;
+    bottom: -3px;
+    border: 2px solid #0d6efd;
+    border-radius: 8px;
+    z-index: -1;
 }
 
-.timeline-marker {
+.hierarchy-line {
     position: absolute;
-    left: 0;
-    top: 0.25rem;
-    width: 1rem;
-    height: 1rem;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 2px #dee2e6;
+    left: 22px;
+    bottom: -15px;
+    width: 2px;
+    height: 15px;
+    background-color: #dee2e6;
+    z-index: 1;
 }
 
-.table-borderless td {
-    padding: 0.25rem 0.5rem 0.25rem 0;
+.hierarchy-stage.completed .hierarchy-line {
+    background-color: #28a745;
 }
 
-.border-start {
-    border-left-width: 3px !important;
+/* Progress bar styling */
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+/* Button group spacing */
+.btn-group-sm .btn {
+    margin: 0 1px;
+}
+
+/* Role badge styling */
+.hierarchy-stage .badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .hierarchy-container .col-md-4 {
+        text-align: center !important;
+        margin-top: 10px;
+    }
+    
+    .hierarchy-container .btn-group {
+        width: 100%;
+    }
+    
+    .hierarchy-container .btn-group .btn {
+        flex: 1;
+    }
 }
 </style>

@@ -1,17 +1,183 @@
 /**
  * Scientist Role JavaScript
  * Research-focused functionality and utilities
+ * Version: 1.1.0 - Fixed initializeDataValidation function
  */
+
+/**
+ * Initialize data validation components
+ */
+function initializeDataValidation() {
+    console.log('Initializing data validation...');
+    
+    // Initialize form validation for research data
+    const forms = document.querySelectorAll('form[data-validate="true"]');
+    
+    forms.forEach(form => {
+        // Add real-time validation
+        const inputs = form.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('blur', function() {
+                validateField(this);
+            });
+            
+            input.addEventListener('input', function() {
+                if (this.classList.contains('is-invalid')) {
+                    validateField(this);
+                }
+            });
+        });
+    });
+    
+    // Initialize data integrity checks
+    initializeDataIntegrityChecks();
+}
 
 // Document ready initialization
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Scientist dashboard initialized');
+    console.log('Scientist dashboard initialized - v1.1.0');
     
     // Initialize research dashboard components
     initializeResearchComponents();
     initializeDataValidation();
     initializeChartComponents();
 });
+
+/**
+ * Validate individual form field
+ */
+function validateField(field) {
+    const value = field.value.trim();
+    const fieldType = field.dataset.validateType || field.type;
+    let isValid = true;
+    let errorMessage = '';
+    
+    // Check if field is required
+    if (field.hasAttribute('required') && !value) {
+        isValid = false;
+        errorMessage = 'This field is required';
+    }
+    // Validate specific field types
+    else if (value) {
+        switch (fieldType) {
+            case 'email':
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(value)) {
+                    isValid = false;
+                    errorMessage = 'Please enter a valid email address';
+                }
+                break;
+                
+            case 'number':
+                if (isNaN(value) || isNaN(parseFloat(value))) {
+                    isValid = false;
+                    errorMessage = 'Please enter a valid number';
+                }
+                break;
+                
+            case 'sample-id':
+                const sampleRegex = /^[A-Z0-9-]+$/;
+                if (!sampleRegex.test(value)) {
+                    isValid = false;
+                    errorMessage = 'Sample ID must contain only letters, numbers, and hyphens';
+                }
+                break;
+                
+            case 'date':
+                const date = new Date(value);
+                if (isNaN(date.getTime())) {
+                    isValid = false;
+                    errorMessage = 'Please enter a valid date';
+                }
+                break;
+        }
+    }
+    
+    // Apply validation result
+    if (isValid) {
+        clearFieldError(field);
+    } else {
+        showFieldError(field, errorMessage);
+    }
+    
+    return isValid;
+}
+
+/**
+ * Initialize data integrity checks
+ */
+function initializeDataIntegrityChecks() {
+    // Check for duplicate sample IDs
+    const sampleIdInputs = document.querySelectorAll('input[data-validate-type="sample-id"]');
+    
+    sampleIdInputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            checkSampleIdUniqueness(this);
+        });
+    });
+    
+    // Initialize batch validation for research data
+    const batchValidationTriggers = document.querySelectorAll('[data-batch-validate]');
+    batchValidationTriggers.forEach(trigger => {
+        trigger.addEventListener('click', function() {
+            const target = this.dataset.batchValidate;
+            performBatchValidation(target);
+        });
+    });
+}
+
+/**
+ * Check if sample ID is unique
+ */
+function checkSampleIdUniqueness(input) {
+    const sampleId = input.value.trim();
+    
+    if (!sampleId) return;
+    
+    // This would typically make an AJAX call to check uniqueness
+    // For now, simulate the check
+    console.log('Checking uniqueness for sample ID:', sampleId);
+    
+    // Simulate API call
+    setTimeout(() => {
+        // For demo purposes, mark as invalid if it contains "duplicate"
+        if (sampleId.toLowerCase().includes('duplicate')) {
+            showFieldError(input, 'This sample ID already exists');
+        } else {
+            clearFieldError(input);
+        }
+    }, 500);
+}
+
+/**
+ * Perform batch validation on a set of data
+ */
+function performBatchValidation(target) {
+    console.log('Performing batch validation for:', target);
+    
+    const container = document.querySelector(target);
+    if (!container) return;
+    
+    const forms = container.querySelectorAll('form');
+    let allValid = true;
+    
+    forms.forEach(form => {
+        const inputs = form.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            if (!validateField(input)) {
+                allValid = false;
+            }
+        });
+    });
+    
+    // Show batch validation result
+    const message = allValid ? 
+        'All data passed validation checks' : 
+        'Some fields require attention';
+    const type = allValid ? 'success' : 'warning';
+    
+    showMessage(message, type);
+}
 
 /**
  * Initialize research-specific components

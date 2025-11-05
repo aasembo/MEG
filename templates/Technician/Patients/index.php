@@ -145,7 +145,7 @@ $this->assign('title', 'Patient Management');
                                 ]); ?>
                             </th>
                             <th class="border-0 fw-semibold text-uppercase small" style="width: 150px;">
-                                <?php echo $this->Paginator->sort('Patients.created', 'Registered', [
+                                <?php echo $this->Paginator->sort('Users.created', 'Registered', [
                                     'class' => 'text-decoration-none text-dark',
                                     '?' => compact('status', 'search')
                                 ]); ?>
@@ -159,16 +159,17 @@ $this->assign('title', 'Patient Management');
                             <!-- Patient Icon -->
                             <td class="ps-4">
                                 <?php 
-                                $genderIcon = match($patient->gender ?? '') {
-                                    'M' => 'fa-mars',
-                                    'F' => 'fa-venus',
-                                    'O' => 'fa-transgender',
+                                $displayedGender = $this->PatientMask->displayGender($patient);
+                                $genderIcon = match($displayedGender) {
+                                    'male' => 'fa-mars',
+                                    'female' => 'fa-venus',
+                                    'other' => 'fa-transgender',
                                     default => 'fa-user'
                                 };
-                                $genderColorClass = match($patient->gender ?? '') {
-                                    'M' => 'bg-primary',
-                                    'F' => 'bg-danger',
-                                    'O' => 'bg-warning',
+                                $genderColorClass = match($displayedGender) {
+                                    'male' => 'bg-primary',
+                                    'female' => 'bg-danger',
+                                    'other' => 'bg-warning',
                                     default => 'bg-secondary'
                                 };
                                 ?>
@@ -181,13 +182,15 @@ $this->assign('title', 'Patient Management');
                             <td>
                                 <div>
                                     <?php echo $this->Html->link(
-                                        '<span class="fw-semibold">' . h($patient->user->first_name . ' ' . $patient->user->last_name) . '</span>',
+                                        '<span class="fw-semibold">' . h($this->PatientMask->displayName($patient)) . '</span>',
                                         ['action' => 'view', $patient->id],
                                         ['escape' => false, 'class' => 'text-decoration-none text-primary']
                                     ); ?>
-                                    <?php if ($patient->medical_record_number): ?>
+                                    <?php 
+                                    $displayedMrn = $this->PatientMask->displayMrn($patient);
+                                    if ($displayedMrn): ?>
                                         <div class="text-muted small">
-                                            <i class="fas fa-file-medical me-1"></i>MRN: <?php echo h($patient->medical_record_number) ?>
+                                            <i class="fas fa-file-medical me-1"></i>MRN: <?php echo h($displayedMrn) ?>
                                         </div>
                                     <?php endif; ?>
                                 </div>
@@ -197,7 +200,7 @@ $this->assign('title', 'Patient Management');
                             <td>
                                 <div class="d-flex align-items-center">
                                     <i class="fas fa-user-circle me-2 text-primary"></i>
-                                    <span class="fw-semibold text-dark"><?php echo h($patient->user->username) ?></span>
+                                    <span class="fw-semibold text-dark"><?php echo h($patient->username) ?></span>
                                 </div>
                             </td>
                             
@@ -205,17 +208,20 @@ $this->assign('title', 'Patient Management');
                             <td>
                                 <div>
                                     <div class="text-dark small">
-                                        <i class="fas fa-envelope me-1 text-muted"></i><?php echo h($patient->user->email) ?>
+                                        <i class="fas fa-envelope me-1 text-muted"></i><?php echo h($this->PatientMask->displayEmail($patient)) ?>
                                     </div>
-                                    <?php if ($patient->phone): ?>
+                                    <?php 
+                                    $displayedPhone = $this->PatientMask->displayPhone($patient);
+                                    if ($displayedPhone): ?>
                                         <div class="text-muted small">
-                                            <i class="fas fa-phone me-1"></i><?php echo h($patient->phone) ?>
+                                            <i class="fas fa-phone me-1"></i><?php echo h($displayedPhone) ?>
                                         </div>
                                     <?php endif; ?>
-                                    <?php if ($patient->dob): ?>
+                                    <?php 
+                                    $displayedDob = $this->PatientMask->displayDob($patient);
+                                    if ($displayedDob && $displayedDob !== 'N/A'): ?>
                                         <div class="text-muted small">
-                                            <i class="fas fa-birthday-cake me-1"></i><?php echo $patient->dob->format('M d, Y') ?> 
-                                            <span>(<?php echo $patient->dob->age ?> yrs)</span>
+                                            <i class="fas fa-birthday-cake me-1"></i><?php echo h($displayedDob) ?>
                                         </div>
                                     <?php endif; ?>
                                 </div>
@@ -223,13 +229,15 @@ $this->assign('title', 'Patient Management');
                             
                             <!-- Gender -->
                             <td>
-                                <?php if ($patient->gender): ?>
+                                <?php 
+                                $displayedGender = $this->PatientMask->displayGender($patient);
+                                if ($displayedGender && $displayedGender !== 'N/A'): ?>
                                     <?php
-                                    $genderConfig = match($patient->gender) {
-                                        'M' => ['class' => 'primary', 'icon' => 'mars', 'text' => 'Male'],
-                                        'F' => ['class' => 'danger', 'icon' => 'venus', 'text' => 'Female'],
-                                        'O' => ['class' => 'warning', 'icon' => 'transgender', 'text' => 'Other'],
-                                        default => ['class' => 'secondary', 'icon' => 'user', 'text' => h($patient->gender)]
+                                    $genderConfig = match($displayedGender) {
+                                        'male' => ['class' => 'primary', 'icon' => 'mars', 'text' => 'Male'],
+                                        'female' => ['class' => 'danger', 'icon' => 'venus', 'text' => 'Female'],
+                                        'other' => ['class' => 'info', 'icon' => 'transgender', 'text' => 'Other'],
+                                        default => ['class' => 'secondary', 'icon' => 'user', 'text' => h($displayedGender)]
                                     };
                                     $badgeClass = 'badge rounded-pill bg-' . $genderConfig['class'];
                                     $badgeClass .= ($genderConfig['class'] === 'warning') ? ' text-dark' : ' text-white';
@@ -245,11 +253,11 @@ $this->assign('title', 'Patient Management');
                             <!-- Status -->
                             <td>
                                 <?php
-                                $statusConfig = match($patient->user->status) {
+                                $statusConfig = match($patient->status) {
                                     'active' => ['class' => 'success', 'icon' => 'check-circle', 'text' => 'Active'],
                                     'inactive' => ['class' => 'secondary', 'icon' => 'minus-circle', 'text' => 'Inactive'],
                                     'suspended' => ['class' => 'danger', 'icon' => 'ban', 'text' => 'Suspended'],
-                                    default => ['class' => 'secondary', 'icon' => 'circle', 'text' => ucfirst($patient->user->status)]
+                                    default => ['class' => 'secondary', 'icon' => 'circle', 'text' => ucfirst($patient->status)]
                                 };
                                 $statusBadge = 'badge rounded-pill bg-' . $statusConfig['class'];
                                 $statusBadge .= ($statusConfig['class'] === 'warning') ? ' text-dark' : ' text-white';
@@ -290,7 +298,7 @@ $this->assign('title', 'Patient Management');
                                             'data-bs-toggle' => 'tooltip'
                                         ]
                                     ); ?>
-                                    <?php if ($patient->user->status === 'active'): ?>
+                                    <?php if ($patient->status === 'active'): ?>
                                         <?php echo $this->Form->postLink(
                                             '<i class="fas fa-user-times"></i>',
                                             ['action' => 'delete', $patient->id],
@@ -299,7 +307,7 @@ $this->assign('title', 'Patient Management');
                                                 'class' => 'btn btn-outline-danger',
                                                 'title' => 'Deactivate Patient',
                                                 'data-bs-toggle' => 'tooltip',
-                                                'confirm' => __('Are you sure you want to deactivate {0}?', $patient->user->first_name . ' ' . $patient->user->last_name)
+                                                'confirm' => __('Are you sure you want to deactivate {0}?', $this->PatientMask->displayName($patient))
                                             ]
                                         ); ?>
                                     <?php endif; ?>

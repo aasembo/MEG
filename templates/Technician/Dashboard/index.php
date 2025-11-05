@@ -265,7 +265,7 @@ $this->assign('title', 'Technician Dashboard');
                                                 <div class="avatar-sm bg-light text-primary rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
                                                     <i class="fas fa-user"></i>
                                                 </div>
-                                                <span><?php echo h($case->patient_user->first_name . ' ' . $case->patient_user->last_name); ?></span>
+                                                <span><?php echo $this->PatientMask->displayName($case->patient_user); ?></span>
                                             </div>
                                         <?php else: ?>
                                             <span class="text-muted">No patient</span>

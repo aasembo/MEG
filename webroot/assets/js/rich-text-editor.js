@@ -17,6 +17,7 @@ class RichTextEditor {
                 'heading1', 'heading2', 'heading3', 'paragraph', '|',
                 'bulletList', 'orderedList', 'indent', 'outdent', '|',
                 'link', 'table', '|',
+                'pasteSpecial', 'clearFormatting', '|',
                 'undo', 'redo', '|',
                 'fullscreen'
             ],
@@ -104,6 +105,8 @@ class RichTextEditor {
             outdent: { icon: '←', title: 'Decrease indent', command: 'outdent' },
             link: { icon: '🔗', title: 'Insert link', command: 'createLink' },
             table: { icon: '⊞', title: 'Insert table', command: 'insertTable' },
+            pasteSpecial: { icon: '📋', title: 'Paste Special - preserves formatting (Ctrl+Shift+V)', command: 'pasteSpecial' },
+            clearFormatting: { icon: '🧹', title: 'Clear formatting', command: 'removeFormat' },
             undo: { icon: '↶', title: 'Undo (Ctrl+Z)', command: 'undo' },
             redo: { icon: '↷', title: 'Redo (Ctrl+Y)', command: 'redo' },
             fullscreen: { icon: '⛶', title: 'Fullscreen', command: 'toggleFullscreen' }
@@ -248,6 +251,8 @@ class RichTextEditor {
                 this.insertTable();
             } else if (config.command === 'toggleFullscreen') {
                 this.toggleFullscreen();
+            } else if (config.command === 'pasteSpecial') {
+                this.showPasteSpecialDialog();
             } else {
                 this.executeCommand(config.command, config.value);
             }
@@ -380,6 +385,11 @@ class RichTextEditor {
             this.container.classList.remove('border-primary');
         });
         
+        // Enhanced paste handling for formatted content
+        this.editorContent.addEventListener('paste', (e) => {
+            this.handlePaste(e);
+        });
+        
         // Prevent form submission on toolbar button clicks
         this.toolbarContainer.addEventListener('mousedown', (e) => {
             e.preventDefault();
@@ -391,6 +401,323 @@ class RichTextEditor {
                 this.toggleFullscreen();
             }
         });
+    }
+    
+    handlePaste(e) {
+        // Prevent default paste behavior
+        e.preventDefault();
+        
+        // Get clipboard data
+        const clipboardData = e.clipboardData || window.clipboardData;
+        
+        // Try to get HTML content first (preserves formatting)
+        let htmlContent = clipboardData.getData('text/html');
+        let textContent = clipboardData.getData('text/plain');
+        
+        // If we have HTML content, clean and use it
+        if (htmlContent) {
+            // Clean the HTML content
+            htmlContent = this.cleanPastedHTML(htmlContent);
+            
+            // Insert the cleaned HTML
+            this.insertHTMLAtCursor(htmlContent);
+        } else if (textContent) {
+            // If only plain text, convert line breaks to paragraphs
+            const formattedText = this.formatPlainText(textContent);
+            this.insertHTMLAtCursor(formattedText);
+        }
+        
+        // Update content and trigger events
+        this.updateContent();
+        this.handlePlaceholder();
+        this.updateToolbarState();
+    }
+    
+    cleanPastedHTML(html) {
+        // Create a temporary div to parse HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Remove unwanted elements and attributes
+        this.removeUnwantedElements(tempDiv);
+        this.cleanAttributes(tempDiv);
+        
+        // Convert Word-specific elements
+        this.convertWordElements(tempDiv);
+        
+        return tempDiv.innerHTML;
+    }
+    
+    removeUnwantedElements(element) {
+        // Remove script tags, style tags, and other unwanted elements
+        const unwantedTags = ['script', 'style', 'meta', 'link', 'xml', 'o:p'];
+        
+        unwantedTags.forEach(tag => {
+            const elements = element.querySelectorAll(tag);
+            elements.forEach(el => el.remove());
+        });
+        
+        // Remove empty spans and divs
+        const emptyElements = element.querySelectorAll('span:empty, div:empty');
+        emptyElements.forEach(el => el.remove());
+    }
+    
+    cleanAttributes(element) {
+        // List of allowed attributes
+        const allowedAttributes = {
+            'p': ['style'],
+            'div': ['style'],
+            'span': ['style'],
+            'strong': [],
+            'b': [],
+            'em': [],
+            'i': [],
+            'u': [],
+            'strike': [],
+            's': [],
+            'h1': ['style'],
+            'h2': ['style'],
+            'h3': ['style'],
+            'h4': ['style'],
+            'h5': ['style'],
+            'h6': ['style'],
+            'ul': [],
+            'ol': [],
+            'li': [],
+            'a': ['href', 'title'],
+            'table': ['class'],
+            'thead': [],
+            'tbody': [],
+            'tr': [],
+            'td': ['colspan', 'rowspan'],
+            'th': ['colspan', 'rowspan'],
+            'br': []
+        };
+        
+        // Clean all elements
+        const allElements = element.querySelectorAll('*');
+        allElements.forEach(el => {
+            const tagName = el.tagName.toLowerCase();
+            const allowedAttrs = allowedAttributes[tagName] || [];
+            
+            // Remove all attributes except allowed ones
+            const attributes = Array.from(el.attributes);
+            attributes.forEach(attr => {
+                if (!allowedAttrs.includes(attr.name)) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+            
+            // Clean style attributes
+            if (el.hasAttribute('style')) {
+                el.setAttribute('style', this.cleanStyleAttribute(el.getAttribute('style')));
+            }
+        });
+    }
+    
+    cleanStyleAttribute(style) {
+        // List of allowed CSS properties
+        const allowedProperties = [
+            'font-weight', 'font-style', 'text-decoration', 'color', 
+            'background-color', 'text-align', 'font-size', 'font-family',
+            'margin', 'padding', 'line-height'
+        ];
+        
+        // Parse style string
+        const styles = style.split(';').filter(s => s.trim());
+        const cleanedStyles = [];
+        
+        styles.forEach(styleRule => {
+            const [property, value] = styleRule.split(':').map(s => s.trim());
+            if (allowedProperties.includes(property) && value) {
+                cleanedStyles.push(`${property}: ${value}`);
+            }
+        });
+        
+        return cleanedStyles.join('; ');
+    }
+    
+    convertWordElements(element) {
+        // Convert Word-specific paragraph spacing
+        const paragraphs = element.querySelectorAll('p');
+        paragraphs.forEach(p => {
+            // Remove Word-specific classes
+            p.removeAttribute('class');
+            
+            // Convert Word paragraph styles
+            const style = p.getAttribute('style') || '';
+            if (style.includes('margin')) {
+                // Keep basic margin styles but clean them up
+                const newStyle = style
+                    .replace(/margin-top:\s*[^;]+;?/g, '')
+                    .replace(/margin-bottom:\s*[^;]+;?/g, '')
+                    .replace(/mso-[^:;]+:[^;]+;?/g, '') // Remove Microsoft Office styles
+                    .trim();
+                
+                if (newStyle) {
+                    p.setAttribute('style', newStyle);
+                } else {
+                    p.removeAttribute('style');
+                }
+            }
+        });
+        
+        // Convert Word lists
+        const listItems = element.querySelectorAll('p[style*="text-indent"]');
+        listItems.forEach(item => {
+            // This is a basic conversion - more complex list handling could be added
+            const style = item.getAttribute('style') || '';
+            if (style.includes('text-indent')) {
+                item.removeAttribute('style');
+            }
+        });
+    }
+    
+    formatPlainText(text) {
+        // Convert plain text to HTML with proper paragraph formatting
+        return text
+            .split('\n\n')
+            .map(paragraph => paragraph.trim())
+            .filter(paragraph => paragraph.length > 0)
+            .map(paragraph => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`)
+            .join('');
+    }
+    
+    insertHTMLAtCursor(html) {
+        // Get current selection
+        const selection = window.getSelection();
+        
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            
+            // Delete current selection
+            range.deleteContents();
+            
+            // Create a document fragment from the HTML
+            const fragment = range.createContextualFragment(html);
+            
+            // Insert the fragment
+            range.insertNode(fragment);
+            
+            // Move cursor to end of inserted content
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        } else {
+            // If no selection, append to the end
+            this.editorContent.innerHTML += html;
+        }
+    }
+    
+    showPasteSpecialDialog() {
+        // Create a modal dialog for paste special
+        const modalHTML = `
+            <div class="modal fade" id="pasteSpecialModal" tabindex="-1" aria-labelledby="pasteSpecialModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="pasteSpecialModalLabel">Paste Special</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted mb-3">Paste your content below. Formatting will be preserved and cleaned for medical reports.</p>
+                            <textarea id="pasteSpecialTextarea" class="form-control" rows="8" placeholder="Paste your formatted content here..."></textarea>
+                            <div class="mt-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="preserveFormatting" checked>
+                                    <label class="form-check-label" for="preserveFormatting">
+                                        Preserve formatting (bold, italic, lists, etc.)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="cleanWordFormatting" checked>
+                                    <label class="form-check-label" for="cleanWordFormatting">
+                                        Clean Microsoft Word formatting
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="pasteSpecialConfirm">Insert Content</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if present
+        const existingModal = document.getElementById('pasteSpecialModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to document
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('pasteSpecialModal'));
+        modal.show();
+        
+        // Focus on textarea when modal is shown
+        document.getElementById('pasteSpecialModal').addEventListener('shown.bs.modal', () => {
+            document.getElementById('pasteSpecialTextarea').focus();
+        });
+        
+        // Handle confirm button
+        document.getElementById('pasteSpecialConfirm').addEventListener('click', () => {
+            const content = document.getElementById('pasteSpecialTextarea').value;
+            const preserveFormatting = document.getElementById('preserveFormatting').checked;
+            const cleanWordFormatting = document.getElementById('cleanWordFormatting').checked;
+            
+            if (content.trim()) {
+                this.processPasteSpecialContent(content, preserveFormatting, cleanWordFormatting);
+            }
+            
+            modal.hide();
+        });
+        
+        // Clean up modal when hidden
+        document.getElementById('pasteSpecialModal').addEventListener('hidden.bs.modal', () => {
+            document.getElementById('pasteSpecialModal').remove();
+        });
+    }
+    
+    processPasteSpecialContent(content, preserveFormatting, cleanWordFormatting) {
+        let processedContent = content;
+        
+        if (preserveFormatting) {
+            // Try to detect if this is HTML content
+            if (content.includes('<') && content.includes('>')) {
+                // Treat as HTML
+                if (cleanWordFormatting) {
+                    processedContent = this.cleanPastedHTML(content);
+                } else {
+                    // Basic HTML cleaning
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = content;
+                    this.removeUnwantedElements(tempDiv);
+                    processedContent = tempDiv.innerHTML;
+                }
+            } else {
+                // Treat as formatted plain text
+                processedContent = this.formatPlainText(content);
+            }
+        } else {
+            // Plain text only
+            processedContent = this.formatPlainText(content);
+        }
+        
+        // Insert the processed content
+        this.insertHTMLAtCursor(processedContent);
+        
+        // Update editor
+        this.updateContent();
+        this.handlePlaceholder();
+        this.updateToolbarState();
+        
+        // Focus back on editor
+        this.editorContent.focus();
     }
     
     setupKeyboardShortcuts() {
@@ -408,6 +735,13 @@ class RichTextEditor {
                     case 'u':
                         e.preventDefault();
                         this.executeCommand('underline');
+                        break;
+                    case 'v':
+                        if (e.shiftKey) {
+                            e.preventDefault();
+                            this.showPasteSpecialDialog();
+                        }
+                        // Regular paste (Ctrl+V) will be handled by the paste event
                         break;
                     case 'z':
                         if (e.shiftKey) {

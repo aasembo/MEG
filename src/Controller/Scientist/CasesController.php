@@ -9,9 +9,8 @@ use App\Lib\UserActivityLogger;
 use App\Constants\SiteConstants;
 use Cake\Log\Log;
 use App\Service\DocumentContentService;
-use App\Service\AiReportGenerationService;
-use App\Service\ReportAssemblyService;
 use App\Service\CaseStatusService;
+use App\Service\PatientMaskingService;
 use Cake\Core\Configure;
 
 /**
@@ -34,6 +33,11 @@ class CasesController extends AppController
      * Case Status Service instance
      */
     private $caseStatusService;
+    
+    /**
+     * Patient Masking Service instance
+     */
+    private $patientMaskingService;
 
     /**
      * Initialize method
@@ -43,9 +47,77 @@ class CasesController extends AppController
         parent::initialize();
         $this->activityLogger = new UserActivityLogger();
         $this->caseStatusService = new CaseStatusService();
+        $this->patientMaskingService = new PatientMaskingService();
+    }
+    
+    /**
+     * Before filter callback
+     *
+     * @param \Cake\Event\EventInterface $event The beforeFilter event
+     * @return \Cake\Http\Response|null
+     */
+    public function beforeFilter(\Cake\Event\EventInterface $event): ?\Cake\Http\Response
+    {
+        parent::beforeFilter($event);
+        return null;
+    }
+    
+    /**
+     * Index method - Shows cases based on scientist's current status
+     *    /**
+     * Check if user has required role for scientist access
+     *
+     * @return bool
+     */
+    private function hasRequiredRole(): bool
+    {
+        $user = $this->Authentication->getIdentity();
         
-        // Set scientist layout for all actions
-        $this->viewBuilder()->setLayout('scientist');
+        if (!$user) {
+            return false;
+        }
+        
+        // Get user with role relationship if role_type is not set
+        if (!isset($user->role_type) && isset($user->id)) {
+            $usersTable = $this->fetchTable('Users');
+            $userWithRole = $usersTable->find()
+                ->contain(['Roles'])
+                ->where(['Users.id' => $user->id])
+                ->first();
+            
+            if ($userWithRole && $userWithRole->role) {
+                $user->role_type = $userWithRole->role->type;
+            }
+        }
+        
+        // Allow scientists and admins to access scientist routes
+        return isset($user->role_type) && in_array($user->role_type, [
+            SiteConstants::ROLE_TYPE_SCIENTIST,
+            SiteConstants::ROLE_TYPE_ADMIN,
+            SiteConstants::ROLE_TYPE_SUPER
+        ]);
+    }
+    
+    /**
+     * Get redirect URL based on user role
+     *
+     * @return array|string
+     */
+    private function getRedirectUrl()
+    {
+        $user = $this->Authentication->getIdentity();
+        
+        if (!$user) {
+            return '/scientist/login';
+        }
+        
+        return match($user->role_type) {
+            SiteConstants::ROLE_TYPE_DOCTOR => '/doctor/dashboard',
+            SiteConstants::ROLE_TYPE_TECHNICIAN => '/technician/dashboard',
+            SiteConstants::ROLE_TYPE_ADMIN => '/admin/dashboard',
+            SiteConstants::ROLE_TYPE_SUPER => '/system/dashboard',
+            default => '/scientist/login'
+        };
     }
 
     /**
@@ -72,7 +144,7 @@ class CasesController extends AppController
         $query = $this->Cases->find()
             ->contain(array(
                 'Users', 
-                'PatientUsers', 
+                'PatientUsers' => ['Patient'], 
                 'CurrentUsers', 
                 'Hospitals',
                 'Departments',
@@ -167,7 +239,7 @@ class CasesController extends AppController
             $statusCounts[$statusValue] = $count;
         }
 
-        $this->set(compact('cases', 'currentHospital', 'statusCounts'));
+        $this->set(compact('cases', 'currentHospital', 'statusCounts', 'user'));
     }
 
     /**
@@ -195,7 +267,7 @@ class CasesController extends AppController
             $case = $this->Cases->get($id, array(
                 'contain' => array(
                     'Users' => ['Roles'],
-                    'PatientUsers' => ['Roles'],
+                    'PatientUsers' => ['Roles', 'Patient'],
                     'CurrentUsers' => ['Roles'],
                     'Hospitals',
                     'Departments',
@@ -277,6 +349,13 @@ class CasesController extends AppController
         $s3Service = new \App\Lib\S3DocumentService();
         $isS3Enabled = $s3Service->isS3Enabled();
 
+        // Check if case has any reports
+        $reportsTable = $this->fetchTable('Reports');
+        $existingReports = $reportsTable->find()
+            ->contain(['Users' => ['Roles']]) // Include user information
+            ->where(['case_id' => $id])
+            ->all();
+
         // Get case version history
         $caseVersionsTable = $this->fetchTable('CaseVersions');
         $caseVersions = $caseVersionsTable->find()
@@ -285,7 +364,7 @@ class CasesController extends AppController
             ->orderBy(array('version_number' => 'DESC'))
             ->all();
 
-        $this->set(compact('case', 'caseVersions', 'currentHospital', 'isS3Enabled'));
+        $this->set(compact('case', 'caseVersions', 'currentHospital', 'isS3Enabled', 'existingReports'));
         // Pass user with roles for role badge helper
         $this->set('user', $userWithRoles);
     }
@@ -322,7 +401,7 @@ class CasesController extends AppController
         try {
             $case = $this->Cases->get($id, array(
                 'contain' => array(
-                    'PatientUsers',
+                    'PatientUsers' => ['Roles', 'Patient'],
                     'CurrentUsers',
                     'Departments',
                     'Sedations',
@@ -623,10 +702,16 @@ class CasesController extends AppController
                 $this->Flash->success(__('Document uploaded successfully.'));
                 return $this->redirect(array('action' => 'view', $case->id));
             } else {
+                // Log validation errors for debugging
+                $errors = $document->getErrors();
+                Log::error('Failed to save document: ' . json_encode($errors));
+                
                 $this->Flash->error(__('Failed to save document record. Please try again.'));
+                // Clean up S3 file if database save failed
+                $s3Service->deleteDocument($uploadResult['file_path']);
             }
         } else {
-            $this->Flash->error(__('Document upload failed: {0}', $uploadResult['error'] ?? 'Unknown error'));
+            $this->Flash->error(__('Upload failed: {0}', $uploadResult['error'] ?? 'Unknown error'));
         }
 
         return $this->redirect(array('action' => 'view', $id));
@@ -1091,579 +1176,96 @@ class CasesController extends AppController
     }
 
     /**
-     * Download case report as PDF
+     * Create Report method - Create a pending report for a case and redirect to add report page
      *
      * @param string|null $id Case id.
-     * @return \Psr\Http\Message\ResponseInterface|null|void
+     * @return \Cake\Http\Response|null Redirects to add report page
+     * @throws \Cake\Datasource\Exception\RecordNotFoundException When case not found.
      */
-    public function downloadReport($id = null)
+    public function createReport($id = null)
     {
         $user = $this->getAuthUser();
-        $currentHospital = $this->request->getSession()->read('Hospital.current');
-
-        if (!$currentHospital || !isset($currentHospital->id)) {
-            $this->Flash->error(__('No hospital context found.'));
-            return $this->redirect(array('action' => 'index'));
-        }
-
-        try {
-            $case = $this->Cases->get($id, array(
-                'contain' => array(
-                    'PatientUsers' => array('Patients'),
-                    'Users',
-                    'Hospitals',
-                    'Departments',
-                    'Sedations',
-                    'CurrentUsers',
-                    'CurrentVersions' => array('Users'),
-                    'CasesExamsProcedures' => array(
-                        'ExamsProcedures' => array('Exams', 'Procedures'),
-                        'Documents' // Include documents linked to procedures
-                    ),
-                    'CaseVersions' => array('Users'),
-                    'CaseAssignments' => array('Users', 'AssignedToUsers'),
-                    'Documents' // Include general case documents
-                )
-            ));
-
-            // Verify hospital access
-            if ($case->hospital_id !== $currentHospital->id) {
-                throw new \Cake\Datasource\Exception\RecordNotFoundException(__('Case not found.'));
-            }
-
-            // Check if user has access (current assignee OR was ever assigned)
-            $hasAssignment = false;
-            if ($case->current_user_id === $user->id) {
-                $hasAssignment = true;
-            } else {
-                // Check if user was ever assigned to this case
-                foreach ($case->case_assignments as $assignment) {
-                    if ($assignment->user_id === $user->id) {
-                        $hasAssignment = true;
-                        break;
-                    }
-                }
-            }
-            if (!$hasAssignment) {
-                throw new \Cake\Datasource\Exception\RecordNotFoundException(__('Case not found.'));
-            }
-
-        } catch (\Cake\Datasource\Exception\RecordNotFoundException $e) {
-            $this->Flash->error(__('Case not found.'));
-            return $this->redirect(array('action' => 'index'));
-        }
-
-        // Generate PDF report
-        try {
-            // Increase PCRE backtrack limit for large HTML content
-            ini_set('pcre.backtrack_limit', '5000000');
-            
-            $mpdf = new \Mpdf\Mpdf(array(
-                'mode' => 'utf-8',
-                'format' => 'A4',
-                'margin_left' => 10,
-                'margin_right' => 10,
-                'margin_top' => 15,
-                'margin_bottom' => 15,
-                'margin_header' => 10,
-                'margin_footer' => 10
-            ));
-
-            // Set document properties
-            $mpdf->SetTitle('Case Report #' . $case->id);
-            $mpdf->SetAuthor($currentHospital->name);
-            $mpdf->SetCreator('MEG System');
-
-            // Prepare data for view using AI services if enabled
-            $viewVars = $this->_prepareReportWithAI($case, $currentHospital, $user);
-
-            // Create a new View instance to render the template WITHOUT layout
-            $viewBuilder = $this->viewBuilder();
-            $viewBuilder->setTemplate('pdf/report');
-            $viewBuilder->disableAutoLayout(); // Disable layout for PDF
-            
-            // Build the view with the current request
-            $view = $viewBuilder->build($this->request);
-            
-            // Set view variables
-            $view->set($viewVars);
-            
-            // Render to HTML (without layout)
-            $html = $view->render();
-
-            // Write HTML to PDF (handle large content by splitting into chunks if needed)
-            $htmlSize = strlen($html);
-            $maxChunkSize = 500000; // 500KB chunks
-            
-            if ($htmlSize > $maxChunkSize) {
-                Log::debug("Large HTML content ({$htmlSize} bytes), splitting into chunks");
-                
-                // Split HTML by sections to avoid breaking tags
-                // First write the header/styles
-                preg_match('/(.*?<body[^>]*>)/is', $html, $headerMatch);
-                if ($headerMatch) {
-                    $mpdf->WriteHTML($headerMatch[1]);
-                    $html = substr($html, strlen($headerMatch[1]));
-                }
-                
-                // Split remaining content by section divs
-                $sections = preg_split('/(<div class="section">)/i', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
-                
-                $buffer = '';
-                foreach ($sections as $section) {
-                    $buffer .= $section;
-                    
-                    // Write chunk when it reaches a reasonable size
-                    if (strlen($buffer) > $maxChunkSize) {
-                        $mpdf->WriteHTML($buffer);
-                        $buffer = '';
-                    }
-                }
-                
-                // Write any remaining content
-                if (!empty($buffer)) {
-                    $mpdf->WriteHTML($buffer);
-                }
-            } else {
-                // Small enough to write in one go
-                $mpdf->WriteHTML($html);
-            }
-
-            // Output PDF for download
-            $filename = 'Case_Report_' . $case->id . '_' . date('Ymd') . '.pdf';
-            
-            return $this->response
-                ->withType('application/pdf')
-                ->withHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
-                ->withStringBody($mpdf->Output($filename, 'S'));
-
-        } catch (\Exception $e) {
-            $this->Flash->error(__('Error generating PDF report: {0}', $e->getMessage()));
-            return $this->redirect(array('action' => 'view', $id));
-        }
-    }
-
-    /**
-     * Prepare report data using AI services
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @param object $hospital The hospital object
-     * @param \App\Model\Entity\User $user The current user
-     * @return array View variables
-     */
-    private function _prepareReportWithAI($case, $hospital, $user)
-    {
-        // Check if AI report generation is enabled
-        $aiEnabled = env('OPENAI_ENABLED');
-        $reportGenEnabled = env('OPENAI_REPORT_ENABLED');
-
-        if (!$aiEnabled || !$reportGenEnabled) {
-            // Fallback to traditional method
-            return $this->_prepareReportData($case, $hospital, $user);
-        }
-
-        try {
-            // Step 1: Extract content from attached documents
-            $documentContentService = new DocumentContentService();
-            $documentContents = array();
-
-            Log::debug('AI Report: Starting document extraction for case ' . $case->id);
-            
-            if (!empty($case->cases_exams_procedures)) {
-                Log::debug('AI Report: Found ' . count($case->cases_exams_procedures) . ' procedures');
-                
-                foreach ($case->cases_exams_procedures as $cep) {
-                    if (!empty($cep->documents)) {
-                        Log::debug('AI Report: Procedure ' . $cep->id . ' has ' . count($cep->documents) . ' documents');
-                        
-                        foreach ($cep->documents as $document) {
-                            try {
-                                Log::debug('AI Report: Extracting document ' . $document->id . ' (' . $document->original_filename . ')');
-                                $content = $documentContentService->extractContent($document);
-                                
-                                // Debug: Log extraction result
-                                Log::debug('AI Report: Document ' . $document->id . ' extraction result - Success: ' . 
-                                          ($content['success'] ? 'YES' : 'NO') . 
-                                          ', Text length: ' . (isset($content['text']) ? strlen($content['text']) : 0) .
-                                          ', Has analysis: ' . (isset($content['analysis']) ? 'YES' : 'NO'));
-                                
-                                if (!$content['success'] && isset($content['error'])) {
-                                    Log::warning('AI Report: Document ' . $document->id . ' extraction error: ' . $content['error']);
-                                }
-                                
-                                $documentContents[$document->id] = array(
-                                    'content' => $content,
-                                    'procedure_id' => $cep->id,
-                                    'document' => $document
-                                );
-                                Log::debug('AI Report: Successfully extracted document ' . $document->id);
-                            } catch (\Exception $e) {
-                                Log::warning('AI Report: Failed to extract document ' . $document->id . ': ' . $e->getMessage());
-                            }
-                        }
-                    } else {
-                        Log::debug('AI Report: Procedure ' . $cep->id . ' has no documents');
-                    }
-                }
-            } else {
-                Log::debug('AI Report: No procedures found for case');
-            }
-            
-            Log::debug('AI Report: Total documents extracted: ' . count($documentContents));
-
-            // Step 2: Prepare metadata for AI (de-identified)
-            $metadata = $this->_prepareAiMetadata($case, $documentContents);
-
-            // Step 3: Generate report structure using AI
-            // Use standardized MEG report format
-            $reportAssemblyService = new ReportAssemblyService();
-            $reportData = $reportAssemblyService->assembleMEGReport($case, $documentContents);
-
-            // Add hospital context
-            $reportData['hospital'] = $hospital;
-            $reportData['current_user'] = $user;
-
-            return $reportData;
-
-        } catch (\Exception $e) {
-            Log::error('AI report generation failed, falling back to traditional: ' . $e->getMessage());
-            return $this->_prepareReportData($case, $hospital, $user);
-        }
-    }
-
-    /**
-     * Prepare metadata for AI report generation (de-identified, HIPAA compliant)
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @param array $documentContents Extracted document contents
-     * @return array De-identified metadata
-     */
-    private function _prepareAiMetadata($case, array $documentContents)
-    {
-        // Get patient age category (not exact age)
-        $ageCategory = 'adult';
-        $patient = $case->patient_user;
-        if ($patient && !empty($patient->patients)) {
-            $patientDetails = $patient->patients[0];
-            if ($patientDetails->dob) {
-                $dob = new \DateTime($patientDetails->dob->format('Y-m-d'));
-                $now = new \DateTime();
-                $age = $dob->diff($now)->y;
-                
-                if ($age < 18) {
-                    $ageCategory = 'pediatric';
-                } elseif ($age >= 65) {
-                    $ageCategory = 'geriatric';
-                }
-            }
-        }
-
-        // Get procedure types (no PHI)
-        $procedureTypes = array();
-        if (!empty($case->cases_exams_procedures)) {
-            foreach ($case->cases_exams_procedures as $cep) {
-                if (isset($cep->exams_procedure->procedure)) {
-                    $procedureTypes[] = $cep->exams_procedure->procedure->name;
-                }
-            }
-        }
-
-        // Get symptoms/indications (generic categories only, not patient-specific text)
-        $symptomCategories = $this->_categorizeSymptoms($case->symptoms ?? '');
-
-        // Determine report type
-        $aiReportService = new AiReportGenerationService();
-        $reportType = $aiReportService->determineReportType($procedureTypes);
-
-        return array(
-            'procedures' => $procedureTypes, // Use 'procedures' for consistency
-            'procedure_types' => $procedureTypes, // Keep for backwards compatibility
-            'report_type' => $reportType,
-            'age_category' => $ageCategory,
-            'gender' => $patient->gender ?? 'unknown',
-            'symptom_categories' => $symptomCategories,
-            'sedation_type' => $case->sedation->name ?? 'none',
-            'department' => $case->department->name ?? 'general',
-            'document_count' => count($documentContents),
-            'has_prior_studies' => false, // Could be enhanced to check for prior cases
-        );
-    }
-
-    /**
-     * Categorize symptoms into generic medical categories
-     *
-     * @param string $symptomsText Patient symptoms text
-     * @return array Generic symptom categories
-     */
-    private function _categorizeSymptoms($symptomsText)
-    {
-        $categories = array();
-        $text = strtolower($symptomsText);
-
-        // Map keywords to categories (no patient-specific data sent to AI)
-        if (preg_match('/seizure|epilep|convuls/i', $text)) {
-            $categories[] = 'seizure_disorder';
-        }
-        if (preg_match('/headache|migraine|pain/i', $text)) {
-            $categories[] = 'headache';
-        }
-        if (preg_match('/tumor|mass|lesion/i', $text)) {
-            $categories[] = 'structural_abnormality';
-        }
-        if (preg_match('/memory|cognitive|dementia/i', $text)) {
-            $categories[] = 'cognitive_concern';
-        }
-
-        return empty($categories) ? array('general_evaluation') : $categories;
-    }
-
-    /**
-     * Prepare data for case report PDF
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @param object $hospital The hospital object
-     * @param \App\Model\Entity\User $user The current user
-     * @return array View variables
-     */
-    private function _prepareReportData($case, $hospital, $user)
-    {
-        // Get patient details
-        $patient = $case->patient_user;
-        $patientDetails = null;
-        if ($patient && !empty($patient->patients)) {
-            $patientDetails = $patient->patients[0];
-        }
-
-        // Patient basic info
-        $patientFirstName = $patient ? $patient->first_name : 'N/A';
-        $patientLastName = $patient ? $patient->last_name : 'N/A';
-        $patientDob = $patientDetails && $patientDetails->dob 
-            ? $patientDetails->dob->format('m/d/Y') 
-            : 'N/A';
-        $patientMrn = $patientDetails && $patientDetails->mrn 
-            ? $patientDetails->mrn 
-            : 'N/A';
-        $patientFin = $patientDetails && $patientDetails->fin 
-            ? $patientDetails->fin 
-            : 'N/A';
-
-        // Calculate age from DOB
-        $age = 'N/A';
-        if ($patientDetails && $patientDetails->dob) {
-            $dob = new \DateTime($patientDetails->dob->format('Y-m-d'));
-            $now = new \DateTime();
-            $age = $dob->diff($now)->y;
-        }
-
-        // Gender
-        $gender = $patient && $patient->gender ? $patient->gender : 'N/A';
-
-        // Medications
-        $medications = $patientDetails && $patientDetails->medications 
-            ? $patientDetails->medications 
-            : '';
-
-        // Study details
-        $studyDate = $case->date ? $case->date->format('m/d/Y') : 'N/A';
-        $referringPhysician = $case->user 
-            ? ($case->user->first_name . ' ' . $case->user->last_name) 
-            : 'N/A';
-        $megId = 'MEG-' . str_pad((string)$case->id, 6, '0', STR_PAD_LEFT);
-
-        // Sedation text
-        $sedationText = $case->sedation && $case->sedation->name 
-            ? 'with ' . strtolower($case->sedation->name) 
-            : 'without sedation';
-
-        // Get procedures list
-        $proceduresList = array();
-        if (!empty($case->cases_exams_procedures)) {
-            foreach ($case->cases_exams_procedures as $cep) {
-                if (isset($cep->exams_procedure->procedure)) {
-                    $proceduresList[] = $cep->exams_procedure->procedure->name;
-                }
-            }
-        }
-
-        // Generate technical descriptions based on procedures
-        $technicalDescriptions = $this->_generateTechnicalDescriptions($case);
-
-        // Generate MSI conclusions based on procedures
-        $msiConclusions = $this->_generateMsiConclusions($case);
-
-        // Additional notes
-        $additionalNotes = $case->notes ?? '';
-
-        return array(
-            'case' => $case,
-            'hospital' => $hospital,
-            'patientFirstName' => $patientFirstName,
-            'patientLastName' => $patientLastName,
-            'patientDob' => $patientDob,
-            'patientMrn' => $patientMrn,
-            'patientFin' => $patientFin,
-            'age' => $age,
-            'gender' => $gender,
-            'medications' => $medications,
-            'studyDate' => $studyDate,
-            'referringPhysician' => $referringPhysician,
-            'megId' => $megId,
-            'sedationText' => $sedationText,
-            'proceduresList' => $proceduresList,
-            'technicalDescriptions' => $technicalDescriptions,
-            'msiConclusions' => $msiConclusions,
-            'additionalNotes' => $additionalNotes
-        );
-    }
-
-    /**
-     * Generate technical descriptions based on procedures
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @return array Technical description HTML blocks
-     */
-    private function _generateTechnicalDescriptions($case)
-    {
-        $descriptions = array();
         
-        if (empty($case->cases_exams_procedures)) {
-            return $descriptions;
-        }
-
-        $procedureTypes = array();
-        foreach ($case->cases_exams_procedures as $cep) {
-            if (isset($cep->exams_procedure->procedure)) {
-                $procedureName = strtolower($cep->exams_procedure->procedure->name);
-                $procedureTypes[] = $procedureName;
-            }
-        }
-
-        // Resting State MEG
-        if ($this->_hasProcedureType($procedureTypes, array('resting', 'rest', 'baseline'))) {
-            $descriptions[] = '<div class="section-title">Resting State MEG:</div>
-                <p>Spontaneous brain activity was recorded during eyes-closed resting conditions. 
-                The patient was instructed to remain still and relaxed while avoiding sleep. 
-                The recording duration was approximately 5-10 minutes. Data will be analyzed for 
-                identification of interictal epileptiform activity, characterization of background 
-                rhythms, and assessment of functional connectivity patterns.</p>';
-        }
-
-        // Sensory Mapping
-        if ($this->_hasProcedureType($procedureTypes, array('sensory', 'somatosensory', 'tactile'))) {
-            $descriptions[] = '<div class="section-title">Somatosensory Mapping:</div>
-                <p>Somatosensory evoked fields were recorded in response to pneumatic tactile 
-                stimulation of the digits. Stimuli were delivered to multiple locations to map 
-                the primary somatosensory cortex. The source distributions were analyzed utilizing 
-                an equivalent current dipole model to localize the peak responses in relation to 
-                the individual patient\'s cortical anatomy as defined by MRI.</p>';
-        }
-
-        // Motor Mapping
-        if ($this->_hasProcedureType($procedureTypes, array('motor', 'movement'))) {
-            $descriptions[] = '<div class="section-title">Motor Mapping:</div>
-                <p>Motor evoked fields were recorded during voluntary finger movements. 
-                The patient performed self-paced movements of individual digits while MEG data 
-                was continuously recorded. Movement-related cortical fields were analyzed to 
-                identify the primary motor cortex using equivalent current dipole modeling.</p>';
-        }
-
-        // Auditory Mapping
-        if ($this->_hasProcedureType($procedureTypes, array('auditory', 'hearing', 'sound'))) {
-            $descriptions[] = '<div class="section-title">Auditory Mapping:</div>
-                <p>Auditory evoked fields were elicited using tone bursts delivered binaurally 
-                through non-magnetic insert earphones. Multiple frequencies were tested to map 
-                tonotopic organization of the auditory cortex. Source localization was performed 
-                using equivalent current dipole analysis.</p>';
-        }
-
-        // Visual Mapping
-        if ($this->_hasProcedureType($procedureTypes, array('visual', 'vision', 'sight'))) {
-            $descriptions[] = '<div class="section-title">Visual Mapping:</div>
-                <p>Visual evoked fields were recorded in response to pattern-reversal checkerboard 
-                stimuli presented to different regions of the visual field. Source analysis was 
-                performed to localize primary visual cortex and assess retinotopic organization.</p>';
-        }
-
-        // Language Mapping
-        if ($this->_hasProcedureType($procedureTypes, array('language', 'speech', 'verbal', 'naming'))) {
-            $descriptions[] = '<div class="section-title">Language Mapping:</div>
-                <p>Language-related cortical activation was assessed using receptive and/or 
-                expressive language tasks. Tasks may have included picture naming, verb generation, 
-                or auditory word comprehension. Source localization was performed to identify 
-                language-dominant hemisphere and map critical language areas in relation to 
-                structural lesions.</p>';
-        }
-
-        // Memory Mapping
-        if ($this->_hasProcedureType($procedureTypes, array('memory', 'recall', 'recognition'))) {
-            $descriptions[] = '<div class="section-title">Memory Assessment:</div>
-                <p>Memory-related brain activity was evaluated using encoding and retrieval 
-                paradigms. The patient was presented with stimuli to encode and later tested 
-                for recognition or recall. Analysis focused on identifying medial temporal lobe 
-                and prefrontal cortical activation patterns.</p>';
-        }
-
-        return $descriptions;
-    }
-
-    /**
-     * Generate MSI conclusions based on procedures
-     *
-     * @param \App\Model\Entity\MedicalCase $case The case entity
-     * @return array Conclusion statements
-     */
-    private function _generateMsiConclusions($case)
-    {
-        $conclusions = array();
+        // Get the case with all necessary associations for dynamic content
+        $case = $this->Cases->get($id, [
+            'contain' => [
+                'PatientUsers', 
+                'Hospitals',
+                'Users',
+                'Departments',
+                'Sedations',
+                'CasesExamsProcedures' => [
+                    'ExamsProcedures' => [
+                        'Exams' => ['Modalities'],
+                        'Procedures'
+                    ]
+                ],
+                'CaseAssignments'
+            ]
+        ]);
         
-        if (empty($case->cases_exams_procedures)) {
-            return $conclusions;
-        }
-
-        $procedureTypes = array();
-        foreach ($case->cases_exams_procedures as $cep) {
-            if (isset($cep->exams_procedure->procedure)) {
-                $procedureName = strtolower($cep->exams_procedure->procedure->name);
-                $procedureTypes[] = $procedureName;
+        // Check if user has access to this case (scientist assignment check)
+        $hasAssignment = false;
+        if (!empty($case->case_assignments)) {
+            foreach ($case->case_assignments as $assignment) {
+                if ($assignment->assigned_to === $user->id) {
+                    $hasAssignment = true;
+                    break;
+                }
             }
         }
-
-        // Generic conclusion based on procedure types
-        $hasMapping = $this->_hasProcedureType($procedureTypes, 
-            array('sensory', 'motor', 'auditory', 'visual', 'language', 'memory'));
-        $hasResting = $this->_hasProcedureType($procedureTypes, 
-            array('resting', 'rest', 'baseline'));
-
-        if ($hasMapping && $hasResting) {
-            $conclusions[] = 'Magnetoencephalography successfully localized eloquent cortical areas and characterized spontaneous brain activity. Detailed analysis of functional mapping data in relation to structural imaging and clinical information will be provided in the comprehensive MSI report.';
-        } elseif ($hasMapping) {
-            $conclusions[] = 'Magnetoencephalography successfully localized eloquent cortical areas. Detailed analysis of functional mapping data in relation to structural imaging and clinical information will be provided in the comprehensive MSI report.';
-        } elseif ($hasResting) {
-            $conclusions[] = 'Magnetoencephalography successfully characterized spontaneous brain activity patterns. Detailed analysis in relation to clinical presentation will be provided in the comprehensive report.';
+        
+        if (!$hasAssignment) {
+            $this->Flash->error(__('You can only create reports for cases assigned to you.'));
+            return $this->redirect(['action' => 'index']);
+        }
+        
+        // Check if case has a report already
+        $reportsTable = $this->fetchTable('Reports');
+        $existingReport = $reportsTable->find()
+            ->where(['case_id' => $id])
+            ->first();
+            
+        if ($existingReport) {
+            $this->Flash->info(__('This case already has a report. Redirecting to create/edit your scientist report.'));
+            return $this->redirect(['controller' => 'Reports', 'action' => 'add', '?' => ['case_id' => $id]]);
+        }
+        
+        // Create new pending report
+        $report = $reportsTable->newEmptyEntity();
+        $reportData = [
+            'case_id' => $id,
+            'hospital_id' => $case->hospital_id,
+            'status' => 'pending',
+            'user_id' => $user->id,
+            'report_data' => json_encode([
+                'content' => ''  // Empty content - will be dynamically generated in Reports controller
+            ])
+        ];
+        
+        $report = $reportsTable->patchEntity($report, $reportData);
+        
+        if ($reportsTable->save($report)) {
+            $this->Flash->success(__('Report created successfully. Please fill in the report details.'));
+            
+            // Log activity
+            $this->activityLogger->log(
+                'report_created',
+                [
+                    'user_id' => $user->id,
+                    'request' => $this->request,
+                    'event_data' => [
+                        'case_id' => $id,
+                        'report_id' => $report->id
+                    ]
+                ]
+            );
+            
+            return $this->redirect(['controller' => 'Reports', 'action' => 'add', '?' => ['case_id' => $id]]);
         } else {
-            $conclusions[] = 'MEG data acquired successfully. Comprehensive analysis and clinical correlation will be provided in the final report.';
+            $this->Flash->error(__('Unable to create report. Please try again.'));
+            return $this->redirect(['action' => 'view', $id]);
         }
-
-        return $conclusions;
-    }
-
-    /**
-     * Helper method to check if any procedure matches given keywords
-     *
-     * @param array $procedureTypes List of procedure type names
-     * @param array $keywords Keywords to match
-     * @return bool True if any keyword is found
-     */
-    private function _hasProcedureType(array $procedureTypes, array $keywords)
-    {
-        foreach ($procedureTypes as $procedure) {
-            foreach ($keywords as $keyword) {
-                if (stripos($procedure, $keyword) !== false) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     /**

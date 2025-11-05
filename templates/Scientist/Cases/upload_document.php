@@ -4,7 +4,6 @@
  * @var \App\Model\Entity\MedicalCase $case
  */
 
-$this->setLayout('scientist');
 $this->assign('title', 'Upload Document for Case #' . $case->id);
 ?>
 
@@ -41,7 +40,7 @@ $this->assign('title', 'Upload Document for Case #' . $case->id);
                         <label for="document-file" class="form-label fw-semibold required">
                             <i class="fas fa-file me-1 text-primary"></i>Select Document
                         </label>
-                        <?php echo $this->Form->control('document', array(
+                        <?php echo $this->Form->control('document_file', array(
                             'type' => 'file',
                             'label' => false,
                             'class' => 'form-control form-control-lg',

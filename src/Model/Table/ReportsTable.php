@@ -56,5 +56,66 @@ class ReportsTable extends Table
             'foreignKey' => 'hospital_id',
             'joinType' => 'INNER',
         ]);
+        $this->belongsTo('Users', [
+            'foreignKey' => 'user_id',
+            'joinType' => 'LEFT',
+        ]);
+    }
+
+    /**
+     * Default validation rules.
+     *
+     * @param \Cake\Validation\Validator $validator Validator instance.
+     * @return \Cake\Validation\Validator
+     */
+    public function validationDefault(Validator $validator): Validator
+    {
+        $validator
+            ->integer('case_id')
+            ->requirePresence('case_id', 'create')
+            ->notEmptyString('case_id');
+
+        $validator
+            ->integer('hospital_id')
+            ->requirePresence('hospital_id', 'create')
+            ->notEmptyString('hospital_id');
+
+        $validator
+            ->integer('user_id')
+            ->allowEmptyString('user_id');
+
+        $validator
+            ->scalar('report_data')
+            ->allowEmptyString('report_data');
+
+        $validator
+            ->scalar('doctor_notes')
+            ->allowEmptyString('doctor_notes');
+
+        $validator
+            ->scalar('scientist_notes')
+            ->allowEmptyString('scientist_notes');
+
+        $validator
+            ->scalar('status')
+            ->notEmptyString('status');
+
+        return $validator;
+    }
+
+    /**
+     * Returns a rules checker object that will be used for validating
+     * application integrity.
+     *
+     * @param \Cake\ORM\RulesChecker $rules The rules object to be modified.
+     * @return \Cake\ORM\RulesChecker
+     */
+    public function buildRules(RulesChecker $rules): RulesChecker
+    {
+        $rules->add($rules->existsIn(['case_id'], 'Cases'), ['errorField' => 'case_id']);
+        $rules->add($rules->existsIn(['hospital_id'], 'Hospitals'), ['errorField' => 'hospital_id']);
+        $rules->add($rules->existsIn(['user_id'], 'Users'), ['errorField' => 'user_id']);
+
+        return $rules;
     }
 }

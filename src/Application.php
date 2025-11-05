@@ -21,6 +21,7 @@ use Authentication\AuthenticationServiceInterface;
 use Authentication\AuthenticationServiceProviderInterface;
 use Authentication\Middleware\AuthenticationMiddleware;
 use App\Middleware\HospitalRoutingMiddleware;
+use App\Middleware\RoleBasedAccessMiddleware;
 use Cake\Core\Configure;
 use Cake\Core\ContainerInterface;
 use Cake\Datasource\FactoryLocator;
@@ -93,6 +94,9 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             // Authentication middleware only for admin routes
             // Frontend routes will be accessible without authentication
             ->add(new AuthenticationMiddleware($this))
+            
+            // Role-based access control middleware to prevent cross-role access
+            ->add(new RoleBasedAccessMiddleware())
 
             // Parse various types of encoded request bodies so that they are
             // available as array through $request->getData()

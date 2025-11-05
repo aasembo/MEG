@@ -47,11 +47,16 @@ class PatientsController extends AppController
             return $this->redirect(['controller' => 'Dashboard', 'action' => 'index']);
         }
 
-        $patientsTable = $this->fetchTable('Patients');
+        $usersTable = $this->fetchTable('Users');
         
-        $query = $patientsTable->find()
-            ->contain(['Users', 'Hospitals'])
-            ->where(['Patients.hospital_id' => $currentHospital->id]);
+        // Find users with patient role
+        $query = $usersTable->find()
+            ->contain(['Patient', 'Roles', 'Hospitals'])
+            ->innerJoinWith('Roles')
+            ->where([
+                'Users.hospital_id' => $currentHospital->id,
+                'Roles.type' => 'patient'
+            ]);
         
         // Get filter parameters
         $search = $this->request->getQuery('search', '');
@@ -66,9 +71,9 @@ class PatientsController extends AppController
                     'Users.last_name LIKE' => '%' . $search . '%',
                     'Users.email LIKE' => '%' . $search . '%',
                     'Users.username LIKE' => '%' . $search . '%',
-                    'Patients.phone LIKE' => '%' . $search . '%',
-                    'Patients.medical_record_number LIKE' => '%' . $search . '%',
-                    'Patients.financial_record_number LIKE' => '%' . $search . '%'
+                    'Patient.phone LIKE' => '%' . $search . '%',
+                    'Patient.medical_record_number LIKE' => '%' . $search . '%',
+                    'Patient.financial_record_number LIKE' => '%' . $search . '%'
                 ]
             ]);
         }
@@ -88,7 +93,7 @@ class PatientsController extends AppController
                 'Users.username',
                 'Users.email',
                 'Users.status',
-                'Patients.created'
+                'Users.created'
             ]
         ];
 
@@ -162,12 +167,14 @@ class PatientsController extends AppController
         }
 
         try {
-            $patientsTable = $this->fetchTable('Patients');
-            $patient = $patientsTable->find()
-                ->contain(['Users', 'Hospitals', 'Cases'])
+            $usersTable = $this->fetchTable('Users');
+            $patient = $usersTable->find()
+                ->contain(['Patient', 'Roles', 'Hospitals', 'Cases'])
+                ->innerJoinWith('Roles')
                 ->where([
-                    'Patients.id' => $id,
-                    'Patients.hospital_id' => $currentHospital->id
+                    'Users.id' => $id,
+                    'Users.hospital_id' => $currentHospital->id,
+                    'Roles.type' => 'patient'
                 ])
                 ->first();
 
@@ -186,19 +193,19 @@ class PatientsController extends AppController
             [
                 'user_id' => $user->id,
                 'request' => $this->request,
-                'event_data' => ['patient_id' => $patient->id, 'user_id' => $patient->user->id, 'hospital_id' => $currentHospital->id]
+                'event_data' => ['patient_id' => $patient->patient->id, 'user_id' => $patient->id, 'hospital_id' => $currentHospital->id]
             ]
         );
 
         // Get cases count and recent cases for the patient
         $casesTable = $this->fetchTable('Cases');
         $casesCount = $casesTable->find()
-            ->where(['Cases.patient_id' => $patient->id])
+            ->where(['Cases.patient_id' => $patient->patient->id])
             ->count();
             
         $recentCases = $casesTable->find()
             ->contain(['Users', 'Hospitals'])
-            ->where(['Cases.patient_id' => $patient->id])
+            ->where(['Cases.patient_id' => $patient->patient->id])
             ->orderBy(['Cases.created' => 'DESC'])
             ->limit(5)
             ->toArray();
@@ -362,12 +369,14 @@ class PatientsController extends AppController
         }
 
         try {
-            $patientsTable = $this->fetchTable('Patients');
-            $patient = $patientsTable->find()
-                ->contain(['Users', 'Hospitals'])
+            $usersTable = $this->fetchTable('Users');
+            $patient = $usersTable->find()
+                ->contain(['Patient', 'Roles', 'Hospitals'])
+                ->innerJoinWith('Roles')
                 ->where([
-                    'Patients.id' => $id,
-                    'Patients.hospital_id' => $currentHospital->id
+                    'Users.id' => $id,
+                    'Users.hospital_id' => $currentHospital->id,
+                    'Roles.type' => 'patient'
                 ])
                 ->first();
 
@@ -407,11 +416,12 @@ class PatientsController extends AppController
             
             // Use database transaction to ensure both records are updated successfully
             $usersTable = $this->fetchTable('Users');
+            $patientsTable = $this->fetchTable('Patients');
             $connection = $usersTable->getConnection();
             
             // Validate both entities separately
-            $userEntity = $usersTable->patchEntity($patient->user, $userData);
-            $patientEntity = $patientsTable->patchEntity($patient, $patientData);
+            $userEntity = $usersTable->patchEntity($patient, $userData);
+            $patientEntity = $patientsTable->patchEntity($patient->patient, $patientData);
             
             // Check validation for both entities
             $userErrors = $userEntity->getErrors();
@@ -446,8 +456,8 @@ class PatientsController extends AppController
                     $connection->commit();
                     
                     // Update references for successful save
-                    $patient->user = $userEntity;
-                    $patient = $patientEntity;
+                    $patient = $userEntity;
+                    $patient->patient = $patientEntity;
                     
                     // Log activity
                     $this->activityLogger->log(
@@ -455,7 +465,7 @@ class PatientsController extends AppController
                         [
                             'user_id' => $user->id,
                             'request' => $this->request,
-                            'event_data' => ['patient_id' => $patient->id, 'user_id' => $patient->user->id, 'hospital_id' => $currentHospital->id]
+                            'event_data' => ['patient_id' => $patientEntity->id, 'user_id' => $patient->id, 'hospital_id' => $currentHospital->id]
                         ]
                     );
 
@@ -499,12 +509,14 @@ class PatientsController extends AppController
         }
 
         try {
-            $patientsTable = $this->fetchTable('Patients');
-            $patient = $patientsTable->find()
-                ->contain(['Users'])
+            $usersTable = $this->fetchTable('Users');
+            $patient = $usersTable->find()
+                ->contain(['Patient', 'Roles', 'Hospitals'])
+                ->innerJoinWith('Roles')
                 ->where([
-                    'Patients.id' => $id,
-                    'Patients.hospital_id' => $currentHospital->id
+                    'Users.id' => $id,
+                    'Users.hospital_id' => $currentHospital->id,
+                    'Roles.type' => 'patient'
                 ])
                 ->first();
 
@@ -516,7 +528,7 @@ class PatientsController extends AppController
             $casesTable = $this->fetchTable('Cases');
             $activeCasesCount = $casesTable->find()
                 ->where([
-                    'patient_id' => $patient->id,
+                    'patient_id' => $patient->patient->id,
                     'status NOT IN' => [SiteConstants::CASE_STATUS_COMPLETED, SiteConstants::CASE_STATUS_CANCELLED]
                 ])
                 ->count();
@@ -528,16 +540,16 @@ class PatientsController extends AppController
 
             // Soft delete - set user status to inactive
             $usersTable = $this->fetchTable('Users');
-            $patient->user->status = SiteConstants::USER_STATUS_INACTIVE;
+            $patient->status = SiteConstants::USER_STATUS_INACTIVE;
             
-            if ($usersTable->save($patient->user)) {
+            if ($usersTable->save($patient)) {
                 // Log activity
                 $this->activityLogger->log(
                     SiteConstants::EVENT_PATIENT_DEACTIVATED,
                     [
                         'user_id' => $user->id,
                         'request' => $this->request,
-                        'event_data' => ['patient_id' => $patient->id, 'user_id' => $patient->user_id, 'hospital_id' => $currentHospital->id]
+                        'event_data' => ['patient_id' => $patient->patient->id, 'user_id' => $patient->id, 'hospital_id' => $currentHospital->id]
                     ]
                 );
 

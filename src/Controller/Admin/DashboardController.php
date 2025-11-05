@@ -136,4 +136,66 @@ class DashboardController extends AdminController {
             'specialized' => $specializedCounts
         ];
     }
+
+    /**
+     * Manage patient data masking settings
+     */
+    public function maskingSettings()
+    {
+        $this->loadComponent('RequestHandler');
+        $maskingService = new \App\Service\PatientMaskingService();
+        
+        if ($this->request->is('post')) {
+            $action = $this->request->getData('action');
+            
+            switch ($action) {
+                case 'enable':
+                    $maskingService->enableMasking();
+                    $this->Flash->success(__('Patient data masking has been enabled.'));
+                    break;
+                    
+                case 'disable':
+                    $maskingService->disableMasking();
+                    $this->Flash->warning(__('Patient data masking has been disabled. Sensitive information will be visible.'));
+                    break;
+                    
+                default:
+                    $this->Flash->error(__('Invalid action specified.'));
+                    break;
+            }
+            
+            if ($this->request->is('ajax')) {
+                $this->response = $this->response->withType('application/json');
+                $status = $maskingService->getMaskingStatus();
+                
+                return $this->response->withStringBody(json_encode([
+                    'success' => true,
+                    'status' => $status,
+                    'message' => $action === 'enable' ? 'Masking enabled' : 'Masking disabled'
+                ]));
+            }
+            
+            return $this->redirect(['action' => 'maskingSettings']);
+        }
+        
+        $status = $maskingService->getMaskingStatus();
+        
+        $this->set(compact('status'));
+        $this->set('title', 'Patient Data Masking Settings');
+    }
+
+    /**
+     * AJAX endpoint to get current masking status
+     */
+    public function maskingStatus()
+    {
+        $this->request->allowMethod(['get']);
+        $this->loadComponent('RequestHandler');
+        
+        $maskingService = new \App\Service\PatientMaskingService();
+        $status = $maskingService->getMaskingStatus();
+        
+        $this->response = $this->response->withType('application/json');
+        return $this->response->withStringBody(json_encode($status));
+    }
 }

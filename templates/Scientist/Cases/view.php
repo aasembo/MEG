@@ -4,57 +4,86 @@
  * @var \App\Model\Entity\MedicalCase $case
  */
 
-$this->setLayout('scientist');
 $this->assign('title', 'Case #' . $case->id);
 ?>
 
-<div class="cases view content" id="caseView<?php echo $case->id; ?>">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Case #<?php echo h($case->id); ?></h2>
-        <div>
-            <?php echo $this->Html->link(
-                '<i class="fas fa-file-pdf me-1"></i>' . __('Download Report'),
-                ['action' => 'downloadReport', $case->id],
-                ['class' => 'btn btn-success me-2', 'escape' => false, 'target' => '_blank']
-            ); ?>
-            
-            <?php echo $this->Html->link(
-                '<i class="fas fa-arrow-left me-1"></i>' . __('Back to Cases'),
-                ['action' => 'index'],
-                ['class' => 'btn btn-outline-secondary', 'escape' => false]
-            ); ?>
+<div class="container-fluid px-4 py-4" id="caseView<?php echo $case->id; ?>">
+    <!-- Page Header -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-success text-white p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-2 fw-bold">
+                        <i class="fas fa-vial me-2"></i>Case #<?php echo h($case->id); ?>
+                    </h2>
+                    <p class="mb-0">
+                        <?php if ($case->patient_user): ?>
+                            <i class="fas fa-user-injured me-2"></i><?php echo $this->PatientMask->displayName($case->patient_user); ?>
+                        <?php endif; ?>
+                        <span class="mx-2">•</span>
+                        <i class="fas fa-hospital me-2"></i><?php echo h($currentHospital->name ?? 'Hospital') ?>
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <div class="btn-group" role="group">
+                        
+                        
+                        <?php 
+                        // Check scientist's role-based status for action permissions
+                        $scientistStatus = $case->scientist_status ?? 'assigned';
+                        ?>
+                        <?php if (in_array($scientistStatus, ['assigned', 'in_progress']) && $case->status !== 'completed'): ?>
+                            <?php echo $this->Html->link(
+                                '<i class="fas fa-user-md me-1"></i>Promote to Doctor',
+                                ['action' => 'assign', $case->id],
+                                ['class' => 'btn btn-light', 'escape' => false]
+                            ); ?>
+                        <?php endif; ?>
+                        
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-arrow-left me-1"></i>Back',
+                            ['action' => 'index'],
+                            ['class' => 'btn btn-outline-light', 'escape' => false]
+                        ); ?>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="row">
         <!-- Case Details -->
         <div class="col-lg-8">
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-file-medical me-1"></i> Case Information</h5>
-                    <div class="d-flex flex-wrap gap-2 align-items-center">
-                        <?php 
-                        // Get all role-specific statuses for permission checks
-                        $technicianStatus = $case->technician_status ?? 'draft';
-                        $scientistStatus = $case->scientist_status ?? 'draft';
-                        $doctorStatus = $case->doctor_status ?? 'draft';
-                        ?>
-                        
-                        <!-- Role-Based Statuses -->
-                        <div class="d-flex flex-wrap gap-1">
-                            <?php echo $this->Status->roleBadge($case, 'technician', $user); ?>
-                            <?php echo $this->Status->roleBadge($case, 'scientist', $user); ?>
-                            <?php echo $this->Status->roleBadge($case, 'doctor', $user); ?>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light py-3">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h5 class="mb-0 fw-bold text-dark">
+                            <i class="fas fa-file-medical me-2 text-success"></i>Case Information
+                        </h5>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <?php 
+                            // Get all role-specific statuses for permission checks
+                            $technicianStatus = $case->technician_status ?? 'draft';
+                            $scientistStatus = $case->scientist_status ?? 'assigned';
+                            $doctorStatus = $case->doctor_status ?? 'draft';
+                            ?>
+                            
+                            <!-- Role-Based Statuses -->
+                            <div class="d-flex flex-wrap gap-1">
+                                <?php echo $this->Status->roleBadge($case, 'technician', $user); ?>
+                                <?php echo $this->Status->roleBadge($case, 'scientist', $user); ?>
+                                <?php echo $this->Status->roleBadge($case, 'doctor', $user); ?>
+                            </div>
+                            
+                            <!-- Divider -->
+                            <span class="text-muted">|</span>
+                            
+                            <!-- Priority Badge -->
+                            <?php echo $this->Status->priorityBadge($case->priority); ?>
                         </div>
-                        
-                        <!-- Divider -->
-                        <span class="text-muted">|</span>
-                        
-                        <!-- Priority Badge -->
-                        <?php echo $this->Status->priorityBadge($case->priority); ?>
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <div class="row">
                         <div class="col-md-6">
                             <table class="table table-borderless table-sm">
@@ -62,8 +91,15 @@ $this->assign('title', 'Case #' . $case->id);
                                     <td class="fw-semibold">Patient:</td>
                                     <td>
                                         <?php if ($case->patient_user): ?>
-                                            <?php echo h($case->patient_user->first_name . ' ' . $case->patient_user->last_name); ?>
-                                            <br><small class="text-muted">ID: <?php echo h($case->patient_user->id); ?></small>
+                                            <?php echo $this->PatientMask->displayName($case->patient_user); ?>
+                                            <br><small class="text-muted">
+                                                <i class="fas fa-id-card me-1"></i>
+                                                MRN: <?php echo $this->PatientMask->displayMrn($case->patient_user); ?>
+                                            </small>
+                                            <br><small class="text-muted">
+                                                <i class="fas fa-birthday-cake me-1"></i>
+                                                <?php echo $this->PatientMask->displayDob($case->patient_user); ?>
+                                            </small>
                                         <?php else: ?>
                                             <span class="text-muted">No patient assigned</span>
                                         <?php endif; ?>
@@ -73,7 +109,7 @@ $this->assign('title', 'Case #' . $case->id);
                                     <td class="fw-semibold">Department:</td>
                                     <td>
                                         <?php if ($case->department): ?>
-                                            <i class="fas fa-building me-1 text-primary"></i>
+                                            <i class="fas fa-building me-1 text-success"></i>
                                             <?php echo h($case->department->name); ?>
                                             <?php if ($case->department->description): ?>
                                                 <br><small class="text-muted"><?php echo h($case->department->description); ?></small>
@@ -112,7 +148,7 @@ $this->assign('title', 'Case #' . $case->id);
                                     <td class="fw-semibold">Created By:</td>
                                     <td>
                                         <?php if ($case->user_id === $user->id): ?>
-                                            <span class="text-primary fw-bold"><i class="fas fa-user me-1"></i>You</span>
+                                            <span class="text-success fw-semibold">You</span>
                                         <?php else: ?>
                                             <?php echo h($case->user->first_name . ' ' . $case->user->last_name); ?>
                                         <?php endif; ?>
@@ -124,7 +160,9 @@ $this->assign('title', 'Case #' . $case->id);
                                     <td>
                                         <?php if ($case->current_user): ?>
                                             <?php if ($case->current_user_id === $user->id): ?>
-                                                <span class="text-primary fw-bold"><i class="fas fa-user-check me-1"></i>You (Currently Assigned)</span>
+                                                <span class="text-success fw-semibold">
+                                                    <i class="fas fa-user-circle me-1"></i>You (Currently Assigned)
+                                                </span>
                                             <?php else: ?>
                                                 <?php echo h($case->current_user->first_name . ' ' . $case->current_user->last_name); ?>
                                             <?php endif; ?>
@@ -164,19 +202,25 @@ $this->assign('title', 'Case #' . $case->id);
 
             <!-- Assigned Procedures -->
             <?php if (!empty($case->cases_exams_procedures)): ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-procedures me-1"></i> Assigned Procedures</h5>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-procedures me-2 text-success"></i>Assigned Procedures
+                    </h5>
+                    <span class="badge rounded-pill bg-success">
+                        <?php echo count($case->cases_exams_procedures); ?> 
+                        <?php echo count($case->cases_exams_procedures) === 1 ? 'Procedure' : 'Procedures'; ?>
+                    </span>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white p-0">
                     <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>Procedure & Modality</th>
-                                    <th>Status</th>
-                                    <th>Documents</th>
-                                    <th>Actions</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Procedure & Modality</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Status</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Documents</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -185,7 +229,7 @@ $this->assign('title', 'Case #' . $case->id);
                                         <td>
                                             <div>
                                                 <strong><?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?></strong>
-                                                <span class="badge bg-info ms-2">
+                                                <span class="badge rounded-pill bg-success text-white ms-2">
                                                     <i class="fas fa-microscope me-1"></i>
                                                     <?php echo h($cep->exams_procedure->exam->modality->name ?? 'N/A'); ?>
                                                 </span>
@@ -196,13 +240,13 @@ $this->assign('title', 'Case #' . $case->id);
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="badge <?php echo $cep->getStatusBadgeClass(); ?>">
+                                            <span class="badge rounded-pill <?php echo $cep->getStatusBadgeClass(); ?>">
                                                 <?php echo h($cep->getStatusLabel()); ?>
                                             </span>
                                         </td>
                                         <td>
                                             <?php if ($cep->hasDocuments()): ?>
-                                                <span class="badge bg-success">
+                                                <span class="badge rounded-pill bg-success text-white">
                                                     <i class="fas fa-file me-1"></i>
                                                     <?php echo $cep->getDocumentCount(); ?> files
                                                 </span>
@@ -212,14 +256,14 @@ $this->assign('title', 'Case #' . $case->id);
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <button class="btn btn-outline-primary btn-sm" 
+                                                <button class="btn btn-outline-primary" 
                                                         data-bs-toggle="modal" 
                                                         data-bs-target="#documentsModal"
                                                         title="View Documents">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                <?php if (in_array($case->status, ['draft', 'assigned', 'in_progress'])): ?>
-                                                    <button class="btn btn-outline-secondary btn-sm" 
+                                                <?php if (in_array($scientistStatus, ['assigned', 'in_progress']) && $case->status !== 'completed'): ?>
+                                                    <button class="btn btn-outline-secondary" 
                                                             data-bs-toggle="modal" 
                                                             data-bs-target="#uploadModal"
                                                             data-procedure-id="<?php echo $cep->id; ?>"
@@ -249,15 +293,17 @@ $this->assign('title', 'Case #' . $case->id);
                 </div>
             </div>
             <?php else: ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-procedures me-1"></i> Assigned Procedures</h5>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-procedures me-2 text-success"></i>Assigned Procedures
+                    </h5>
                 </div>
-                <div class="card-body">
-                    <div class="alert alert-info">
+                <div class="card-body bg-white">
+                    <div class="alert alert-info mb-0">
                         <i class="fas fa-info-circle me-2"></i>
                         <strong>No procedures assigned</strong><br>
-                        This case doesn't have any procedures assigned yet. 
+                        This case doesn't have any procedures assigned yet. Only technicians can assign procedures to cases.
                     </div>
                 </div>
             </div>
@@ -265,55 +311,56 @@ $this->assign('title', 'Case #' . $case->id);
 
             <!-- Documents -->
             <?php if (!empty($case->documents)): ?>
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-folder-open me-2"></i>Case Documents
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-folder-open me-2 text-success"></i>Case Documents
                     </h5>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary">
+                        <span class="badge rounded-pill bg-success">
                             <?php echo count($case->documents); ?> <?php echo count($case->documents) === 1 ? 'Document' : 'Documents'; ?>
                         </span>
-                        <?php if (in_array($case->status, ['draft', 'assigned', 'in_progress'])): ?>
-                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                <i class="fas fa-upload me-1"></i>Upload Documents
+                        <?php if (in_array($scientistStatus, ['assigned', 'in_progress']) && $case->status !== 'completed'): ?>
+                            <button class="btn btn-sm btn-success d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                <i class="fas fa-upload"></i>Upload Documents
                             </button>
                         <?php endif; ?>
                     </div>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body bg-white p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="border-0 ps-4" style="width: 50px;"><i class="fas fa-file"></i></th>
-                                    <th class="border-0" style="width: 250px;">Document Name</th>
-                                    <th class="border-0" style="width: 200px;">Procedure</th>
-                                    <th class="border-0">Uploaded</th>
-                                    <th class="border-0 text-center" style="width: 130px;">Actions</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted ps-4" style="width: 50px;"><i class="fas fa-file"></i></th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 250px;">Document Name</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 200px;">Procedure</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Uploaded</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted text-center" style="width: 130px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($case->documents as $index => $document): ?>
-                                <tr class="document-row" style="transition: all 0.2s;">
+                                <tr>
                                     <td class="ps-4">
                                         <?php 
                                             // Get file extension from original_filename
                                             $ext = !empty($document->original_filename) ? strtolower(pathinfo($document->original_filename, PATHINFO_EXTENSION)) : '';
+                                            
+                                            // Determine background color based on file type
+                                            $bgClass = match($ext) {
+                                                'pdf' => 'bg-danger',
+                                                'doc', 'docx' => 'bg-primary',
+                                                'ppt', 'pptx' => 'bg-warning',
+                                                'xls', 'xlsx' => 'bg-success',
+                                                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bg-info',
+                                                'txt', 'log', 'csv' => 'bg-secondary',
+                                                'zip', 'rar', '7z' => 'bg-dark',
+                                                default => 'bg-secondary'
+                                            };
                                         ?>
-                                        <div class="document-icon-wrapper d-flex align-items-center justify-content-center" 
-                                             style="width: 40px; height: 40px; border-radius: 8px; background: <?php 
-                                                echo match($ext) {
-                                                    'pdf' => 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
-                                                    'doc', 'docx' => 'linear-gradient(135deg, #4e73df 0%, #224abe 100%)',
-                                                    'ppt', 'pptx' => 'linear-gradient(135deg, #fd7e14 0%, #e56b0f 100%)',
-                                                    'xls', 'xlsx' => 'linear-gradient(135deg, #1cc88a 0%, #17a673 100%)',
-                                                    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'linear-gradient(135deg, #36b9cc 0%, #2c9faf 100%)',
-                                                    'txt', 'log', 'csv' => 'linear-gradient(135deg, #858796 0%, #60616f 100%)',
-                                                    'zip', 'rar', '7z' => 'linear-gradient(135deg, #f6c23e 0%, #dda20a 100%)',
-                                                    default => 'linear-gradient(135deg, #858796 0%, #60616f 100%)'
-                                                };
-                                        ?>;">
+                                        <div class="d-flex align-items-center justify-content-center rounded <?php echo $bgClass; ?>" 
+                                             style="width: 40px; height: 40px;">
                                             <i class="<?php 
                                                 echo match($ext) {
                                                     'pdf' => 'fas fa-file-pdf',
@@ -356,20 +403,20 @@ $this->assign('title', 'Case #' . $case->id);
                                     </td>
                                     <td style="max-width: 200px;">
                                         <?php if (!empty($document->cases_exams_procedure) && !empty($document->cases_exams_procedure->exams_procedure)): ?>
-                                            <div class="d-flex flex-column">
-                                                <span class="badge bg-primary-subtle text-primary border border-primary" style="width: fit-content;">
+                                            <div class="d-flex flex-column gap-1">
+                                                <span class="badge rounded-pill bg-success" style="width: fit-content;">
                                                     <i class="fas fa-stethoscope me-1"></i>
                                                     <?php echo h($document->cases_exams_procedure->exams_procedure->exam->name ?? ''); ?>
                                                 </span>
                                                 <?php if (!empty($document->cases_exams_procedure->exams_procedure->procedure->name)): ?>
-                                                    <span class="badge bg-info-subtle text-info border border-info mt-1" style="width: fit-content;">
+                                                    <span class="badge rounded-pill bg-info text-white" style="width: fit-content;">
                                                         <i class="fas fa-procedures me-1"></i>
                                                         <?php echo h($document->cases_exams_procedure->exams_procedure->procedure->name); ?>
                                                     </span>
                                                 <?php endif; ?>
                                             </div>
                                         <?php else: ?>
-                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary">
+                                            <span class="badge rounded-pill bg-secondary">
                                                 <i class="fas fa-file-medical me-1"></i> General
                                             </span>
                                         <?php endif; ?>
@@ -377,15 +424,14 @@ $this->assign('title', 'Case #' . $case->id);
                                     <td>
                                         <div class="d-flex flex-column">
                                             <?php 
-                                                $uploaderFirstName = $document->user->first_name ?? '';
-                                                $uploaderLastName = $document->user->last_name ?? '';
-                                                $uploaderId = $document->user->id ?? null;
+                                                $firstName = $document->user->first_name ?? '';
+                                                $lastName = $document->user->last_name ?? '';
                                             ?>
                                             <span class="text-dark small fw-semibold">
-                                                <?php if ($uploaderId === $user->id): ?>
-                                                    <span class="text-primary"><i class="fas fa-user me-1"></i>You</span>
+                                                <?php if ($document->user_id === $user->id): ?>
+                                                    <span class="text-success">You</span>
                                                 <?php else: ?>
-                                                    <?php echo h($uploaderFirstName . ' ' . $uploaderLastName); ?>
+                                                    <?php echo h($firstName . ' ' . $lastName); ?>
                                                 <?php endif; ?>
                                             </span>
                                             <span class="text-muted" style="font-size: 0.75rem;">
@@ -430,80 +476,17 @@ $this->assign('title', 'Case #' . $case->id);
                     </div>
                 </div>
             </div>
-            
-            <style>
-                .document-row:hover {
-                    background-color: #f8f9fc !important;
-                    transform: translateX(2px);
-                }
-                
-                .document-icon-wrapper {
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    transition: transform 0.2s ease;
-                }
-                
-                .document-row:hover .document-icon-wrapper {
-                    transform: scale(1.05);
-                }
-                
-                .avatar-circle {
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }
-                
-                .badge.bg-primary-subtle {
-                    font-weight: 500;
-                    padding: 0.35rem 0.65rem;
-                }
-                
-                .badge.bg-info-subtle {
-                    font-weight: 500;
-                    padding: 0.35rem 0.65rem;
-                }
-                
-                .badge.bg-secondary-subtle {
-                    font-weight: 500;
-                    padding: 0.35rem 0.65rem;
-                }
-                
-                .btn-group .btn {
-                    padding: 0.375rem 0.75rem;
-                }
-                
-                /* Text truncation for long filenames */
-                .text-truncate {
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    display: block;
-                }
-                
-                /* Ensure table cells respect max-width */
-                .table td {
-                    white-space: nowrap;
-                }
-                
-                .table td > div {
-                    max-width: 100%;
-                }
-                
-                /* File type specific colors - for reference */
-                /* PDF: Red (#ff6b6b → #ee5a6f) */
-                /* Word: Blue (#4e73df → #224abe) */
-                /* PowerPoint: Orange (#fd7e14 → #e56b0f) */
-                /* Excel: Green (#1cc88a → #17a673) */
-                /* Images: Cyan (#36b9cc → #2c9faf) */
-                /* Text: Gray (#858796 → #60616f) */
-                /* Archive: Yellow (#f6c23e → #dda20a) */
-            </style>
             <?php endif; ?>
 
             <!-- Case Versions -->
             <?php if (!empty($case->case_versions)): ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-history me-1"></i> Version History</h5>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-history me-2 text-success"></i>Version History
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <?php foreach ($case->case_versions as $version): ?>
                     <div class="d-flex align-items-center mb-2 <?php echo $version->id === $case->current_version_id ? 'bg-light p-2 rounded' : ''; ?>">
                         <div class="flex-grow-1">
@@ -530,11 +513,13 @@ $this->assign('title', 'Case #' . $case->id);
 
             <!-- Assignments -->
             <?php if (!empty($case->case_assignments)): ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-user-friends me-1"></i> Assignment History</h5>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-user-friends me-2 text-success"></i>Assignment History
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <?php foreach ($case->case_assignments as $assignment): ?>
                     <div class="border-start border-3 border-info ps-3 mb-3">
                         <div class="d-flex justify-content-between">
@@ -583,9 +568,11 @@ $this->assign('title', 'Case #' . $case->id);
         <!-- Sidebar -->
         <div class="col-lg-4">
             <!-- Quick Actions -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-bolt me-1"></i> Quick Actions</h6>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-bolt me-2 text-success"></i>Quick Actions
+                    </h6>
                 </div>
                 <div class="card-body">
                     <?php 
@@ -607,33 +594,115 @@ $this->assign('title', 'Case #' . $case->id);
                         $quickActionScientistAssigned = ($quickActionCurrentUserRole === 'scientist');
                         ?>
                         <div class="d-grid gap-2">
-                            <?php if ($quickActionScientistAssigned): ?>
+                            <?php 
+                            // Check if scientist has their own report for this case
+                            $scientistReport = null;
+                            $hasOtherReports = false;
+                            
+                            if (!empty($existingReports)) {
+                                foreach ($existingReports as $report) {
+                                    if ($report->user_id === $user->id) {
+                                        $scientistReport = $report;
+                                    } else {
+                                        $hasOtherReports = true;
+                                    }
+                                }
+                            }
+                            ?>
+                            
+                            <?php if ($scientistReport): ?>
+                                <!-- Scientist has their own report -->
                                 <?php echo $this->Html->link(
-                                    '<i class="fas fa-level-up-alt me-1"></i> Assign to Doctor',
-                                    ['action' => 'assign', $case->id],
-                                    ['class' => 'btn btn-outline-success', 'escape' => false]
+                                    '<i class="fas fa-edit me-2"></i>Edit My Report',
+                                    ['controller' => 'Reports', 'action' => 'edit', $scientistReport->id],
+                                    ['class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 'escape' => false]
                                 ); ?>
-                            <?php elseif ($quickActionDoctorAssigned): ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-eye me-2"></i>View My Report',
+                                    ['controller' => 'Reports', 'action' => 'view', $scientistReport->id],
+                                    ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false]
+                                ); ?>
+                            <?php elseif ($hasOtherReports): ?>
+                                <!-- Other reports exist, but scientist hasn't created their own -->
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-file-medical-alt me-2"></i>Create My Report',
+                                    ['action' => 'createReport', $case->id],
+                                    [
+                                        'class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 
+                                        'escape' => false,
+                                        'confirm' => 'This will create a new scientist report based on existing case data. Continue?'
+                                    ]
+                                ); ?>
+                                <?php 
+                                // Show view link for the first available report (usually technician's)
+                                $firstOtherReport = $existingReports->first();
+                                ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-eye me-2"></i>View Technician Report',
+                                    ['controller' => 'Reports', 'action' => 'view', $firstOtherReport->id],
+                                    ['class' => 'btn btn-outline-secondary d-flex align-items-center justify-content-center', 'escape' => false]
+                                ); ?>
+                            <?php else: ?>
+                                <!-- No reports exist yet -->
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-file-medical-alt me-2"></i>Create Report',
+                                    ['action' => 'createReport', $case->id],
+                                    [
+                                        'class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 
+                                        'escape' => false,
+                                        'confirm' => 'Are you sure you want to create a report for this case?'
+                                    ]
+                                ); ?>
+                            <?php endif; ?>
+                            
+                            <?php 
+                            // Check if case has an assignment to doctor
+                            $hasAssignment = !empty($case->case_assignments);
+                            $assignedUser = null;
+                            $isDoctorAssigned = false;
+                            
+                            if ($hasAssignment) {
+                                foreach ($case->case_assignments as $assignment) {
+                                    if ($assignment->role_type === 'doctor') {
+                                        $assignedUser = $assignment->assigned_to_user;
+                                        $isDoctorAssigned = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if ($isDoctorAssigned && $assignedUser): 
+                                // Show reassign button with current doctor name
+                            ?>
                                 <div class="border border-warning rounded p-2 bg-warning bg-opacity-10">
                                     <div class="small text-muted mb-1">
-                                        <i class="fas fa-user-md me-1"></i>Assigned to: 
+                                        <i class="fas fa-user-md me-1"></i>Assigned to Doctor: 
                                         <strong>
-                                            <?php if ($quickActionCurrentUser->id === $user->id): ?>
+                                            <?php if ($assignedUser->id === $user->id): ?>
                                                 <span class="text-primary">You</span>
                                             <?php else: ?>
-                                                <?php echo h($quickActionCurrentUser->first_name . ' ' . $quickActionCurrentUser->last_name); ?>
+                                                <?php echo h($assignedUser->first_name . ' ' . $assignedUser->last_name); ?>
                                             <?php endif; ?>
                                         </strong>
                                     </div>
                                     <?php echo $this->Html->link(
-                                        '<i class="fas fa-exchange-alt me-1"></i> Change Assignment',
+                                        '<i class="fas fa-exchange-alt me-2"></i>Change Assignment',
                                         ['action' => 'assign', $case->id],
-                                        ['class' => 'btn btn-warning btn-sm w-100', 'escape' => false]
+                                        ['class' => 'btn btn-warning btn-sm w-100 d-flex align-items-center justify-content-center', 'escape' => false]
                                     ); ?>
                                 </div>
+                            <?php else: 
+                                // Show initial promote button
+                            ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-level-up-alt me-2"></i>Promote to Doctor',
+                                    ['action' => 'assign', $case->id],
+                                    ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false]
+                                ); ?>
                             <?php endif; ?>
-                            <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                <i class="fas fa-upload me-1"></i> Upload Documents
+                            
+                            <button class="btn btn-outline-success d-flex align-items-center justify-content-center gap-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                <i class="fas fa-upload"></i>Upload Documents
                             </button>
                         </div>
                     <?php elseif (in_array($case->status, ['in_progress', 'review'])): ?>
@@ -657,27 +726,259 @@ $this->assign('title', 'Case #' . $case->id);
                 </div>
             </div>
 
+            <!-- Report Hierarchy Information -->
+            <?php if (!empty($existingReports)): ?>
+                <?php 
+                // Organize reports by role hierarchy
+                $reportHierarchy = [
+                    'technician' => null,
+                    'scientist' => null,
+                    'doctor' => null
+                ];
+                
+                // Categorize reports by creator role
+                foreach ($existingReports as $report) {
+                    if (!empty($report->user->role->type)) {
+                        $roleType = strtolower($report->user->role->type);
+                        if (array_key_exists($roleType, $reportHierarchy)) {
+                            $reportHierarchy[$roleType] = $report;
+                        }
+                    }
+                }
+                
+                // Find current user's role for ownership detection
+                $currentUserRole = strtolower($user->role->type ?? 'unknown');
+                $hasAnyReports = array_filter($reportHierarchy) !== [];
+                ?>
+                
+                <?php if ($hasAnyReports): ?>
+                <div class="card border-0 shadow mb-4">
+                    <div class="card-header bg-light border-0 py-3">
+                        <h6 class="mb-0 fw-bold text-dark">
+                            <i class="fas fa-file-medical-alt me-2 text-success"></i>
+                            Report Workflow Hierarchy
+                        </h6>
+                    </div>
+                    <div class="card-body bg-white">
+                        <!-- Workflow Progress Indicator -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-semibold text-muted">Workflow Progress</span>
+                                <span class="small fw-bold text-success">
+                                    <?php 
+                                    $completedStages = count(array_filter($reportHierarchy));
+                                    echo $completedStages . '/3 Stages Complete';
+                                    ?>
+                                </span>
+                            </div>
+                            <div class="progress mb-2" style="height: 8px;">
+                                <div class="progress-bar bg-success" style="width: <?= ($completedStages / 3) * 100 ?>%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Hierarchical Report Display -->
+                        <div class="hierarchy-container">
+                            <?php 
+                            $hierarchyConfig = [
+                                'technician' => [
+                                    'title' => 'Technician Report',
+                                    'icon' => 'fa-user-cog',
+                                    'color' => 'info',
+                                    'description' => 'Initial Analysis & Data Collection'
+                                ],
+                                'scientist' => [
+                                    'title' => 'Scientist Report', 
+                                    'icon' => 'fa-user-graduate',
+                                    'color' => 'warning',
+                                    'description' => 'Scientific Review & Validation'
+                                ],
+                                'doctor' => [
+                                    'title' => 'Doctor Report',
+                                    'icon' => 'fa-user-md', 
+                                    'color' => 'danger',
+                                    'description' => 'Medical Review & Final Approval'
+                                ]
+                            ];
+                            ?>
+                            
+                            <?php foreach ($hierarchyConfig as $roleType => $config): ?>
+                                <?php $report = $reportHierarchy[$roleType]; ?>
+                                <?php $isCurrentUserRole = ($roleType === $currentUserRole); ?>
+                                <?php $isCompleted = ($report !== null); ?>
+                                
+                                <div class="hierarchy-stage mb-3 <?= $isCompleted ? 'completed' : 'pending' ?> <?= $isCurrentUserRole ? 'current-user' : '' ?>">
+                                    <div class="d-flex align-items-center p-3 rounded border <?= $isCompleted ? 'border-' . $config['color'] . ' bg-' . $config['color'] . ' bg-opacity-10' : 'border-light bg-light' ?>">
+                                        <!-- Stage Icon & Info -->
+                                        <div class="flex-shrink-0 me-3">
+                                            <div class="rounded-circle bg-<?= $isCompleted ? $config['color'] : 'light' ?> text-<?= $isCompleted ? 'white' : 'muted' ?> d-flex align-items-center justify-content-center" 
+                                                 style="width: 45px; height: 45px;">
+                                                <i class="fas <?= $config['icon'] ?> fa-lg"></i>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Stage Content -->
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <h6 class="mb-0 fw-bold text-<?= $isCompleted ? $config['color'] : 'muted' ?>">
+                                                    <?= $config['title'] ?>
+                                                    <?php if ($isCurrentUserRole): ?>
+                                                        <span class="badge bg-<?= $config['color'] ?> ms-2">You</span>
+                                                    <?php endif; ?>
+                                                </h6>
+                                                
+                                                <?php if ($isCompleted): ?>
+                                                    <span class="badge bg-<?= $config['color'] ?> px-2 py-1">
+                                                        <i class="fas fa-check-circle me-1"></i>Complete
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-light text-muted px-2 py-1">
+                                                        <i class="fas fa-clock me-1"></i>Pending
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                            
+                                            <p class="mb-2 small text-muted"><?= $config['description'] ?></p>
+                                            
+                                            <?php if ($isCompleted): ?>
+                                                <!-- Report Details -->
+                                                <div class="row align-items-center">
+                                                    <div class="col-md-8">
+                                                        <div class="small">
+                                                            <strong>Report #<?= h($report->id) ?></strong>
+                                                            <?php if (!$isCurrentUserRole && !empty($report->user)): ?>
+                                                                <span class="text-muted">
+                                                                    by <?= h($report->user->first_name . ' ' . $report->user->last_name) ?>
+                                                                </span>
+                                                            <?php endif; ?>
+                                                            <br>
+                                                            <span class="text-muted">
+                                                                <i class="fas fa-calendar me-1"></i>
+                                                                <?= $report->created->format('M j, Y g:i A') ?>
+                                                            </span>
+                                                            <?php 
+                                                            $statusClass = match($report->status) {
+                                                                'pending' => 'warning',
+                                                                'reviewed' => 'info', 
+                                                                'approved' => 'success',
+                                                                'rejected' => 'danger',
+                                                                default => 'secondary'
+                                                            };
+                                                            ?>
+                                                            <span class="badge bg-<?= $statusClass ?> ms-2"><?= h(ucfirst($report->status)) ?></span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4 text-end">
+                                                        <div class="btn-group btn-group-sm">
+                                                            <?= $this->Html->link(
+                                                                '<i class="fas fa-eye"></i>',
+                                                                ['controller' => 'Reports', 'action' => 'view', $report->id],
+                                                                [
+                                                                    'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
+                                                                    'escape' => false,
+                                                                    'title' => 'View Report'
+                                                                ]
+                                                            ); ?>
+                                                            
+                                                            <?php if ($isCurrentUserRole): ?>
+                                                                <?= $this->Html->link(
+                                                                    '<i class="fas fa-edit"></i>',
+                                                                    ['controller' => 'Reports', 'action' => 'edit', $report->id],
+                                                                    [
+                                                                        'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
+                                                                        'escape' => false,
+                                                                        'title' => 'Edit My Report'
+                                                                    ]
+                                                                ); ?>
+                                                            <?php endif; ?>
+                                                            
+                                                            <?= $this->Html->link(
+                                                                '<i class="fas fa-download"></i>',
+                                                                ['controller' => 'Reports', 'action' => 'download', $report->id, 'pdf'],
+                                                                [
+                                                                    'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
+                                                                    'escape' => false,
+                                                                    'title' => 'Download PDF'
+                                                                ]
+                                                            ); ?>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <?php else: ?>
+                                                <!-- No Report Available -->
+                                                <?php if ($isCurrentUserRole): ?>
+                                                    <div class="text-center">
+                                                        <?= $this->Html->link(
+                                                            '<i class="fas fa-plus me-2"></i>Create My ' . ucfirst($roleType) . ' Report',
+                                                            ['action' => 'createReport', $case->id],
+                                                            [
+                                                                'class' => 'btn btn-' . $config['color'] . ' btn-sm',
+                                                                'escape' => false,
+                                                                'confirm' => 'This will create a new ' . $roleType . ' report. Continue?'
+                                                            ]
+                                                        ); ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="text-center">
+                                                        <small class="text-muted">Awaiting <?= $roleType ?> to complete this stage</small>
+                                                    </div>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        
+                                        <!-- Hierarchy Connection Line -->
+                                        <?php if ($roleType !== 'doctor'): ?>
+                                            <div class="hierarchy-line"></div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        
+                        <!-- Workflow Summary -->
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <div class="row text-center small">
+                                <div class="col-4">
+                                    <strong class="text-info">Technician</strong><br>
+                                    <span class="text-muted">Data Collection</span>
+                                </div>
+                                <div class="col-4">
+                                    <strong class="text-warning">Scientist</strong><br>
+                                    <span class="text-muted">Analysis & Review</span>
+                                </div>
+                                <div class="col-4">
+                                    <strong class="text-danger">Doctor</strong><br>
+                                    <span class="text-muted">Final Approval</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
             <!-- Case Overview -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-chart-pie me-1"></i> Case Overview</h6>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-chart-pie me-2 text-success"></i>Case Overview
+                    </h6>
                 </div>
                 <div class="card-body">
                     <!-- Role-Based Status Workflow -->
                     <div class="mb-4">
                         <div class="d-flex align-items-center mb-3">
-                            <i class="fas fa-project-diagram text-primary me-2"></i>
+                            <i class="fas fa-project-diagram text-success me-2"></i>
                             <strong>Workflow Status</strong>
                         </div>
-                        <div class="ps-4">
+                        <div class="ps-3">
                             <!-- Global Case Status -->
-                            <div class="mb-4 p-3 rounded" style="background: linear-gradient(135deg, rgba(78, 115, 223, 0.1) 0%, rgba(78, 115, 223, 0.05) 100%); border-left: 4px solid #4e73df;">
+                            <div class="mb-4 p-3 rounded bg-success bg-opacity-10 border-start border-success border-3">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
                                     <span class="small">
-                                        <i class="fas fa-stream me-1 text-primary"></i>
+                                        <i class="fas fa-stream me-1 text-success"></i>
                                         <strong>Global Case Status</strong>
                                     </span>
-                                    <?php echo $this->Status->globalBadge($case, ['class' => 'px-3 py-2']); ?>
+                                    <?php echo $this->Status->globalBadge($case, ['class' => 'badge']); ?>
                                 </div>
                                 <div class="small text-muted">
                                     <i class="fas fa-info-circle me-1"></i>
@@ -686,7 +987,7 @@ $this->assign('title', 'Case #' . $case->id);
                             </div>
                             
                             <!-- Role-Based Statuses -->
-                            <div class="small text-muted mb-2 text-uppercase" style="letter-spacing: 0.5px; font-weight: 600;">
+                            <div class="small text-muted mb-2 text-uppercase fw-semibold" style="letter-spacing: 0.5px;">
                                 <i class="fas fa-users me-1"></i>Individual Role Progress
                             </div>
                             
@@ -711,7 +1012,7 @@ $this->assign('title', 'Case #' . $case->id);
                             <div class="mb-3">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
                                     <span class="small">
-                                        <i class="<?php echo $this->Status->roleIcon('scientist'); ?> me-1 text-primary"></i>
+                                        <i class="<?php echo $this->Status->roleIcon('scientist'); ?> me-1 text-success"></i>
                                         <strong>Scientist</strong>
                                     </span>
                                     <span class="badge bg-<?php echo $this->Status->colorClass($scientistStatus); ?>">
@@ -760,14 +1061,16 @@ $this->assign('title', 'Case #' . $case->id);
                     <!-- Department Info -->
                     <div class="mb-3">
                         <div class="d-flex align-items-center mb-2">
-                            <i class="fas fa-building text-primary me-2"></i>
+                            <i class="fas fa-building text-success me-2"></i>
                             <strong>Department</strong>
                         </div>
-                        <div class="ps-4">
+                        <div class="ps-3">
                             <?php if ($case->department): ?>
-                                <?php echo h($case->department->name); ?>
+                                <span class="badge rounded-pill bg-success">
+                                    <?php echo h($case->department->name); ?>
+                                </span>
                                 <?php if ($case->department->description): ?>
-                                    <br><small class="text-muted"><?php echo h($case->department->description); ?></small>
+                                    <div class="small text-muted mt-1"><?php echo h($case->department->description); ?></div>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <span class="text-muted">Not assigned</span>
@@ -781,19 +1084,21 @@ $this->assign('title', 'Case #' . $case->id);
                             <i class="fas fa-pills text-warning me-2"></i>
                             <strong>Sedation Requirements</strong>
                         </div>
-                        <div class="ps-4">
+                        <div class="ps-3">
                             <?php if ($case->sedation): ?>
-                                <span class="badge bg-warning text-dark">
-                                    <?php echo h($case->sedation->level); ?>
+                                <span class="badge bg-warning text-dark mb-2">
+                                    <i class="fas fa-pills me-1"></i><?php echo h($case->sedation->level); ?>
                                 </span>
                                 <?php if ($case->sedation->type): ?>
-                                    <br><small class="text-muted">Type: <?php echo h($case->sedation->type); ?></small>
+                                    <div class="small text-muted">Type: <?php echo h($case->sedation->type); ?></div>
                                 <?php endif; ?>
                                 <?php if ($case->sedation->risk_category): ?>
-                                    <br><small class="text-muted">Risk: <?php echo h($case->sedation->risk_category); ?></small>
+                                    <div class="small text-muted">Risk: <?php echo h($case->sedation->risk_category); ?></div>
                                 <?php endif; ?>
                                 <?php if ($case->sedation->monitoring_required): ?>
-                                    <br><small class="text-success"><i class="fas fa-eye me-1"></i>Monitoring Required</small>
+                                    <div class="small text-success mt-1">
+                                        <i class="fas fa-eye me-1"></i>Monitoring Required
+                                    </div>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <span class="text-success">
@@ -809,7 +1114,7 @@ $this->assign('title', 'Case #' . $case->id);
                             <i class="fas fa-procedures text-info me-2"></i>
                             <strong>Procedures</strong>
                         </div>
-                        <div class="ps-4">
+                        <div class="ps-3">
                             <?php 
                             $totalProcedures = count($case->cases_exams_procedures ?? []);
                             $completedProcedures = 0;
@@ -830,9 +1135,9 @@ $this->assign('title', 'Case #' . $case->id);
                             }
                             ?>
                             
-                            <div class="row text-center">
+                            <div class="row text-center g-2">
                                 <div class="col-4">
-                                    <div class="h5 mb-1 text-primary"><?php echo $totalProcedures; ?></div>
+                                    <div class="h5 mb-1 text-success"><?php echo $totalProcedures; ?></div>
                                     <div class="small text-muted">Total</div>
                                 </div>
                                 <div class="col-4">
@@ -850,9 +1155,9 @@ $this->assign('title', 'Case #' . $case->id);
                                     <div class="progress-bar bg-success" style="width: <?php echo ($completedProcedures / $totalProcedures) * 100; ?>%"></div>
                                     <div class="progress-bar bg-warning" style="width: <?php echo ($inProgressProcedures / $totalProcedures) * 100; ?>%"></div>
                                 </div>
-                                <small class="text-muted">
+                                <div class="small text-muted mt-1">
                                     <?php echo round(($completedProcedures / $totalProcedures) * 100); ?>% complete
-                                </small>
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -864,7 +1169,7 @@ $this->assign('title', 'Case #' . $case->id);
                             <i class="fas fa-microscope text-secondary me-2"></i>
                             <strong>Modalities</strong>
                         </div>
-                        <div class="ps-4">
+                        <div class="ps-3">
                             <?php 
                             $modalities = [];
                             foreach ($case->cases_exams_procedures as $cep) {
@@ -885,41 +1190,49 @@ $this->assign('title', 'Case #' . $case->id);
             </div>
 
             <!-- Case Statistics -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-chart-bar me-1"></i> Case Stats</h6>
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-chart-bar me-2 text-success"></i>Case Stats
+                    </h6>
                 </div>
                 <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-6 border-end">
-                            <div class="h5 mb-1"><?php echo count($case->case_versions ?? []); ?></div>
-                            <div class="small text-muted">Versions</div>
+                    <div class="row text-center g-2">
+                        <div class="col-6">
+                            <div class="p-3 bg-light rounded">
+                                <div class="h5 mb-1 text-success"><?php echo count($case->case_versions ?? []); ?></div>
+                                <div class="small text-muted">Versions</div>
+                            </div>
                         </div>
                         <div class="col-6">
-                            <div class="h5 mb-1"><?php echo count($case->case_assignments ?? []); ?></div>
-                            <div class="small text-muted">Assignments</div>
+                            <div class="p-3 bg-light rounded">
+                                <div class="h5 mb-1 text-success"><?php echo count($case->case_assignments ?? []); ?></div>
+                                <div class="small text-muted">Assignments</div>
+                            </div>
                         </div>
                     </div>
                     
-                    <hr>
+                    <hr class="my-3">
                     
                     <div class="small">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Days since creation:</span>
-                            <strong><?php echo $case->created->diffInDays(\Cake\I18n\DateTime::now()); ?></strong>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Days since creation:</span>
+                            <strong class="text-success"><?php echo $case->created->diffInDays(\Cake\I18n\DateTime::now()); ?></strong>
                         </div>
                         <div class="d-flex justify-content-between">
-                            <span>Last activity:</span>
-                            <strong><?php echo $case->modified->diffForHumans(); ?></strong>
+                            <span class="text-muted">Last activity:</span>
+                            <strong class="text-success"><?php echo $case->modified->diffForHumans(); ?></strong>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Status Flow -->
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-route me-1"></i> Status Flow</h6>
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-route me-2 text-success"></i>Status Flow
+                    </h6>
                 </div>
                 <div class="card-body">
                     <div class="small">
@@ -935,7 +1248,7 @@ $this->assign('title', 'Case #' . $case->id);
                                     <?php if ($index < $currentIndex): ?>
                                         <i class="fas fa-check-circle text-success"></i>
                                     <?php elseif ($index === $currentIndex): ?>
-                                        <i class="fas fa-circle text-primary"></i>
+                                        <i class="fas fa-circle text-success"></i>
                                     <?php else: ?>
                                         <i class="far fa-circle text-muted"></i>
                                     <?php endif; ?>
@@ -955,11 +1268,13 @@ $this->assign('title', 'Case #' . $case->id);
     <?php if (!empty($case->case_audits)): ?>
     <div class="row mt-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-clipboard-list me-1"></i> Change History</h5>
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-clipboard-list me-2 text-success"></i>Change History
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white">
                     <div class="timeline">
                         <?php foreach ($case->case_audits as $audit): ?>
                         <div class="timeline-item">
@@ -2071,47 +2386,79 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-.timeline {
+/* Report Hierarchy Styling */
+.hierarchy-container .hierarchy-stage {
     position: relative;
 }
 
-.timeline-item {
-    position: relative;
-    padding-left: 2rem;
-    padding-bottom: 1rem;
+.hierarchy-stage.completed {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.timeline-item:not(:last-child)::before {
+.hierarchy-stage.current-user {
+    position: relative;
+}
+
+.hierarchy-stage.current-user::before {
     content: '';
     position: absolute;
-    left: 0.5rem;
-    top: 1.5rem;
-    bottom: -1rem;
-    width: 2px;
-    background-color: #dee2e6;
+    left: -3px;
+    top: -3px;
+    right: -3px;
+    bottom: -3px;
+    border: 2px solid #28a745;
+    border-radius: 8px;
+    z-index: -1;
 }
 
-.timeline-marker {
+.hierarchy-line {
     position: absolute;
-    left: 0;
-    top: 0.25rem;
-    width: 1rem;
-    height: 1rem;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 2px #dee2e6;
+    left: 22px;
+    bottom: -15px;
+    width: 2px;
+    height: 15px;
+    background-color: #dee2e6;
+    z-index: 1;
 }
 
-.card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border: 1px solid rgba(0, 0, 0, 0.125);
+.hierarchy-stage.completed .hierarchy-line {
+    background-color: #28a745;
 }
 
-.table-borderless td {
-    padding: 0.25rem 0.5rem 0.25rem 0;
+/* Progress bar styling */
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
 }
 
-.border-start {
-    border-left-width: 3px !important;
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+/* Button group spacing */
+.btn-group-sm .btn {
+    margin: 0 1px;
+}
+
+/* Role badge styling */
+.hierarchy-stage .badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .hierarchy-container .col-md-4 {
+        text-align: center !important;
+        margin-top: 10px;
+    }
+    
+    .hierarchy-container .btn-group {
+        width: 100%;
+    }
+    
+    .hierarchy-container .btn-group .btn {
+        flex: 1;
+    }
 }
 </style>

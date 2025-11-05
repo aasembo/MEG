@@ -91,6 +91,10 @@ class AppController extends Controller
         
         if ($prefix === 'Technician') {
             $this->viewBuilder()->setLayout('technician');
+        } elseif ($prefix === 'Scientist') {
+            $this->viewBuilder()->setLayout('scientist');
+        } elseif ($prefix === 'Doctor') {
+            $this->viewBuilder()->setLayout('doctor');
         }
     }
 

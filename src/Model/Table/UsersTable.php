@@ -36,7 +36,8 @@ class UsersTable extends Table {
         $this->hasMany('Nurses', [
             'foreignKey' => 'user_id',
         ]);
-        $this->hasMany('Patients', [
+        $this->hasOne('Patient', [
+            'className' => 'Patients',
             'foreignKey' => 'user_id',
         ]);
         $this->hasMany('Scientists', [

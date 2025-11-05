@@ -4,7 +4,6 @@
  * @var \App\Model\Entity\MedicalCase $case
  */
 
-$this->setLayout('doctor');
 $this->assign('title', 'Edit Case #' . $case->id);
 ?>
 

@@ -15,14 +15,18 @@ use Cake\ORM\Entity;
  * @property array|null $ai_insights
  * @property string|null $confidence_score
  * @property string|null $technician_notes
+ * @property string|null $doctor_notes
+ * @property string|null $scientist_notes
  * @property array|null $scientist_review
  * @property array|null $doctor_approval
  * @property string|null $status
+ * @property int|null $user_id
  * @property \Cake\I18n\DateTime|null $created
  * @property \Cake\I18n\DateTime|null $modified
  *
  * @property \App\Model\Entity\MedicalCase $case
  * @property \App\Model\Entity\Hospital $hospital
+ * @property \App\Model\Entity\User $user
  */
 class Report extends Entity
 {
@@ -42,9 +46,12 @@ class Report extends Entity
         'ai_insights' => true,
         'confidence_score' => true,
         'technician_notes' => true,
+        'doctor_notes' => true,
+        'scientist_notes' => true,
         'scientist_review' => true,
         'doctor_approval' => true,
         'status' => true,
+        'user_id' => true,
         'created' => true,
         'modified' => true,
         'case' => true,

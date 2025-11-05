@@ -7,123 +7,169 @@
  * @var array $proceduresByModality
  * @var object $currentHospital
  */
+
+$this->assign('title', 'Assign Procedures - Case #' . $case->id);
 ?>
 
-<div class="cases-assign-procedures">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="d-flex justify-content-between align-items-start mb-4">
-                <div>
-                    <h2><i class="fas fa-procedures me-2"></i>Assign Procedures</h2>
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><?php echo $this->Html->link('Dashboard', ['prefix' => 'Technician', 'controller' => 'Dashboard', 'action' => 'index']); ?></li>
-                            <li class="breadcrumb-item"><?php echo $this->Html->link('Cases', ['action' => 'index']); ?></li>
-                            <li class="breadcrumb-item"><?php echo $this->Html->link('Case #' . $case->id, ['action' => 'view', $case->id]); ?></li>
-                            <li class="breadcrumb-item active" aria-current="page">Assign Procedures</li>
-                        </ol>
-                    </nav>
+<div class="container-fluid px-4 py-4">
+    <!-- Page Header -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-primary text-white p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-2 fw-bold">
+                        <i class="fas fa-tasks me-2"></i>Assign Procedures
+                    </h2>
+                    <p class="mb-0">
+                        <i class="fas fa-file-medical me-2"></i>Case #<?php echo h($case->id); ?>
+                        <?php if ($case->patient_user): ?>
+                            - <?php echo $this->PatientMask->displayName($case->patient_user); ?>
+                        <?php endif; ?>
+                    </p>
                 </div>
-                <div>
-                    <?php echo $this->Html->link(
-                        '<i class="fas fa-arrow-left me-1"></i> Back to Case',
-                        ['action' => 'view', $case->id],
-                        ['class' => 'btn btn-outline-secondary', 'escape' => false]
-                    ); ?>
-                </div>
-            </div>
-
-            <!-- Case Info Card -->
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-info-circle me-1"></i> Case Information</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Patient:</strong> <?php echo h($case->patient_user->first_name . ' ' . $case->patient_user->last_name); ?><br>
-                            <strong>Case ID:</strong> #<?php echo h($case->id); ?><br>
-                            <strong>Status:</strong> 
-                            <span class="badge <?php echo $case->getStatusClass(); ?>">
-                                <?php echo h($case->getStatusLabel()); ?>
-                            </span>
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Priority:</strong> 
-                            <span class="badge <?php echo $case->getPriorityClass(); ?>">
-                                <?php echo h($case->getPriorityLabel()); ?>
-                            </span><br>
-                            <strong>Date:</strong> <?php echo h($case->date); ?><br>
-                            <strong>Department:</strong> <?php echo h($case->department->name ?? 'Not specified'); ?>
-                        </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <div class="btn-group" role="group">
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-eye me-1"></i>View Case',
+                            ['action' => 'view', $case->id],
+                            ['class' => 'btn btn-light', 'escape' => false]
+                        ); ?>
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-arrow-left me-1"></i>Back',
+                            ['action' => 'index'],
+                            ['class' => 'btn btn-outline-light', 'escape' => false]
+                        ); ?>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Current Procedures Summary -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-list me-1"></i> Current Procedures Summary</h5>
+    <!-- Case Information Card -->
+    <div class="card border-0 shadow mb-4">
+        <div class="card-header bg-light border-0 py-3">
+            <h5 class="mb-0 fw-bold text-dark">
+                <i class="fas fa-file-medical me-2 text-primary"></i>Case Information
+            </h5>
+        </div>
+        <div class="card-body bg-white">
+            <div class="row">
+                <div class="col-md-3">
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr>
+                            <td class="fw-semibold text-muted">Patient:</td>
+                            <td>
+                                <?php if ($case->patient_user): ?>
+                                    <?php echo $this->PatientMask->displayName($case->patient_user); ?>
+                                    <br><small class="text-muted">ID: <?php echo h($case->patient_user->id); ?></small>
+                                <?php else: ?>
+                                    <span class="text-muted">No patient assigned</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
-                <div class="card-body">
+                <div class="col-md-3">
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr>
+                            <td class="fw-semibold text-muted">Department:</td>
+                            <td>
+                                <?php if ($case->department): ?>
+                                    <i class="fas fa-building me-1 text-primary"></i>
+                                    <?php echo h($case->department->name); ?>
+                                <?php else: ?>
+                                    <span class="text-muted">Not assigned</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-3">
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr>
+                            <td class="fw-semibold text-muted">Priority:</td>
+                            <td><?php echo $this->Status->priorityBadge($case->priority); ?></td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-3">
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr>
+                            <td class="fw-semibold text-muted">Case Date:</td>
+                            <td><?php echo $case->date ? $case->date->format('M j, Y') : '<span class="text-muted">Not set</span>'; ?></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Current Procedures -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-light border-0 py-3">
+                    <h5 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-list me-2 text-primary"></i>Currently Assigned
+                    </h5>
+                </div>
+                <div class="card-body bg-white" style="max-height: 600px; overflow-y: auto;">
                     <?php if (!empty($case->cases_exams_procedures)): ?>
-                        <div class="alert alert-info">
+                        <div class="alert alert-info border-0 mb-3">
                             <i class="fas fa-info-circle me-2"></i>
-                            <strong><?php echo count($case->cases_exams_procedures); ?> procedures currently assigned</strong>
+                            <strong><?php echo count($case->cases_exams_procedures); ?> procedures assigned</strong>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Exam</th>
-                                        <th>Procedure</th>
-                                        <th>Modality</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($case->cases_exams_procedures as $cep): ?>
-                                        <tr>
-                                            <td><?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?></td>
-                                            <td><?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?></td>
-                                            <td>
-                                                <?php if ($cep->exams_procedure->exam->modality ?? null): ?>
-                                                    <span class="badge bg-secondary">
-                                                        <?php echo h($cep->exams_procedure->exam->modality->name); ?>
-                                                    </span>
-                                                <?php else: ?>
-                                                    <span class="text-muted">N/A</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <span class="badge <?php echo $cep->getStatusBadgeClass(); ?>">
-                                                    <?php echo h($cep->getStatusLabel()); ?>
+                        <div class="list-group list-group-flush">
+                            <?php foreach ($case->cases_exams_procedures as $cep): ?>
+                                <div class="list-group-item border-0 px-0 py-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1 fw-semibold">
+                                                <?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?>
+                                            </h6>
+                                            <p class="mb-2 text-muted small">
+                                                <?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>
+                                            </p>
+                                            <?php if ($cep->exams_procedure->exam->modality ?? null): ?>
+                                                <span class="badge rounded-pill bg-info text-white">
+                                                    <i class="fas fa-microscope me-1"></i>
+                                                    <?php echo h($cep->exams_procedure->exam->modality->name); ?>
                                                 </span>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
+                                            <?php endif; ?>
+                                        </div>
+                                        <span class="badge rounded-pill <?php echo $cep->getStatusBadgeClass(); ?> ms-2">
+                                            <?php echo h($cep->getStatusLabel()); ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
                     <?php else: ?>
-                        <div class="alert alert-warning">
+                        <div class="alert alert-warning border-0 mb-0">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>No procedures currently assigned</strong><br>
-                            Please select procedures below to assign to this case.
+                            <strong>No procedures assigned</strong><br>
+                            Select procedures from the available options to assign them to this case.
                         </div>
                     <?php endif; ?>
                 </div>
             </div>
+        </div>
 
-            <!-- Procedure Assignment Form -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-tasks me-1"></i> Available Procedures</h5>
+        <!-- Available Procedures -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow">
+                <div class="card-header bg-light border-0 py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold text-dark">
+                            <i class="fas fa-stethoscope me-2 text-primary"></i>Available Procedures
+                        </h5>
+                        <div id="selection-counter" class="badge rounded-pill bg-primary fs-6"></div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <?php echo $this->Form->create(null, ['novalidate' => true, 'class' => 'needs-validation']); ?>
+                <div class="card-body bg-white" style="max-height: 600px; overflow-y: auto;">
+                    <?php echo $this->Form->create(null, ['novalidate' => true]); ?>
                     
-                    <div class="alert alert-info">
+                    <div class="alert alert-info border-0 mb-4">
                         <i class="fas fa-lightbulb me-2"></i>
                         <strong>Instructions:</strong> Check the procedures you want to assign to this case. 
                         Unchecking will remove the procedure from the case.
@@ -131,69 +177,66 @@
 
                     <?php if (!empty($proceduresByModality)): ?>
                         <?php foreach ($proceduresByModality as $modalityName => $procedures): ?>
-                            <div class="card mb-3">
-                                <div class="card-header">
-                                    <h6 class="mb-0">
-                                        <i class="fas fa-stethoscope me-1"></i>
-                                        <?php echo h($modalityName); ?> Procedures
-                                    </h6>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <?php foreach ($procedures as $procedure): ?>
-                                            <div class="col-lg-6 col-md-12 mb-2">
-                                                <div class="form-check">
-                                                    <?php echo $this->Form->checkbox("exam_procedures.{$procedure->id}", [
-                                                        'value' => 1,
-                                                        'checked' => in_array($procedure->id, $assignedExamProcedures),
-                                                        'class' => 'form-check-input procedure-checkbox',
-                                                        'id' => "procedure_{$procedure->id}"
-                                                    ]); ?>
-                                                    <label class="form-check-label" for="procedure_<?php echo $procedure->id; ?>">
-                                                        <strong><?php echo h($procedure->exam->name); ?></strong>
-                                                        <br><small class="text-muted">
-                                                            <?php echo h($procedure->procedure->name); ?>
-                                                            <?php if ($procedure->procedure->description): ?>
-                                                                - <?php echo h($procedure->procedure->description); ?>
-                                                            <?php endif; ?>
-                                                        </small>
-                                                    </label>
+                            <div class="mb-4">
+                                <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">
+                                    <i class="fas fa-microscope me-2 text-primary"></i>
+                                    <?php echo h($modalityName); ?> Procedures
+                                </h6>
+                                <div class="row g-3">
+                                    <?php foreach ($procedures as $procedure): ?>
+                                        <div class="col-md-6">
+                                            <div class="card h-100 procedure-card border" data-procedure-id="<?php echo $procedure->id; ?>">
+                                                <div class="card-body p-3">
+                                                    <div class="form-check">
+                                                        <?php echo $this->Form->checkbox("exam_procedures.{$procedure->id}", [
+                                                            'value' => 1,
+                                                            'checked' => in_array($procedure->id, $assignedExamProcedures),
+                                                            'class' => 'form-check-input procedure-checkbox',
+                                                            'id' => "procedure_{$procedure->id}"
+                                                        ]); ?>
+                                                        <label class="form-check-label w-100 cursor-pointer" for="procedure_<?php echo $procedure->id; ?>">
+                                                            <div class="fw-semibold text-dark mb-1">
+                                                                <?php echo h($procedure->exam->name); ?>
+                                                            </div>
+                                                            <div class="text-muted small mb-2">
+                                                                <?php echo h($procedure->procedure->name); ?>
+                                                                <?php if ($procedure->procedure->description): ?>
+                                                                    <br><span class="text-muted"><?php echo h($procedure->procedure->description); ?></span>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                            <span class="badge rounded-pill bg-secondary">
+                                                                <?php echo h($procedure->exam->modality->name ?? 'N/A'); ?>
+                                                            </span>
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        <?php endforeach; ?>
-                                    </div>
+                                        </div>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <div class="alert alert-warning">
+                        <div class="alert alert-warning border-0 mb-0">
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             <strong>No procedures available</strong><br>
                             There are no exam procedures configured for this hospital. Please contact your administrator.
                         </div>
                     <?php endif; ?>
-
-                    <!-- Selection Summary -->
-                    <div id="selection-summary" class="mt-3"></div>
-
-                    <!-- Submit Buttons -->
-                    <div class="row mt-4">
-                        <div class="col-md-12">
-                            <div class="d-flex justify-content-between">
-                                <?php echo $this->Html->link(
-                                    '<i class="fas fa-times me-1"></i> Cancel',
-                                    ['action' => 'view', $case->id],
-                                    ['class' => 'btn btn-outline-secondary', 'escape' => false]
-                                ); ?>
-                                
-                                <div>
-                                    <?php echo $this->Form->button(
-                                        '<i class="fas fa-save me-1"></i> Update Procedures',
-                                        ['type' => 'submit', 'class' => 'btn btn-primary', 'escapeTitle' => false]
-                                    ); ?>
-                                </div>
-                            </div>
-                        </div>
+                </div>
+                <div class="card-footer bg-light border-0">
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-times me-1"></i> Cancel',
+                            ['action' => 'view', $case->id],
+                            ['class' => 'btn btn-outline-secondary', 'escape' => false]
+                        ); ?>
+                        
+                        <?php echo $this->Form->button(
+                            '<i class="fas fa-save me-1"></i> Update Procedures',
+                            ['type' => 'submit', 'class' => 'btn btn-primary', 'escapeTitle' => false]
+                        ); ?>
                     </div>
 
                     <?php echo $this->Form->end(); ?>
@@ -204,93 +247,62 @@
 </div>
 
 <script>
-// Form validation
-(function() {
-    'use strict';
-    window.addEventListener('load', function() {
-        var forms = document.getElementsByClassName('needs-validation');
-        var validation = Array.prototype.filter.call(forms, function(form) {
-            form.addEventListener('submit', function(event) {
-                if (form.checkValidity() === false) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }
-                form.classList.add('was-validated');
-            }, false);
-        });
-    }, false);
-})();
-
-// Dynamic procedure selection tracking
 document.addEventListener('DOMContentLoaded', function() {
     const checkboxes = document.querySelectorAll('.procedure-checkbox');
-    const summaryDiv = document.getElementById('selection-summary');
+    const selectionCounter = document.getElementById('selection-counter');
     
-    function updateSelectionSummary() {
+    function updateSelectionCounter() {
         const checkedBoxes = document.querySelectorAll('.procedure-checkbox:checked');
         const selectedCount = checkedBoxes.length;
         
         if (selectedCount > 0) {
-            summaryDiv.innerHTML = `
-                <div class="alert alert-success">
-                    <i class="fas fa-check me-2"></i>
-                    <strong>${selectedCount} procedure(s) selected</strong>
-                    <br>These procedures will be assigned to the case when you click "Update Procedures".
-                </div>
-            `;
+            selectionCounter.textContent = `${selectedCount} selected`;
+            selectionCounter.className = 'badge rounded-pill bg-success fs-6';
         } else {
-            summaryDiv.innerHTML = `
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>No procedures selected</strong>
-                    <br>All procedures will be removed from this case if you proceed.
-                </div>
-            `;
+            selectionCounter.textContent = 'None selected';
+            selectionCounter.className = 'badge rounded-pill bg-secondary fs-6';
         }
     }
     
-    // Initial summary
-    updateSelectionSummary();
+    function updateProcedureCardStyle(checkbox) {
+        const card = checkbox.closest('.procedure-card');
+        if (checkbox.checked) {
+            card.classList.remove('border');
+            card.classList.add('border-success', 'bg-light');
+        } else {
+            card.classList.remove('border-success', 'bg-light');
+            card.classList.add('border');
+        }
+    }
     
-    // Update summary when checkboxes change
+    // Initialize
+    updateSelectionCounter();
+    
     checkboxes.forEach(function(checkbox) {
-        checkbox.addEventListener('change', updateSelectionSummary);
+        // Set initial card styles
+        updateProcedureCardStyle(checkbox);
+        
+        // Add change event listener
+        checkbox.addEventListener('change', function() {
+            updateSelectionCounter();
+            updateProcedureCardStyle(this);
+        });
+    });
+    
+    // Add click handler to cards for better UX
+    document.querySelectorAll('.procedure-card').forEach(function(card) {
+        card.addEventListener('click', function(e) {
+            if (e.target.type !== 'checkbox' && e.target.tagName !== 'LABEL') {
+                const checkbox = this.querySelector('.procedure-checkbox');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            }
+        });
+        
+        // Add cursor pointer
+        card.style.cursor = 'pointer';
     });
 });
 </script>
-
-<style>
-.card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border: 1px solid rgba(0, 0, 0, 0.125);
-}
-
-.form-check {
-    padding: 0.75rem;
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 0.375rem;
-    margin-bottom: 0.5rem;
-    transition: all 0.2s;
-}
-
-.form-check:hover {
-    background-color: #e9ecef;
-    border-color: #adb5bd;
-}
-
-.form-check-input:checked ~ .form-check-label {
-    color: #0d6efd;
-    font-weight: 500;
-}
-
-.badge {
-    font-size: 0.75em;
-}
-
-.table th {
-    background-color: #f8f9fa;
-    border-top: none;
-    font-weight: 600;
-}
-</style>

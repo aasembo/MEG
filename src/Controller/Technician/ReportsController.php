@@ -23,8 +23,24 @@ class ReportsController extends AppController
         $user = $this->request->getAttribute('identity');
         
         $reports = $this->Reports->find()
-            ->contain(['Cases' => ['PatientUsers'], 'Hospitals'])
-            ->order(['Reports.created' => 'DESC'])
+            ->contain([
+                'Users' => ['Roles'], // Load Users with their Roles
+                'Cases' => [
+                    'PatientUsers',
+                    'Hospitals',
+                    'Departments',
+                    'Sedations',
+                    'CasesExamsProcedures' => [
+                        'ExamsProcedures' => [
+                            'Exams' => ['Modalities'],
+                            'Procedures'
+                        ]
+                    ],
+                    'Documents'
+                ],
+                'Hospitals'
+            ])
+            ->order(['Reports.case_id' => 'ASC', 'Reports.created' => 'ASC'])
             ->all();
 
         $this->set(compact('reports'));
@@ -63,13 +79,16 @@ class ReportsController extends AppController
             return $this->redirect(['controller' => 'Cases', 'action' => 'index']);
         }
 
-        // Check if report already exists for this case
+        // Check if THIS technician already has a report for this case
         $existingReport = $this->Reports->find()
-            ->where(['case_id' => $caseId])
+            ->where([
+                'case_id' => $caseId,
+                'user_id' => $user->getIdentifier()
+            ])
             ->first();
             
         if ($existingReport) {
-            // Redirect to edit existing report
+            // Redirect to edit this technician's existing report
             return $this->redirect(['action' => 'edit', $existingReport->id]);
         }
 
@@ -107,7 +126,7 @@ class ReportsController extends AppController
             $data['case_id'] = $caseId;
             $data['hospital_id'] = $case->hospital_id;
             $data['status'] = $data['status'] ?? 'pending';
-            $data['created_by'] = $user->getIdentifier();
+            $data['user_id'] = $user->getIdentifier();
             
             $report = $this->Reports->patchEntity($report, $data);
             
@@ -142,6 +161,9 @@ class ReportsController extends AppController
      */
     public function edit($id = null)
     {
+        $user = $this->request->getAttribute('identity');
+        $userId = $user->getIdentifier();
+        
         $report = $this->Reports->get($id, contain: [
             'Cases' => [
                 'PatientUsers',
@@ -152,6 +174,12 @@ class ReportsController extends AppController
                 'Documents'
             ]
         ]);
+        
+        // Check if current user is the creator of this report
+        if ($report->user_id != $userId) {
+            $this->Flash->error(__('You can only edit reports that you created.'));
+            return $this->redirect(['action' => 'index']);
+        }
         
         if ($this->request->is(['patch', 'post', 'put'])) {
             $data = $this->request->getData();
@@ -217,6 +245,68 @@ class ReportsController extends AppController
      * @param string $format Export format (pdf, docx, rtf, html, txt)
      * @return \Cake\Http\Response Downloads file
      */
+    /**
+     * Download report for a specific case (generates on-the-fly)
+     *
+     * @param int|null $caseId Case ID
+     * @param string $format Format (pdf, html)
+     * @return \Cake\Http\Response|null
+     */
+    public function downloadReport($caseId = null, $format = 'pdf')
+    {
+        if (!$caseId) {
+            $this->Flash->error(__('Invalid case specified.'));
+            return $this->redirect(['controller' => 'Cases', 'action' => 'index']);
+        }
+
+        try {
+            // Load case with all related data for report generation
+            $case = $this->fetchTable('Cases')->get($caseId, [
+                'contain' => [
+                    'PatientUsers' => ['Patients'],
+                    'Hospitals',
+                    'Departments', 
+                    'Sedations',
+                    'CasesExamsProcedures' => [
+                        'ExamsProcedures' => [
+                            'Exams' => ['Modalities'],
+                            'Procedures'
+                        ]
+                    ],
+                    'Documents'
+                ]
+            ]);
+
+            // Generate report content on-the-fly
+            $reportContent = $this->generateReportContent($case);
+            
+            // Create temporary report structure for export
+            $reportData = ['content' => $reportContent];
+            
+            // Create a temporary report entity for the export service
+            $tempReport = $this->Reports->newEmptyEntity();
+            $tempReport->case_id = $caseId;
+            $tempReport->hospital_id = $case->hospital_id; 
+            $tempReport->title = 'Case Report #' . $case->id;
+            $tempReport->case = $case;
+            $tempReport->hospital = $case->hospital;
+            
+            // Load the export service
+            $exportService = new \App\Service\ReportExportService();
+            
+            $result = $exportService->export($tempReport, $reportData, $format);
+            
+            return $this->response
+                ->withType($result['mimeType'])
+                ->withDownload($result['filename'])
+                ->withStringBody($result['content']);
+                
+        } catch (\Exception $e) {
+            $this->Flash->error(__('Error generating case report: {0}', $e->getMessage()));
+            return $this->redirect(['controller' => 'Cases', 'action' => 'view', $caseId]);
+        }
+    }
+
     public function download($id = null, $format = 'pdf')
     {
         $report = $this->Reports->get($id, contain: [

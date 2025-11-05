@@ -14,7 +14,7 @@ $this->assign('title', 'Case #' . $case->id);
         <div>
             <?php echo $this->Html->link(
                 '<i class="fas fa-file-pdf me-1"></i>' . __('Download Report'),
-                array('action' => 'downloadReport', $case->id),
+                array('prefix' => 'Technician', 'controller' => 'Reports', 'action' => 'downloadReport', $case->id),
                 array('class' => 'btn btn-success me-2', 'escape' => false, 'target' => '_blank')
             ); ?>
             

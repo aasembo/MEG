@@ -115,7 +115,7 @@ class LoginController extends AppController {
                         $this->Flash->error(__('You do not have permission to access the admin panel. Administrator access required.'));
                         
                         // DO NOT logout the user - just redirect them to their appropriate dashboard
-                        return $this->redirectToRoleDashboard($userWithRole->role->type);
+                        return $this->redirectToUserDashboard($userWithRole);
                     }
                 }
             }

@@ -4,129 +4,110 @@
  * @var iterable<\App\Model\Entity\MedicalCase> $cases
  */
 
-$this->setLayout('scientist');
-$this->assign('title', 'My Assigned Cases');
+$this->assign('title', 'Case Management');
 
 use App\Constants\SiteConstants;
 ?>
 
-<div class="cases index content">
+<div class="container-fluid px-4 py-4">
     <!-- Page Header -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <h1 class="h3 mb-1">
-                <i class="fas fa-briefcase-medical me-2 text-primary"></i>My Assigned Cases
-            </h1>
-            <p class="text-muted mb-0">
-                <i class="fas fa-hospital me-1"></i><?php echo h($currentHospital->name) ?>
-                <span class="ms-3 text-info">
-                    <i class="fas fa-info-circle me-1"></i>Cases assigned to me
-                </span>
-            </p>
-        </div>
-    </div>
-
-    <!-- Status Badges -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="d-flex gap-2 flex-wrap">
-                <?php 
-                // Scientists don't have draft status - their workflow starts with 'assigned'
-                $statusLabels = array(
-                    SiteConstants::CASE_STATUS_ASSIGNED => array('label' => 'Assigned', 'icon' => 'user-check', 'color' => 'primary'),
-                    SiteConstants::CASE_STATUS_IN_PROGRESS => array('label' => 'In Progress', 'icon' => 'spinner', 'color' => 'warning'),
-                    SiteConstants::CASE_STATUS_COMPLETED => array('label' => 'Completed', 'icon' => 'check-circle', 'color' => 'success'),
-                    SiteConstants::CASE_STATUS_CANCELLED => array('label' => 'Cancelled', 'icon' => 'times-circle', 'color' => 'danger')
-                );
-                foreach ($statusLabels as $statusKey => $statusData): 
-                    $count = isset($statusCounts[$statusKey]) ? $statusCounts[$statusKey] : 0;
-                ?>
-                <a href="<?php echo $this->Url->build(array('action' => 'index', '?' => array('status' => $statusKey))) ?>" 
-                   class="badge bg-<?php echo $statusData['color'] ?> text-decoration-none px-3 py-2">
-                    <i class="fas fa-<?php echo $statusData['icon'] ?> me-1"></i><?php echo $statusData['label'] ?>
-                    <span class="badge bg-light text-dark ms-1"><?php echo $count ?></span>
-                </a>
-                <?php endforeach; ?>
+    <div class="card border-0 shadow mb-4">
+        <div class="card-body bg-success text-white p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-2 fw-bold">
+                        <i class="fas fa-vial me-2"></i>Research Case Management
+                    </h2>
+                    <p class="mb-0">
+                        <i class="fas fa-hospital me-2"></i><?php echo h($currentHospital->name) ?>
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <!-- Actions removed - upload document and create report now handled within case UI -->
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Filters Card -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-                <i class="fas fa-filter me-2"></i>Filters
-            </h5>
-            <?php 
-            $search = $this->request->getQuery('search');
-            $status = $this->request->getQuery('status');
-            $priority = $this->request->getQuery('priority');
-            if ($search || $status || $priority): 
-            ?>
-                <?php echo $this->Html->link(
-                    '<i class="fas fa-times me-1"></i>Clear Filters',
-                    array('action' => 'index'),
-                    array('class' => 'btn btn-sm btn-outline-secondary', 'escape' => false)
-                ); ?>
-            <?php endif; ?>
+    <div class="card border-0 shadow mb-4">
+        <div class="card-header bg-light py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="fas fa-filter me-2 text-success"></i>Filter Cases
+                </h5>
+                <?php 
+                $search = $this->request->getQuery('search');
+                $status = $this->request->getQuery('status');
+                $priority = $this->request->getQuery('priority');
+                if ($search || $status !== 'all' || $priority !== 'all'): 
+                ?>
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-times-circle me-1"></i>Clear All Filters',
+                        ['action' => 'index'],
+                        ['class' => 'btn btn-sm btn-outline-secondary rounded-pill', 'escape' => false]
+                    ); ?>
+                <?php endif; ?>
+            </div>
         </div>
-        <div class="card-body">
-            <?php echo $this->Form->create(null, array('type' => 'get', 'class' => 'row g-3')); ?>
+        <div class="card-body bg-white">
+            <?php echo $this->Form->create(null, ['type' => 'get', 'class' => 'row g-3']); ?>
                 <div class="col-md-3">
                     <label class="form-label fw-semibold">
-                        <i class="fas fa-info-circle me-1 text-primary"></i>Status
+                        <i class="fas fa-info-circle me-1 text-success"></i>Status
                     </label>
-                    <?php echo $this->Form->control('status', array(
+                    <?php echo $this->Form->control('status', [
                         'type' => 'select',
-                        'options' => array(
+                        'options' => [
                             'all' => 'All Statuses',
-                            SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned',
+                            SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned to Me',
                             SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
-                            SiteConstants::CASE_STATUS_COMPLETED => 'Completed',
-                            SiteConstants::CASE_STATUS_CANCELLED => 'Cancelled'
-                        ),
-                        'value' => $status ? $status : 'all',
+                            SiteConstants::CASE_STATUS_REVIEW => 'Under Review',
+                            SiteConstants::CASE_STATUS_COMPLETED => 'Completed'
+                        ],
+                        'value' => $status ?? 'all',
                         'label' => false,
                         'class' => 'form-select',
                         'empty' => false
-                    )); ?>
+                    ]); ?>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-semibold">
                         <i class="fas fa-exclamation-circle me-1 text-warning"></i>Priority
                     </label>
-                    <?php echo $this->Form->control('priority', array(
+                    <?php echo $this->Form->control('priority', [
                         'type' => 'select',
-                        'options' => array(
+                        'options' => [
                             'all' => 'All Priorities',
-                            SiteConstants::PRIORITY_HIGH => 'High',
-                            SiteConstants::PRIORITY_MEDIUM => 'Medium',
-                            SiteConstants::PRIORITY_LOW => 'Low'
-                        ),
-                        'value' => $priority ? $priority : 'all',
+                            'urgent' => 'Urgent',
+                            'high' => 'High',
+                            'medium' => 'Medium',
+                            'low' => 'Low'
+                        ],
+                        'value' => $priority ?? 'all',
                         'label' => false,
                         'class' => 'form-select',
                         'empty' => false
-                    )); ?>
+                    ]); ?>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-semibold">
                         <i class="fas fa-search me-1 text-success"></i>Search
                     </label>
-                    <?php echo $this->Form->control('search', array(
+                    <?php echo $this->Form->control('search', [
                         'type' => 'text',
                         'value' => $search,
                         'label' => false,
                         'class' => 'form-control',
                         'placeholder' => 'Case ID or patient name...'
-                    )); ?>
+                    ]); ?>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">&nbsp;</label>
                     <div class="d-grid">
                         <?php echo $this->Form->button(
                             '<i class="fas fa-search me-1"></i>' . __('Apply'),
-                            array('type' => 'submit', 'class' => 'btn btn-primary', 'escapeTitle' => false)
+                            ['type' => 'submit', 'class' => 'btn btn-success', 'escapeTitle' => false]
                         ); ?>
                     </div>
                 </div>
@@ -137,17 +118,17 @@ use App\Constants\SiteConstants;
     <!-- Results Summary -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <span class="badge bg-secondary-subtle text-secondary border border-secondary px-3 py-2">
+            <span class="badge bg-success text-white fs-6 px-3 py-2">
                 <?php 
                 $totalCount = $this->Paginator->counter('{{count}}');
-                echo '<i class="fas fa-file-medical me-1"></i>' . $totalCount . ' ' . ($totalCount == 1 ? 'Case' : 'Cases');
+                echo '<i class="fas fa-vial me-2"></i>' . $totalCount . ' ' . ($totalCount == 1 ? 'Case' : 'Cases') . ' Found';
                 ?>
             </span>
         </div>
         <?php if (!empty($cases->toArray())): ?>
         <div>
-            <small class="text-muted">
-                <?php echo $this->Paginator->counter(__('Page {{page}} of {{pages}}')); ?>
+            <small class="text-muted fw-semibold">
+                <i class="fas fa-list me-1"></i><?php echo $this->Paginator->counter(__('Page {{page}} of {{pages}}')); ?>
             </small>
         </div>
         <?php endif; ?>
@@ -155,117 +136,215 @@ use App\Constants\SiteConstants;
 
     <!-- Cases Table -->
     <?php if (!empty($cases->toArray())): ?>
-    <div class="card shadow-sm">
+    <div class="card border-0 shadow">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th class="border-0 ps-4" style="width: 80px;">
-                                <?php echo $this->Paginator->sort('id', 'Case ID'); ?>
+                            <th class="border-0 ps-4 fw-semibold text-uppercase small" style="width: 80px;">
+                                <?php echo $this->Paginator->sort('id', 'Case ID', [
+                                    'class' => 'text-decoration-none text-dark',
+                                    '?' => compact('status', 'priority', 'search')
+                                ]); ?>
                             </th>
-                            <th class="border-0" style="width: 200px;">
-                                <?php echo $this->Paginator->sort('patient_id', 'Patient'); ?>
+                            <th class="border-0 fw-semibold text-uppercase small" style="width: 200px;">
+                                <?php echo $this->Paginator->sort('patient_id', 'Patient', [
+                                    'class' => 'text-decoration-none text-dark',
+                                    '?' => compact('status', 'priority', 'search')
+                                ]); ?>
                             </th>
-                            <th class="border-0" style="width: 120px;">
-                                <?php echo $this->Paginator->sort('status', 'Status'); ?>
+                            <th class="border-0 fw-semibold text-uppercase small" style="width: 120px;">
+                                <?php echo $this->Paginator->sort('status', 'Status', [
+                                    'class' => 'text-decoration-none text-dark',
+                                    '?' => compact('status', 'priority', 'search')
+                                ]); ?>
                             </th>
-                            <th class="border-0" style="width: 100px;">
-                                <?php echo $this->Paginator->sort('priority', 'Priority'); ?>
+                            <th class="border-0 fw-semibold text-uppercase small" style="width: 100px;">
+                                <?php echo $this->Paginator->sort('priority', 'Priority', [
+                                    'class' => 'text-decoration-none text-dark',
+                                    '?' => compact('status', 'priority', 'search')
+                                ]); ?>
                             </th>
-                            <th class="border-0" style="width: 150px;">
-                                <?php echo $this->Paginator->sort('date', 'Case Date'); ?>
+                            <th class="border-0 fw-semibold text-uppercase small" style="width: 150px;">
+                                <?php echo $this->Paginator->sort('date', 'Case Date', [
+                                    'class' => 'text-decoration-none text-dark',
+                                    '?' => compact('status', 'priority', 'search')
+                                ]); ?>
                             </th>
-                            <th class="border-0" style="width: 150px;">
-                                <?php echo $this->Paginator->sort('created', 'Created'); ?>
+                            <th class="border-0 fw-semibold text-uppercase small">
+                                <?php echo $this->Paginator->sort('current_user_id', 'Assigned To', [
+                                    'class' => 'text-decoration-none text-dark',
+                                    '?' => compact('status', 'priority', 'search')
+                                ]); ?>
                             </th>
-                            <th class="border-0 text-center" style="width: 120px;">Actions</th>
+                            <th class="border-0 fw-semibold text-uppercase small" style="width: 150px;">
+                                <?php echo $this->Paginator->sort('created', 'Created', [
+                                    'class' => 'text-decoration-none text-dark',
+                                    '?' => compact('status', 'priority', 'search')
+                                ]); ?>
+                            </th>
+                            <th class="border-0 text-center fw-semibold text-uppercase small" style="width: 150px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($cases as $case): ?>
-                        <tr class="case-row">
+                        <tr>
                             <!-- Case ID -->
-                            <td class="ps-4 fw-bold text-primary">
-                                #<?php echo h($case->id) ?>
-                            </td>
-
-                            <!-- Patient -->
-                            <td>
+                            <td class="ps-4">
                                 <div class="d-flex align-items-center">
-                                    <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-2">
-                                        <i class="fas fa-user-injured text-primary"></i>
+                                    <div class="bg-success text-white rounded d-inline-flex align-items-center justify-content-center me-2 p-2" style="width: 36px; height: 36px;">
+                                        <i class="fas fa-vial"></i>
                                     </div>
-                                    <div>
-                                        <div class="fw-medium">
-                                            <?php echo h($case->patient_user ? ($case->patient_user->first_name . ' ' . $case->patient_user->last_name) : 'N/A') ?>
-                                        </div>
-                                        <small class="text-muted">
-                                            <?php echo h($case->patient_user ? $case->patient_user->email : '') ?>
-                                        </small>
-                                    </div>
+                                    <?php echo $this->Html->link(
+                                        '<span class="fw-semibold">#' . h($case->id) . '</span>',
+                                        ['action' => 'view', $case->id],
+                                        ['escape' => false, 'class' => 'text-decoration-none text-success']
+                                    ); ?>
                                 </div>
                             </td>
-
+                            
+                            <!-- Patient -->
+                            <td>
+                                <?php if ($case->patient_id && isset($case->patient_user)): ?>
+                                    <div>
+                                        <div class="fw-semibold text-dark">
+                                            <?php echo $this->PatientMask->displayField($case->patient_user, 'name', ['icon' => false]); ?>
+                                        </div>
+                                        <div class="text-muted small">
+                                            <i class="fas fa-id-card me-1"></i>MRN: <?php echo $this->PatientMask->displayMrn($case->patient_user); ?>
+                                        </div>
+                                    </div>
+                                <?php elseif ($case->patient_id): ?>
+                                    <span class="text-muted">Patient ID: <?php echo h($case->patient_id); ?></span>
+                                <?php else: ?>
+                                    <span class="text-muted">
+                                        <i class="fas fa-user-slash me-1"></i>No patient assigned
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                            
                             <!-- Status -->
                             <td>
                                 <?php 
                                 // Get scientist-specific status
-                                $roleStatus = $case->scientist_status ?? 'draft';
-                                $statusClasses = array(
-                                    'draft' => 'secondary',
-                                    'assigned' => 'primary',
-                                    'in_progress' => 'warning',
-                                    'completed' => 'success',
-                                    'cancelled' => 'danger'
-                                );
-                                $statusClass = isset($statusClasses[$roleStatus]) ? $statusClasses[$roleStatus] : 'secondary';
+                                $roleStatus = $case->scientist_status ?? 'assigned';
+                                $statusConfig = match($roleStatus) {
+                                    'assigned' => ['class' => 'info', 'icon' => 'user-check', 'label' => $case->getStatusLabelForRole('scientist')],
+                                    'in_progress' => ['class' => 'warning', 'icon' => 'spinner', 'label' => $case->getStatusLabelForRole('scientist')],
+                                    'review' => ['class' => 'primary', 'icon' => 'search', 'label' => $case->getStatusLabelForRole('scientist')],
+                                    'completed' => ['class' => 'success', 'icon' => 'check-circle', 'label' => $case->getStatusLabelForRole('scientist')],
+                                    'cancelled' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => $case->getStatusLabelForRole('scientist')],
+                                    default => ['class' => 'secondary', 'icon' => 'circle', 'label' => $case->getStatusLabelForRole('scientist')]
+                                };
                                 ?>
-                                <span class="badge bg-<?php echo $statusClass ?>">
-                                    <?php echo h($case->getStatusLabelForRole('scientist')) ?>
+                                <?php
+                                $badgeClass = 'badge rounded-pill bg-' . $statusConfig['class'];
+                                $badgeClass .= ($statusConfig['class'] === 'warning') ? ' text-dark' : ' text-white';
+                                ?>
+                                <span class="<?php echo $badgeClass; ?>">
+                                    <i class="fas fa-<?php echo $statusConfig['icon'] ?> me-1"></i><?php echo h($statusConfig['label']) ?>
                                 </span>
                             </td>
-
+                            
                             <!-- Priority -->
                             <td>
                                 <?php 
-                                $priorityClasses = array(
-                                    SiteConstants::PRIORITY_HIGH => 'danger',
-                                    SiteConstants::PRIORITY_MEDIUM => 'warning',
-                                    SiteConstants::PRIORITY_LOW => 'info'
-                                );
-                                $priorityClass = isset($priorityClasses[$case->priority]) ? $priorityClasses[$case->priority] : 'secondary';
+                                $priorityConfig = match($case->priority) {
+                                    'urgent' => ['class' => 'danger', 'icon' => 'exclamation-triangle', 'label' => $case->getPriorityLabel()],
+                                    'high' => ['class' => 'danger', 'icon' => 'arrow-up', 'label' => $case->getPriorityLabel()],
+                                    'medium' => ['class' => 'warning', 'icon' => 'minus', 'label' => $case->getPriorityLabel()],
+                                    'low' => ['class' => 'success', 'icon' => 'arrow-down', 'label' => $case->getPriorityLabel()],
+                                    default => ['class' => 'secondary', 'icon' => 'minus', 'label' => $case->getPriorityLabel()]
+                                };
                                 ?>
-                                <span class="badge bg-<?php echo $priorityClass ?>">
-                                    <?php echo h(ucfirst($case->priority)) ?>
+                                <?php
+                                $priorityBadge = 'badge rounded-pill bg-' . $priorityConfig['class'];
+                                $priorityBadge .= ($priorityConfig['class'] === 'warning') ? ' text-dark' : ' text-white';
+                                ?>
+                                <span class="<?php echo $priorityBadge; ?>">
+                                    <i class="fas fa-<?php echo $priorityConfig['icon'] ?> me-1"></i><?php echo h($priorityConfig['label']) ?>
                                 </span>
                             </td>
-
+                            
                             <!-- Case Date -->
                             <td>
-                                <i class="fas fa-calendar-alt text-muted me-1"></i>
-                                <?php echo $case->date ? $case->date->format('M d, Y') : 'N/A' ?>
+                                <?php if ($case->date): ?>
+                                    <div class="text-dark">
+                                        <i class="fas fa-calendar me-1 text-muted"></i><?php echo $case->date->format('M d, Y') ?>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="text-muted">Not set</span>
+                                <?php endif; ?>
                             </td>
-
+                            
+                            <!-- Assigned To -->
+                            <td>
+                                <?php if ($case->current_user): ?>
+                                    <div>
+                                        <div class="fw-semibold text-dark">
+                                            <i class="fas fa-user-circle me-1 text-success"></i>
+                                            <?php if ($case->current_user_id === $user->id): ?>
+                                                <span class="text-success">You</span>
+                                            <?php else: ?>
+                                                <?php echo h($case->current_user->first_name . ' ' . $case->current_user->last_name) ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="text-muted small">
+                                            <i class="fas fa-envelope me-1"></i><?php echo h($case->current_user->email) ?>
+                                        </div>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="text-muted">
+                                        <i class="fas fa-user-slash me-1"></i>Unassigned
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                            
                             <!-- Created -->
                             <td>
-                                <i class="fas fa-clock text-muted me-1"></i>
-                                <?php echo $case->created ? $case->created->format('M d, Y') : 'N/A' ?>
+                                <div class="text-muted small">
+                                    <div>
+                                        <i class="fas fa-user me-1"></i>
+                                        <?php if ($case->user_id === $user->id): ?>
+                                            <span class="text-success">You</span>
+                                        <?php else: ?>
+                                            <?php echo h($case->user->first_name . ' ' . $case->user->last_name) ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div><i class="fas fa-clock me-1"></i><?php echo $case->created->format('M d, Y') ?></div>
+                                </div>
                             </td>
-
+                            
                             <!-- Actions -->
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
                                     <?php echo $this->Html->link(
                                         '<i class="fas fa-eye"></i>',
-                                        array('action' => 'view', $case->id),
-                                        array(
-                                            'class' => 'btn btn-outline-primary',
+                                        ['action' => 'view', $case->id],
+                                        [
                                             'escape' => false,
+                                            'class' => 'btn btn-outline-info',
                                             'title' => 'View Case',
                                             'data-bs-toggle' => 'tooltip'
-                                        )
+                                        ]
                                     ); ?>
+                                    <?php 
+                                    // Scientists can promote cases to doctor review
+                                    $scientistStatus = $case->scientist_status ?? 'assigned';
+                                    if (!in_array($scientistStatus, ['completed', 'cancelled'])): 
+                                    ?>
+                                        <?php echo $this->Html->link(
+                                            '<i class="fas fa-user-md"></i>',
+                                            ['action' => 'assign', $case->id],
+                                            [
+                                                'escape' => false,
+                                                'class' => 'btn btn-outline-primary',
+                                                'title' => 'Promote to Doctor',
+                                                'data-bs-toggle' => 'tooltip'
+                                            ]
+                                        ); ?>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -274,54 +353,116 @@ use App\Constants\SiteConstants;
                 </table>
             </div>
         </div>
+        
+        <!-- Pagination -->
+        <div class="card-footer bg-light border-top">
+            <div class="row align-items-center g-3">
+                <div class="col-md-6 col-12">
+                    <div class="text-muted small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <?php echo $this->Paginator->counter('Showing {{start}} to {{end}} of {{count}} cases'); ?>
+                    </div>
+                </div>
+                <div class="col-md-6 col-12">
+                    <nav aria-label="Cases pagination">
+                        <ul class="pagination pagination-sm mb-0 justify-content-md-end justify-content-center">
+                            <?php 
+                            // First page button
+                            echo $this->Paginator->first(
+                                '<i class="fas fa-angle-double-left"></i>', 
+                                [
+                                    'escape' => false,
+                                    'class' => 'page-link',
+                                    'url' => ['?' => compact('status', 'priority', 'search')],
+                                    'templates' => [
+                                        'first' => '<li class="page-item">{{text}}</li>',
+                                        'firstDisabled' => '<li class="page-item disabled"><span class="page-link">{{text}}</span></li>'
+                                    ]
+                                ]
+                            );
+                            
+                            // Previous button
+                            echo $this->Paginator->prev(
+                                '<i class="fas fa-chevron-left"></i>', 
+                                [
+                                    'escape' => false,
+                                    'class' => 'page-link',
+                                    'url' => ['?' => compact('status', 'priority', 'search')],
+                                    'templates' => [
+                                        'prevActive' => '<li class="page-item">{{text}}</li>',
+                                        'prevDisabled' => '<li class="page-item disabled"><span class="page-link">{{text}}</span></li>'
+                                    ]
+                                ]
+                            );
+                            
+                            // Page numbers
+                            echo $this->Paginator->numbers([
+                                'modulus' => 3,
+                                'class' => 'page-link',
+                                'url' => ['?' => compact('status', 'priority', 'search')],
+                                'templates' => [
+                                    'number' => '<li class="page-item">{{text}}</li>',
+                                    'current' => '<li class="page-item active"><span class="page-link">{{text}}</span></li>'
+                                ]
+                            ]);
+                            
+                            // Next button
+                            echo $this->Paginator->next(
+                                '<i class="fas fa-chevron-right"></i>', 
+                                [
+                                    'escape' => false,
+                                    'class' => 'page-link',
+                                    'url' => ['?' => compact('status', 'priority', 'search')],
+                                    'templates' => [
+                                        'nextActive' => '<li class="page-item">{{text}}</li>',
+                                        'nextDisabled' => '<li class="page-item disabled"><span class="page-link">{{text}}</span></li>'
+                                    ]
+                                ]
+                            );
+                            
+                            // Last page button
+                            echo $this->Paginator->last(
+                                '<i class="fas fa-angle-double-right"></i>', 
+                                [
+                                    'escape' => false,
+                                    'class' => 'page-link',
+                                    'url' => ['?' => compact('status', 'priority', 'search')],
+                                    'templates' => [
+                                        'last' => '<li class="page-item">{{text}}</li>',
+                                        'lastDisabled' => '<li class="page-item disabled"><span class="page-link">{{text}}</span></li>'
+                                    ]
+                                ]
+                            );
+                            ?>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <!-- Pagination -->
-    <div class="d-flex justify-content-center mt-4">
-        <nav aria-label="Page navigation">
-            <ul class="pagination">
-                <?php
-                echo $this->Paginator->prev('«', array('tag' => 'li', 'class' => 'page-item'));
-                echo $this->Paginator->numbers(array('tag' => 'li', 'currentClass' => 'active', 'class' => 'page-item'));
-                echo $this->Paginator->next('»', array('tag' => 'li', 'class' => 'page-item'));
-                ?>
-            </ul>
-        </nav>
-    </div>
-
     <?php else: ?>
     <!-- Empty State -->
-    <div class="card shadow-sm">
+    <div class="card border-0 shadow">
         <div class="card-body text-center py-5">
             <div class="mb-4">
-                <i class="fas fa-inbox fa-4x text-muted"></i>
+                <i class="fas fa-vial text-muted" style="font-size: 4rem;"></i>
             </div>
-            <h4 class="text-muted mb-2">No Cases Found</h4>
+            <h4 class="text-muted mb-3">No cases found</h4>
             <p class="text-muted mb-4">
-                <?php if ($search || $status || $priority): ?>
+                <?php if ($search || $status !== 'all' || $priority !== 'all'): ?>
                     No cases match your current filters. Try adjusting your search criteria.
                 <?php else: ?>
-                    You don't have any assigned cases yet.
+                    No cases have been assigned to you yet. Cases will appear here when they are assigned for scientific review.
                 <?php endif; ?>
             </p>
-            <?php if ($search || $status || $priority): ?>
+            <?php if ($search || $status !== 'all' || $priority !== 'all'): ?>
                 <?php echo $this->Html->link(
-                    '<i class="fas fa-times me-2"></i>Clear All Filters',
-                    array('action' => 'index'),
-                    array('class' => 'btn btn-primary', 'escape' => false)
+                    '<i class="fas fa-times-circle me-1"></i>Clear Filters',
+                    ['action' => 'index'],
+                    ['class' => 'btn btn-outline-success', 'escape' => false]
                 ); ?>
             <?php endif; ?>
         </div>
     </div>
     <?php endif; ?>
 </div>
-
-<script>
-// Initialize tooltips
-document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-});
-</script>
