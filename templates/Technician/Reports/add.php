@@ -10,7 +10,7 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
 ?>
 
 <!-- Include Custom Rich Text Editor -->
-<script src="<?php echo  $this->Url->build('/assets/js/rich-text-editor.js') ?>"></script>
+<script src="<?php echo  $this->Url->build('/assets/js/rich-text-editor.js?v=' . time()) ?>"></script>
 
 <div class="container-fluid px-4 py-4">
     <!-- Page Header -->

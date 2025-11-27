@@ -333,6 +333,12 @@ use App\Constants\SiteConstants;
                                     // Scientists can promote cases to doctor review
                                     $scientistStatus = $case->scientist_status ?? 'assigned';
                                     if (!in_array($scientistStatus, ['completed', 'cancelled'])): 
+                                        $hasValidAssignment = !empty($case->case_assignments) &&
+                                                          isset($case->case_assignments[0]->assigned_to_user) &&
+                                                          $case->case_assignments[0]->assigned_to_user &&
+                                                          isset($case->case_assignments[0]->assigned_to_user->role) &&
+                                                          $case->case_assignments[0]->assigned_to_user->role &&
+                                                          strtolower($case->case_assignments[0]->assigned_to_user->role->type) === 'doctor';
                                     ?>
                                         <?php echo $this->Html->link(
                                             '<i class="fas fa-user-md"></i>',
@@ -340,7 +346,7 @@ use App\Constants\SiteConstants;
                                             [
                                                 'escape' => false,
                                                 'class' => 'btn btn-outline-primary',
-                                                'title' => 'Promote to Doctor',
+                                                'title' => ($hasValidAssignment ? 'Change Assignment' : 'Promote to Doctor'),
                                                 'data-bs-toggle' => 'tooltip'
                                             ]
                                         ); ?>

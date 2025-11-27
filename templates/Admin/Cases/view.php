@@ -787,6 +787,7 @@ $this->assign('title', 'Case #' . $case->id);
                             </div>
                             
                             <!-- Scientist Status -->
+                            <?php if ($scientistStatus !== 'draft'): ?>
                             <div class="mb-3">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
                                     <span class="small">
@@ -816,8 +817,10 @@ $this->assign('title', 'Case #' . $case->id);
                                     ?>%"></div>
                                 </div>
                             </div>
+                            <?php endif; ?>
                             
                             <!-- Doctor Status -->
+                            <?php if ($doctorStatus !== 'draft'): ?>
                             <div class="mb-2">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
                                     <span class="small">
@@ -847,6 +850,7 @@ $this->assign('title', 'Case #' . $case->id);
                                     ?>%"></div>
                                 </div>
                             </div>
+                            <?php endif; ?>
                             
                             <!-- Overall Progress -->
                             <div class="mt-3 pt-3 border-top">

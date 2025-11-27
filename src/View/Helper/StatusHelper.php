@@ -75,7 +75,8 @@ class StatusHelper extends Helper
         $statusField = strtolower($role) . '_status';
         $status = $case->$statusField ?? null;
 
-        if (!$status) {
+        // Don't show badge if status is null or 'draft'
+        if (!$status || $status === 'draft') {
             return '';
         }
 

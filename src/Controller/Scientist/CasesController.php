@@ -327,12 +327,33 @@ class CasesController extends AppController
             return $this->redirect(array('action' => 'index'));
         }
 
-        // Handle role-based status transition on first view
-        $roleColumn = 'scientist_status';
-        $currentRoleStatus = $case->{$roleColumn} ?? 'draft';
-        
-        if ($currentRoleStatus === 'draft') {
-            $this->caseStatusService->transitionOnView($case, 'scientist', $user->id);
+        // Auto-progress: Change scientist_status from 'assigned' to 'in_progress' on first view
+        if ($case->scientist_status === SiteConstants::CASE_STATUS_ASSIGNED) {
+            $case->scientist_status = SiteConstants::CASE_STATUS_IN_PROGRESS;
+            
+            // Also update global status if it's still 'assigned'
+            if ($case->status === SiteConstants::CASE_STATUS_ASSIGNED) {
+                $case->status = SiteConstants::CASE_STATUS_IN_PROGRESS;
+            }
+            
+            if ($this->Cases->save($case)) {
+                // Log the status change
+                $this->activityLogger->log(
+                    SiteConstants::EVENT_CASE_UPDATED,
+                    array(
+                        'user_id' => $user->id,
+                        'request' => $this->request,
+                        'event_data' => array(
+                            'case_id' => $case->id,
+                            'action' => 'auto_status_change',
+                            'old_scientist_status' => SiteConstants::CASE_STATUS_ASSIGNED,
+                            'new_scientist_status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
+                            'hospital_id' => $currentHospital->id,
+                            'trigger' => 'scientist_first_view'
+                        )
+                    )
+                );
+            }
         }
 
         // Log activity
@@ -435,8 +456,8 @@ class CasesController extends AppController
                 throw new RecordNotFoundException(__('Case not found or you do not have access to this case.'));
             }
 
-            // Check if case can be assigned - scientists use role-based status (no draft for scientists)
-            if (!in_array($case->scientist_status, array(SiteConstants::CASE_STATUS_ASSIGNED, SiteConstants::CASE_STATUS_IN_PROGRESS))) {
+            // Check if case can be assigned - allow as long as global status is not completed
+            if ($case->status === SiteConstants::CASE_STATUS_COMPLETED) {
                 $this->Flash->error(__('This case cannot be assigned in its current status.'));
                 return $this->redirect(array('action' => 'view', $id));
             }
@@ -494,35 +515,23 @@ class CasesController extends AppController
                             'doctor', 
                             $user->id
                         );
+                        // Reload case to get updated statuses from transitionOnAssignment
+                        $case = $this->Cases->get($case->id);
                     }
                     
-                    // Update case - when scientist assigns to doctor, global status should be 'in_progress'
-                    $oldStatus = $case->status;
-                    $newGlobalStatus = SiteConstants::CASE_STATUS_IN_PROGRESS;
-                    $case->status = $newGlobalStatus;
+                    // Update case current_user_id
                     $case->current_user_id = $data['assigned_to'];
                     
                     if ($this->Cases->save($case)) {
-                        // Log audit trail - only log global status change if it actually changed
+                        // Log audit trail - status change is already logged by transitionOnAssignment
                         $caseAuditsTable = $this->fetchTable('CaseAudits');
-                        
-                        if ($oldStatus !== $newGlobalStatus) {
-                            $caseAuditsTable->logChange(
-                                $case->id,
-                                $case->current_version_id,
-                                'status',
-                                $oldStatus,
-                                $newGlobalStatus,
-                                $user->id
-                            );
-                        }
                         
                         $caseAuditsTable->logChange(
                             $case->id,
                             $case->current_version_id,
                             'assigned_to',
                             '',
-                            $data['assigned_to'],
+                            (string)$data['assigned_to'],
                             $user->id
                         );
 

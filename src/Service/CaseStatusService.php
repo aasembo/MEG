@@ -83,13 +83,13 @@ class CaseStatusService
         $fromColumn = $this->getRoleStatusColumn($fromRole);
         $toColumn = $this->getRoleStatusColumn($toRole);
         
-        // Set assigner's status to 'assigned'
+        // Set assigner's status to 'completed' (they finished their part)
         $oldFromStatus = $case->{$fromColumn};
-        $case->{$fromColumn} = SiteConstants::CASE_STATUS_ASSIGNED;
+        $case->{$fromColumn} = SiteConstants::CASE_STATUS_COMPLETED;
         
-        // Set assignee's status to 'draft' (new for them)
+        // Set assignee's status to 'assigned' (ready for them to start)
         $oldToStatus = $case->{$toColumn};
-        $case->{$toColumn} = SiteConstants::CASE_STATUS_DRAFT;
+        $case->{$toColumn} = SiteConstants::CASE_STATUS_ASSIGNED;
         
         // Update global status to 'in_progress' (not 'assigned')
         $oldGlobalStatus = $case->status;
@@ -102,18 +102,18 @@ class CaseStatusService
                 $case->id,
                 $fromColumn,
                 $oldFromStatus,
-                SiteConstants::CASE_STATUS_ASSIGNED,
+                SiteConstants::CASE_STATUS_COMPLETED,
                 $userId,
-                "Case assigned from {$fromRole} to {$toRole}"
+                "{$fromRole} completed and assigned to {$toRole}"
             );
             
             $this->logStatusChange(
                 $case->id,
                 $toColumn,
                 $oldToStatus,
-                SiteConstants::CASE_STATUS_DRAFT,
+                SiteConstants::CASE_STATUS_ASSIGNED,
                 $userId,
-                "Case received by {$toRole} from {$fromRole}"
+                "Case assigned to {$toRole} from {$fromRole}"
             );
             
             // Only log global status change if it actually changed

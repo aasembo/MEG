@@ -16,7 +16,7 @@ class RichTextEditor {
                 'alignLeft', 'alignCenter', 'alignRight', 'alignJustify', '|',
                 'heading1', 'heading2', 'heading3', 'paragraph', '|',
                 'bulletList', 'orderedList', 'indent', 'outdent', '|',
-                'link', 'table', '|',
+                'link', 'table', 'insertHTML', '|',
                 'pasteSpecial', 'clearFormatting', '|',
                 'undo', 'redo', '|',
                 'fullscreen'
@@ -105,6 +105,7 @@ class RichTextEditor {
             outdent: { icon: '←', title: 'Decrease indent', command: 'outdent' },
             link: { icon: '🔗', title: 'Insert link', command: 'createLink' },
             table: { icon: '⊞', title: 'Insert table', command: 'insertTable' },
+            insertHTML: { icon: '&lt;/&gt;', title: 'Insert HTML', command: 'insertHTML' },
             pasteSpecial: { icon: '📋', title: 'Paste Special - preserves formatting (Ctrl+Shift+V)', command: 'pasteSpecial' },
             clearFormatting: { icon: '🧹', title: 'Clear formatting', command: 'removeFormat' },
             undo: { icon: '↶', title: 'Undo (Ctrl+Z)', command: 'undo' },
@@ -249,6 +250,8 @@ class RichTextEditor {
                 this.insertLink();
             } else if (config.command === 'insertTable') {
                 this.insertTable();
+            } else if (config.command === 'insertHTML') {
+                this.showInsertHTMLDialog();
             } else if (config.command === 'toggleFullscreen') {
                 this.toggleFullscreen();
             } else if (config.command === 'pasteSpecial') {
@@ -404,9 +407,6 @@ class RichTextEditor {
     }
     
     handlePaste(e) {
-        // Prevent default paste behavior
-        e.preventDefault();
-        
         // Get clipboard data
         const clipboardData = e.clipboardData || window.clipboardData;
         
@@ -414,52 +414,189 @@ class RichTextEditor {
         let htmlContent = clipboardData.getData('text/html');
         let textContent = clipboardData.getData('text/plain');
         
-        // If we have HTML content, clean and use it
-        if (htmlContent) {
-            // Clean the HTML content
+        console.log('Paste detected:', { hasHTML: !!htmlContent, hasText: !!textContent });
+        
+        // If we have HTML content, allow it with minimal cleaning
+        if (htmlContent && htmlContent.trim()) {
+            console.log('Handling as HTML from clipboard');
+            // Prevent default behavior only if we're going to handle it
+            e.preventDefault();
+            
+            // Clean the HTML content but preserve most formatting
             htmlContent = this.cleanPastedHTML(htmlContent);
             
             // Insert the cleaned HTML
             this.insertHTMLAtCursor(htmlContent);
-        } else if (textContent) {
-            // If only plain text, convert line breaks to paragraphs
-            const formattedText = this.formatPlainText(textContent);
-            this.insertHTMLAtCursor(formattedText);
+            
+            // Update content and trigger events
+            this.updateContent();
+            this.handlePlaceholder();
+            this.updateToolbarState();
+        } else if (textContent && textContent.trim()) {
+            // Check if the plain text is actually HTML code
+            const trimmedText = textContent.trim();
+            const looksLikeHTML = (trimmedText.startsWith('<') && trimmedText.includes('>')) || 
+                                  (trimmedText.includes('<') && trimmedText.includes('</'));
+            
+            console.log('Text content:', trimmedText.substring(0, 100));
+            console.log('Looks like HTML?', looksLikeHTML);
+            
+            if (looksLikeHTML) {
+                console.log('Treating plain text as HTML');
+                // Plain text contains HTML code - render it as HTML
+                e.preventDefault();
+                
+                // Clean and insert as HTML
+                const cleanedHTML = this.cleanPastedHTML(trimmedText);
+                console.log('Cleaned HTML:', cleanedHTML.substring(0, 100));
+                this.insertHTMLAtCursor(cleanedHTML);
+                
+                // Update content and trigger events
+                this.updateContent();
+                this.handlePlaceholder();
+                this.updateToolbarState();
+            } else {
+                console.log('Treating as plain text');
+                // Plain text only - prevent default and format
+                e.preventDefault();
+                
+                // Convert line breaks to paragraphs
+                const formattedText = this.formatPlainText(textContent);
+                this.insertHTMLAtCursor(formattedText);
+                
+                // Update content and trigger events
+                this.updateContent();
+                this.handlePlaceholder();
+                this.updateToolbarState();
+            }
         }
-        
-        // Update content and trigger events
-        this.updateContent();
-        this.handlePlaceholder();
-        this.updateToolbarState();
+        // If no content, allow default paste behavior
     }
     
     cleanPastedHTML(html) {
+        console.log('cleanPastedHTML: Starting with HTML length:', html.length);
+        
+        // Check if this is a full HTML document (has DOCTYPE or html tags)
+        const isFullDocument = html.trim().toLowerCase().includes('<!doctype') || 
+                               html.trim().toLowerCase().startsWith('<html');
+        
+        if (isFullDocument) {
+            console.log('Detected full HTML document, extracting body content...');
+            // Parse as full document and extract body content
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Get body content
+            const bodyContent = doc.body ? doc.body.innerHTML : html;
+            console.log('Extracted body content length:', bodyContent.length);
+            html = bodyContent;
+        }
+        
         // Create a temporary div to parse HTML
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
         
-        // Remove unwanted elements and attributes
-        this.removeUnwantedElements(tempDiv);
-        this.cleanAttributes(tempDiv);
+        console.log('Temp div children:', tempDiv.children.length);
         
-        // Convert Word-specific elements
+        // Only remove truly unwanted elements (scripts, styles, meta)
+        this.removeUnwantedElements(tempDiv);
+        
+        // Light cleaning of attributes - preserve more formatting
+        this.cleanAttributesLightly(tempDiv);
+        
+        // Convert Word-specific elements but preserve formatting
         this.convertWordElements(tempDiv);
         
-        return tempDiv.innerHTML;
+        const result = tempDiv.innerHTML;
+        console.log('cleanPastedHTML: Final HTML length:', result.length);
+        
+        return result;
     }
     
     removeUnwantedElements(element) {
-        // Remove script tags, style tags, and other unwanted elements
-        const unwantedTags = ['script', 'style', 'meta', 'link', 'xml', 'o:p'];
+        // Only remove dangerous/problematic elements, not empty ones
+        const unwantedTags = ['script', 'style', 'meta', 'link', 'xml'];
         
         unwantedTags.forEach(tag => {
             const elements = element.querySelectorAll(tag);
             elements.forEach(el => el.remove());
         });
         
-        // Remove empty spans and divs
-        const emptyElements = element.querySelectorAll('span:empty, div:empty');
-        emptyElements.forEach(el => el.remove());
+        // Remove o:p tags and other Word-specific namespaced elements (Word specific empty tags)
+        // Use getElementsByTagName instead of querySelectorAll for namespaced elements
+        const allElements = element.getElementsByTagName('*');
+        const elementsToRemove = [];
+        
+        for (let i = 0; i < allElements.length; i++) {
+            const el = allElements[i];
+            // Check if tag name contains a colon (namespaced element like o:p, w:sdt, etc.)
+            if (el.tagName.includes(':')) {
+                elementsToRemove.push(el);
+            }
+        }
+        
+        elementsToRemove.forEach(el => el.remove());
+    }
+    
+    
+    cleanAttributesLightly(element) {
+        // This is a lighter cleaning that preserves most HTML formatting
+        // Only remove dangerous attributes and scripts
+        const dangerousAttributes = ['onclick', 'onload', 'onerror', 'onmouseover', 'onfocus', 'onblur'];
+        
+        const allElements = element.querySelectorAll('*');
+        allElements.forEach(el => {
+            // Remove dangerous event handler attributes
+            dangerousAttributes.forEach(attr => {
+                if (el.hasAttribute(attr)) {
+                    el.removeAttribute(attr);
+                }
+            });
+            
+            // Clean Microsoft Office specific attributes but keep others
+            const attributes = Array.from(el.attributes);
+            attributes.forEach(attr => {
+                // Remove MS Office specific attributes
+                if (attr.name.startsWith('mso-') || attr.name.startsWith('o:')) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+            
+            // Keep style attributes but clean MS Office styles
+            if (el.hasAttribute('style')) {
+                const style = el.getAttribute('style');
+                const cleanedStyle = style
+                    .split(';')
+                    .filter(s => !s.trim().startsWith('mso-'))
+                    .join(';');
+                
+                if (cleanedStyle.trim()) {
+                    el.setAttribute('style', cleanedStyle);
+                } else {
+                    el.removeAttribute('style');
+                }
+            }
+            
+            // Handle images - remove broken or external images that might cause issues
+            if (el.tagName.toLowerCase() === 'img') {
+                const src = el.getAttribute('src');
+                if (src) {
+                    // Check if it's a data URL (base64) - allow these
+                    if (src.startsWith('data:image/')) {
+                        // Keep data URLs
+                    } else if (src.startsWith('http://') || src.startsWith('https://')) {
+                        // External URLs - you can choose to keep or remove
+                        // For now, we'll replace with a placeholder to avoid broken image errors
+                        console.warn('External image detected and removed:', src);
+                        el.setAttribute('alt', `[External image: ${src.substring(0, 50)}...]`);
+                        el.removeAttribute('src');
+                    } else if (!src.startsWith('/')) {
+                        // Relative URLs that might be broken
+                        console.warn('Potentially broken relative image:', src);
+                    }
+                }
+            }
+        });
     }
     
     cleanAttributes(element) {
@@ -484,13 +621,14 @@ class RichTextEditor {
             'ul': [],
             'ol': [],
             'li': [],
-            'a': ['href', 'title'],
-            'table': ['class'],
+            'a': ['href', 'title', 'target'],
+            'img': ['src', 'alt', 'title', 'width', 'height', 'style'],
+            'table': ['class', 'style'],
             'thead': [],
             'tbody': [],
             'tr': [],
-            'td': ['colspan', 'rowspan'],
-            'th': ['colspan', 'rowspan'],
+            'td': ['colspan', 'rowspan', 'style'],
+            'th': ['colspan', 'rowspan', 'style'],
             'br': []
         };
         
@@ -584,29 +722,173 @@ class RichTextEditor {
     }
     
     insertHTMLAtCursor(html) {
+        console.log('insertHTMLAtCursor called with HTML length:', html.length);
+        
+        // Ensure the editor is focused
+        this.editorContent.focus();
+        
         // Get current selection
         const selection = window.getSelection();
+        
+        console.log('Selection range count:', selection.rangeCount);
         
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             
-            // Delete current selection
-            range.deleteContents();
+            // Check if the range is within our editor
+            if (!this.editorContent.contains(range.commonAncestorContainer)) {
+                console.log('Range not in editor, creating new range at end');
+                // If not in our editor, create a range at the end
+                const newRange = document.createRange();
+                newRange.selectNodeContents(this.editorContent);
+                newRange.collapse(false); // Collapse to end
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            }
             
+            const activeRange = selection.getRangeAt(0);
+            
+            console.log('Range found, deleting contents...');
+            // Delete current selection
+            activeRange.deleteContents();
+            
+            console.log('Creating fragment from HTML...');
             // Create a document fragment from the HTML
-            const fragment = range.createContextualFragment(html);
+            const fragment = activeRange.createContextualFragment(html);
+            
+            console.log('Fragment created, nodes:', fragment.childNodes.length);
             
             // Insert the fragment
-            range.insertNode(fragment);
+            activeRange.insertNode(fragment);
+            
+            console.log('Fragment inserted successfully');
             
             // Move cursor to end of inserted content
-            range.collapse(false);
+            activeRange.collapse(false);
             selection.removeAllRanges();
-            selection.addRange(range);
+            selection.addRange(activeRange);
         } else {
+            console.log('No selection range, appending to editor content');
             // If no selection, append to the end
             this.editorContent.innerHTML += html;
         }
+        
+        console.log('Final editor HTML length:', this.editorContent.innerHTML.length);
+        console.log('insertHTMLAtCursor completed');
+    }
+    
+    
+    showInsertHTMLDialog() {
+        // Create a modal dialog for inserting HTML
+        const modalHTML = `
+            <div class="modal fade" id="insertHTMLModal" tabindex="-1" aria-labelledby="insertHTMLModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="insertHTMLModalLabel">
+                                <i class="fas fa-code me-2"></i>Insert HTML
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted mb-3">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Paste your HTML code below. It will be rendered in the editor with formatting preserved.
+                            </p>
+                            <textarea id="insertHTMLTextarea" class="form-control font-monospace" rows="12" 
+                                placeholder="<p>Your HTML content here...</p>" 
+                                style="font-size: 13px;"></textarea>
+                            <div class="mt-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="cleanHTMLBeforeInsert" checked>
+                                    <label class="form-check-label" for="cleanHTMLBeforeInsert">
+                                        Clean and sanitize HTML (remove scripts, dangerous attributes)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="mt-2 p-2 bg-light rounded small">
+                                <strong>Tip:</strong> This is useful for pasting formatted content from other sources or inserting custom HTML structures.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="insertHTMLConfirm">
+                                <i class="fas fa-check me-1"></i>Insert HTML
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if present
+        const existingModal = document.getElementById('insertHTMLModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to document
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('insertHTMLModal'));
+        modal.show();
+        
+        // Focus on textarea when modal is shown
+        document.getElementById('insertHTMLModal').addEventListener('shown.bs.modal', () => {
+            document.getElementById('insertHTMLTextarea').focus();
+        });
+        
+        // Handle confirm button
+        document.getElementById('insertHTMLConfirm').addEventListener('click', () => {
+            const htmlContent = document.getElementById('insertHTMLTextarea').value;
+            const shouldClean = document.getElementById('cleanHTMLBeforeInsert').checked;
+            
+            console.log('Insert HTML clicked:', { length: htmlContent.length, shouldClean });
+            
+            if (htmlContent.trim()) {
+                // Hide modal first
+                modal.hide();
+                
+                // Wait for modal to hide, then insert
+                setTimeout(() => {
+                    let processedHTML = htmlContent;
+                    
+                    if (shouldClean) {
+                        // Clean the HTML for security
+                        console.log('Cleaning HTML...');
+                        processedHTML = this.cleanPastedHTML(htmlContent);
+                        console.log('Cleaned HTML length:', processedHTML.length);
+                        console.log('Cleaned HTML preview:', processedHTML.substring(0, 200));
+                    } else {
+                        console.log('Skipping HTML cleaning');
+                    }
+                    
+                    // Focus the editor first
+                    this.editorContent.focus();
+                    
+                    // Insert the HTML
+                    console.log('Inserting HTML at cursor...');
+                    this.insertHTMLAtCursor(processedHTML);
+                    
+                    // Update editor
+                    console.log('Updating content...');
+                    this.updateContent();
+                    this.handlePlaceholder();
+                    this.updateToolbarState();
+                    
+                    console.log('Editor content updated successfully');
+                }, 300); // Wait for modal animation
+            } else {
+                console.warn('No HTML content to insert');
+                modal.hide();
+            }
+        });
+        
+        // Clean up modal when hidden
+        document.getElementById('insertHTMLModal').addEventListener('hidden.bs.modal', () => {
+            document.getElementById('insertHTMLModal').remove();
+        });
     }
     
     showPasteSpecialDialog() {
@@ -770,15 +1052,25 @@ class RichTextEditor {
                        this.editorContent.innerHTML === '<p><br></p>' ||
                        this.editorContent.innerHTML === '<div><br></div>';
         
+        console.log('handlePlaceholder:', { 
+            isEmpty, 
+            textLength: this.editorContent.textContent.trim().length,
+            htmlLength: this.editorContent.innerHTML.length,
+            isFocused: this.editorContent.matches(':focus')
+        });
+        
         if (isEmpty && !this.editorContent.matches(':focus')) {
+            console.log('Setting placeholder');
             this.editorContent.innerHTML = `<p>${this.options.placeholder}</p>`;
             this.editorContent.classList.add('text-muted');
         } else if (this.editorContent.textContent.trim() === this.options.placeholder) {
             if (this.editorContent.matches(':focus')) {
+                console.log('Clearing placeholder on focus');
                 this.editorContent.innerHTML = '<p><br></p>';
                 this.editorContent.classList.remove('text-muted');
             }
         } else {
+            console.log('Content exists, removing text-muted class');
             this.editorContent.classList.remove('text-muted');
         }
     }
@@ -786,6 +1078,8 @@ class RichTextEditor {
     updateContent() {
         // Clean up the HTML and update the original textarea
         let content = this.editorContent.innerHTML;
+        
+        console.log('updateContent called, content length:', content.length);
         
         // Remove placeholder text
         if (content === `<p>${this.options.placeholder}</p>`) {
@@ -795,7 +1089,10 @@ class RichTextEditor {
         // Clean up empty paragraphs at the end
         content = content.replace(/<p><br><\/p>$/g, '');
         
+        console.log('Setting textarea value, length:', content.length);
         this.element.value = content;
+        
+        console.log('Textarea value set:', this.element.value.length);
         
         // Trigger change event
         const event = new Event('change', { bubbles: true });

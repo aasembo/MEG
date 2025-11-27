@@ -4,7 +4,15 @@
  * @var \App\Model\Entity\MedicalCase $case
  */
 
-$this->assign('title', 'Promote Case #' . $case->id . ' to Doctor');
+// Determine whether there is an existing valid doctor assignment (case assignments are sorted by timestamp desc)
+$hasValidAssignment = !empty($case->case_assignments) &&
+                     isset($case->case_assignments[0]->assigned_to_user) &&
+                     $case->case_assignments[0]->assigned_to_user &&
+                     isset($case->case_assignments[0]->assigned_to_user->role) &&
+                     $case->case_assignments[0]->assigned_to_user->role &&
+                     strtolower($case->case_assignments[0]->assigned_to_user->role->type) === 'doctor';
+
+$this->assign('title', ($hasValidAssignment ? 'Change Assignment for Case #' : 'Promote Case #') . $case->id . ' to Doctor');
 ?>
 
 <div class="container-fluid px-4 py-4">
@@ -12,10 +20,16 @@ $this->assign('title', 'Promote Case #' . $case->id . ' to Doctor');
     <div class="card border-0 shadow mb-4">
         <div class="card-body bg-success text-white p-4">
             <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h2 class="mb-2 fw-bold">
-                        <i class="fas fa-level-up-alt me-2"></i>Promote Case to Doctor
-                    </h2>
+                    <div class="col-md-8">
+                    <?php if ($hasValidAssignment): ?>
+                        <h2 class="mb-2 fw-bold">
+                            <i class="fas fa-exchange-alt me-2"></i>Change Assignment
+                        </h2>
+                    <?php else: ?>
+                        <h2 class="mb-2 fw-bold">
+                            <i class="fas fa-level-up-alt me-2"></i>Promote Case to Doctor
+                        </h2>
+                    <?php endif; ?>
                     <p class="mb-0">
                         <i class="fas fa-file-medical me-2"></i>Case #<?php echo h($case->id); ?>
                         <?php if ($case->patient_user): ?>
@@ -190,17 +204,8 @@ $this->assign('title', 'Promote Case #' . $case->id . ' to Doctor');
             <div class="card border-0 shadow">
                 <div class="card-header bg-light border-0 py-3">
                     <h5 class="mb-0 fw-bold text-dark">
-                        <?php 
-                        // Check if there's a valid doctor assignment (not just any assignment)
-                        $hasValidAssignment = !empty($case->case_assignments) && 
-                                             isset($case->case_assignments[0]->assigned_to_user) && 
-                                             $case->case_assignments[0]->assigned_to_user &&
-                                             isset($case->case_assignments[0]->assigned_to_user->role) &&
-                                             $case->case_assignments[0]->assigned_to_user->role &&
-                                             $case->case_assignments[0]->assigned_to_user->role->type === 'doctor';
-                        ?>
                         <?php if ($hasValidAssignment): ?>
-                            <i class="fas fa-exchange-alt me-2 text-success"></i>Reassign Case to Doctor
+                            <i class="fas fa-exchange-alt me-2 text-success"></i>Change Assignment
                         <?php else: ?>
                             <i class="fas fa-user-md me-2 text-success"></i>Promote Case to Doctor
                         <?php endif; ?>
@@ -221,7 +226,7 @@ $this->assign('title', 'Promote Case #' . $case->id . ' to Doctor');
                             'options' => $doctors,
                             'empty' => 'Select a doctor...',
                             'label' => [
-                                'text' => ($hasValidAssignment ? 'Reassign to Doctor' : 'Promote to Doctor'),
+                                'text' => ($hasValidAssignment ? 'Change Assignment' : 'Promote to Doctor'),
                                 'class' => 'form-label fw-semibold'
                             ],
                             'class' => 'form-select',
@@ -234,13 +239,13 @@ $this->assign('title', 'Promote Case #' . $case->id . ' to Doctor');
                         <?php echo $this->Form->control('notes', [
                             'type' => 'textarea',
                             'label' => [
-                                'text' => ($hasValidAssignment ? 'Reassignment Notes' : 'Promotion Notes'),
+                                'text' => ($hasValidAssignment ? 'Change Assignment Notes' : 'Promotion Notes'),
                                 'class' => 'form-label fw-semibold'
                             ],
                             'class' => 'form-control',
                             'rows' => 4,
                             'placeholder' => ($hasValidAssignment 
-                                ? 'Add reason for reassignment or any special instructions...' 
+                                ? 'Add reason for the change in assignment or any special instructions...' 
                                 : 'Add any findings, recommendations, or special instructions for the doctor...'),
                             'help' => 'Include your scientific analysis, findings, or any medical concerns that require doctor attention'
                         ]); ?>
@@ -255,7 +260,7 @@ $this->assign('title', 'Promote Case #' . $case->id . ' to Doctor');
                         ); ?>
                         
                         <?php echo $this->Form->button(
-                            ($hasValidAssignment ? '<i class="fas fa-exchange-alt me-1"></i>Reassign Case' : '<i class="fas fa-level-up-alt me-1"></i>Promote to Doctor'), 
+                            ($hasValidAssignment ? '<i class="fas fa-user-md me-1"></i>Change Doctor' : '<i class="fas fa-level-up-alt me-1"></i>Promote to Doctor'), 
                             ['type' => 'submit', 'class' => 'btn btn-success', 'escapeTitle' => false]
                         ); ?>
                     </div>

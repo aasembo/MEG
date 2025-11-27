@@ -901,6 +901,7 @@ $this->assign('title', 'Case #' . $case->id);
                             </div>
                             
                             <!-- Scientist Status -->
+                            <?php if ($scientistStatus !== 'draft'): ?>
                             <div class="mb-3">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
                                     <span class="small">
@@ -916,8 +917,10 @@ $this->assign('title', 'Case #' . $case->id);
                                          style="width: <?php echo $this->Status->progressPercent($scientistStatus); ?>%"></div>
                                 </div>
                             </div>
+                            <?php endif; ?>
                             
                             <!-- Doctor Status -->
+                            <?php if ($doctorStatus !== 'draft'): ?>
                             <div class="mb-2">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
                                     <span class="small">
@@ -933,6 +936,7 @@ $this->assign('title', 'Case #' . $case->id);
                                          style="width: <?php echo $this->Status->progressPercent($doctorStatus); ?>%"></div>
                                 </div>
                             </div>
+                            <?php endif; ?>
                         </div>
                     </div>
 

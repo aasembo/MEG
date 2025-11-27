@@ -265,6 +265,35 @@ class CasesController extends AppController
             return $this->redirect(array('action' => 'index'));
         }
 
+        // Auto-progress: Change doctor_status from 'assigned' to 'in_progress' on first view
+        if ($case->doctor_status === SiteConstants::CASE_STATUS_ASSIGNED) {
+            $case->doctor_status = SiteConstants::CASE_STATUS_IN_PROGRESS;
+            
+            // Also update global status if it's still 'assigned'
+            if ($case->status === SiteConstants::CASE_STATUS_ASSIGNED) {
+                $case->status = SiteConstants::CASE_STATUS_IN_PROGRESS;
+            }
+            
+            if ($this->Cases->save($case)) {
+                // Log the status change
+                $this->activityLogger->log(
+                    SiteConstants::EVENT_CASE_UPDATED,
+                    array(
+                        'user_id' => $user->id,
+                        'request' => $this->request,
+                        'event_data' => array(
+                            'case_id' => $case->id,
+                            'action' => 'auto_status_change',
+                            'old_doctor_status' => SiteConstants::CASE_STATUS_ASSIGNED,
+                            'new_doctor_status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
+                            'hospital_id' => $currentHospital->id,
+                            'trigger' => 'doctor_first_view'
+                        )
+                    )
+                );
+            }
+        }
+
         // Check if S3 is enabled
         $isS3Enabled = Configure::read('S3.enabled', false);
 

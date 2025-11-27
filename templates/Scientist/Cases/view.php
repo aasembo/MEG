@@ -31,10 +31,17 @@ $this->assign('title', 'Case #' . $case->id);
                         <?php 
                         // Check scientist's role-based status for action permissions
                         $scientistStatus = $case->scientist_status ?? 'assigned';
+                        // Detect whether there is already a doctor assignment (case_assignments sorted desc)
+                        $hasValidAssignment = !empty($case->case_assignments) &&
+                                             isset($case->case_assignments[0]->assigned_to_user) &&
+                                             $case->case_assignments[0]->assigned_to_user &&
+                                             isset($case->case_assignments[0]->assigned_to_user->role) &&
+                                             $case->case_assignments[0]->assigned_to_user->role &&
+                                             strtolower($case->case_assignments[0]->assigned_to_user->role->type) === 'doctor';
                         ?>
                         <?php if (in_array($scientistStatus, ['assigned', 'in_progress']) && $case->status !== 'completed'): ?>
                             <?php echo $this->Html->link(
-                                '<i class="fas fa-user-md me-1"></i>Promote to Doctor',
+                                ($hasValidAssignment ? '<i class="fas fa-user-md me-1"></i>Change Assignment' : '<i class="fas fa-user-md me-1"></i>Promote to Doctor'),
                                 ['action' => 'assign', $case->id],
                                 ['class' => 'btn btn-light', 'escape' => false]
                             ); ?>
@@ -663,7 +670,10 @@ $this->assign('title', 'Case #' . $case->id);
                             
                             if ($hasAssignment) {
                                 foreach ($case->case_assignments as $assignment) {
-                                    if ($assignment->role_type === 'doctor') {
+                                    if (isset($assignment->assigned_to_user) &&
+                                        isset($assignment->assigned_to_user->role) &&
+                                        isset($assignment->assigned_to_user->role->type) &&
+                                        strtolower($assignment->assigned_to_user->role->type) === 'doctor') {
                                         $assignedUser = $assignment->assigned_to_user;
                                         $isDoctorAssigned = true;
                                         break;
@@ -1009,6 +1019,7 @@ $this->assign('title', 'Case #' . $case->id);
                             </div>
                             
                             <!-- Scientist Status -->
+                            <?php if ($scientistStatus !== 'draft'): ?>
                             <div class="mb-3">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
                                     <span class="small">
@@ -1024,8 +1035,10 @@ $this->assign('title', 'Case #' . $case->id);
                                          style="width: <?php echo $this->Status->progressPercent($scientistStatus); ?>%"></div>
                                 </div>
                             </div>
+                            <?php endif; ?>
                             
                             <!-- Doctor Status -->
+                            <?php if ($doctorStatus !== 'draft'): ?>
                             <div class="mb-2">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
                                     <span class="small">
@@ -1041,6 +1054,7 @@ $this->assign('title', 'Case #' . $case->id);
                                          style="width: <?php echo $this->Status->progressPercent($doctorStatus); ?>%"></div>
                                 </div>
                             </div>
+                            <?php endif; ?>
                             
                             <!-- Overall Progress -->
                             <div class="mt-3 pt-3 border-top">

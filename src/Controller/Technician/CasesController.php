@@ -563,6 +563,12 @@ class CasesController extends AppController {
                 throw new RecordNotFoundException(__('Case not found.'));
             }
 
+            // Check if case can be edited (technician can edit until global status is completed/cancelled)
+            if (in_array($case->status, [SiteConstants::CASE_STATUS_COMPLETED, SiteConstants::CASE_STATUS_CANCELLED])) {
+                $this->Flash->error(__('This case cannot be edited in its current status.'));
+                return $this->redirect(['action' => 'view', $id]);
+            }
+
         } catch (RecordNotFoundException $e) {
             $this->Flash->error(__('Case not found.'));
             return $this->redirect(['action' => 'index']);
@@ -635,6 +641,12 @@ class CasesController extends AppController {
             // Verify hospital access
             if ($case->hospital_id !== $currentHospital->id) {
                 throw new RecordNotFoundException(__('Case not found.'));
+            }
+
+            // Check if case can be edited (technician can edit until global status is completed/cancelled)
+            if (in_array($case->status, [SiteConstants::CASE_STATUS_COMPLETED, SiteConstants::CASE_STATUS_CANCELLED])) {
+                $this->Flash->error(__('This case cannot be edited in its current status.'));
+                return $this->redirect(['action' => 'view', $id]);
             }
 
         } catch (RecordNotFoundException $e) {
@@ -1142,6 +1154,12 @@ class CasesController extends AppController {
                 throw new RecordNotFoundException(__('Case not found.'));
             }
 
+            // Check if case can be modified (technician can upload documents until global status is completed)
+            if ($case->status === SiteConstants::CASE_STATUS_COMPLETED) {
+                $this->Flash->error(__('Cannot upload documents to a completed case.'));
+                return $this->redirect(['action' => 'view', $id]);
+            }
+
         } catch (RecordNotFoundException $e) {
             $this->Flash->error(__('Case not found.'));
             return $this->redirect(['action' => 'index']);
@@ -1559,43 +1577,35 @@ class CasesController extends AppController {
                     $usersTable = $this->fetchTable('Users');
                     $assignedUser = $usersTable->get($data['assigned_to'], ['contain' => ['Roles']]);
                     $assignedRole = null;
-                    if (!empty($assignedUser->roles)) {
-                        $assignedRole = strtolower($assignedUser->roles[0]->name);
+                    if ($assignedUser && isset($assignedUser->role) && isset($assignedUser->role->type)) {
+                        $assignedRole = $assignedUser->role->type;
                     }
 
                     // Handle role-based status transition
-                    if ($assignedRole === 'scientist') {
+                    if ($assignedRole === SiteConstants::ROLE_TYPE_SCIENTIST) {
                         $this->caseStatusService->transitionOnAssignment(
                             $case, 
                             'technician', 
                             'scientist', 
                             $user->id
                         );
+                        // Reload case to get updated statuses from transitionOnAssignment
+                        $case = $this->Cases->get($case->id);
                     }
                     
-                    // Update case status - set to in_progress when assigning to scientist
-                    $oldStatus = $case->status;
-                    $case->status = SiteConstants::CASE_STATUS_IN_PROGRESS;
+                    // Update case current_user_id
                     $case->current_user_id = $data['assigned_to'];
                     
                     if ($this->Cases->save($case)) {
-                        // Log audit trail
+                        // Log audit trail - status change is already logged by transitionOnAssignment
                         $caseAuditsTable = $this->fetchTable('CaseAudits');
-                        $caseAuditsTable->logChange(
-                            $case->id,
-                            $case->current_version_id,
-                            'status',
-                            $oldStatus,
-                            SiteConstants::CASE_STATUS_IN_PROGRESS,
-                            $user->id
-                        );
                         
                         $caseAuditsTable->logChange(
                             $case->id,
                             $case->current_version_id,
                             'assigned_to',
                             '',
-                            $data['assigned_to'],
+                            (string)$data['assigned_to'],
                             $user->id
                         );
 
