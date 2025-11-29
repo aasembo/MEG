@@ -20,7 +20,6 @@ use Cake\ORM\Entity;
  * @property array|null $scientist_review
  * @property array|null $doctor_approval
  * @property string|null $status
- * @property string $type
  * @property int|null $user_id
  * @property \Cake\I18n\DateTime|null $created
  * @property \Cake\I18n\DateTime|null $modified
@@ -28,7 +27,6 @@ use Cake\ORM\Entity;
  * @property \App\Model\Entity\MedicalCase $case
  * @property \App\Model\Entity\Hospital $hospital
  * @property \App\Model\Entity\User $user
- * @property \App\Model\Entity\ReportImage[] $report_images
  */
 class Report extends Entity
 {
@@ -53,12 +51,10 @@ class Report extends Entity
         'scientist_review' => true,
         'doctor_approval' => true,
         'status' => true,
-        'type' => true,
         'user_id' => true,
         'created' => true,
         'modified' => true,
         'case' => true,
         'hospital' => true,
-        'report_images' => true,
     ];
 }

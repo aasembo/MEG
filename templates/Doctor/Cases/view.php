@@ -533,19 +533,14 @@ $this->assign('title', 'Case #' . $case->id);
                     ?>
                         <div class="d-grid gap-2">
                             <?php 
-                            // Check if doctor has reports for this case (both PDF and PPT)
-                            $doctorPdfReport = null;
-                            $doctorPptReport = null;
+                            // Check if doctor has their own report for this case
+                            $doctorReport = null;
                             $hasOtherReports = false;
                             
                             if (!empty($existingReports)) {
                                 foreach ($existingReports as $report) {
                                     if ($report->user_id === $user->id) {
-                                        if ($report->type === 'PDF') {
-                                            $doctorPdfReport = $report;
-                                        } elseif ($report->type === 'PPT') {
-                                            $doctorPptReport = $report;
-                                        }
+                                        $doctorReport = $report;
                                     } else {
                                         $hasOtherReports = true;
                                     }
@@ -553,85 +548,49 @@ $this->assign('title', 'Case #' . $case->id);
                             }
                             ?>
                             
-                            <!-- EEG Report (PDF) Section -->
-                            <div class="mb-3 pb-3 border-bottom">
-                                <label class="small text-muted mb-2 d-block">
-                                    <i class="fas fa-file-pdf me-1"></i>EEG Report (PDF)
-                                </label>
-                                <?php if ($doctorPdfReport): ?>
-                                    <?php echo $this->Html->link(
-                                        '<i class="fas fa-edit me-2"></i>Edit EEG Report',
-                                        ['controller' => 'Reports', 'action' => 'edit', $doctorPdfReport->id],
-                                        ['class' => 'btn btn-sm btn-outline-primary w-100 mb-2 d-flex align-items-center justify-content-center', 'escape' => false]
-                                    ); ?>
-                                    <?php echo $this->Html->link(
-                                        '<i class="fas fa-eye me-2"></i>View EEG Report',
-                                        ['controller' => 'Reports', 'action' => 'view', $doctorPdfReport->id],
-                                        ['class' => 'btn btn-sm btn-outline-info w-100 d-flex align-items-center justify-content-center', 'escape' => false]
-                                    ); ?>
-                                <?php else: ?>
-                                    <?php echo $this->Html->link(
-                                        '<i class="fas fa-plus me-2"></i>Create EEG Report',
-                                        ['action' => 'createReport', $case->id],
-                                        [
-                                            'class' => 'btn btn-sm btn-success w-100 d-flex align-items-center justify-content-center', 
-                                            'escape' => false
-                                        ]
-                                    ); ?>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <!-- MEG Report (PPT) Section -->
-                            <div class="mb-3 pb-3 border-bottom">
-                                <label class="small text-muted mb-2 d-block">
-                                    <i class="fas fa-presentation me-1"></i>MEG Report (PPT)
-                                </label>
-                                <?php if ($doctorPptReport): ?>
-                                    <?php echo $this->Html->link(
-                                        '<i class="fas fa-edit me-2"></i>Edit MEG Report',
-                                        ['controller' => 'Reports', 'action' => 'editMegReport', $doctorPptReport->id],
-                                        ['class' => 'btn btn-sm btn-outline-primary w-100 mb-2 d-flex align-items-center justify-content-center', 'escape' => false]
-                                    ); ?>
-                                    <?php echo $this->Html->link(
-                                        '<i class="fas fa-download me-2"></i>Download MEG Report',
-                                        ['controller' => 'Reports', 'action' => 'downloadMegReport', $doctorPptReport->id],
-                                        ['class' => 'btn btn-sm btn-outline-success w-100 d-flex align-items-center justify-content-center', 'escape' => false]
-                                    ); ?>
-                                <?php else: ?>
-                                    <?php echo $this->Html->link(
-                                        '<i class="fas fa-plus me-2"></i>Create MEG Report',
-                                        ['action' => 'createMegReport', $case->id],
-                                        [
-                                            'class' => 'btn btn-sm btn-warning w-100 d-flex align-items-center justify-content-center', 
-                                            'escape' => false
-                                        ]
-                                    ); ?>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <!-- Other Reports -->
-                            <?php if ($hasOtherReports): ?>
-                                <div class="mb-3 pb-3 border-bottom">
-                                    <label class="small text-muted mb-2 d-block">
-                                        <i class="fas fa-users me-1"></i>Other Team Reports
-                                    </label>
-                                    <?php 
-                                    $firstOtherReport = null;
-                                    foreach ($existingReports as $report) {
-                                        if ($report->user_id !== $user->id) {
-                                            $firstOtherReport = $report;
-                                            break;
-                                        }
-                                    }
-                                    ?>
-                                    <?php if ($firstOtherReport): ?>
-                                        <?php echo $this->Html->link(
-                                            '<i class="fas fa-eye me-2"></i>View Team Report',
-                                            ['controller' => 'Reports', 'action' => 'view', $firstOtherReport->id],
-                                            ['class' => 'btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-center', 'escape' => false]
-                                        ); ?>
-                                    <?php endif; ?>
-                                </div>
+                            <?php if ($doctorReport): ?>
+                                <!-- Doctor has their own report -->
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-edit me-2"></i>Edit My Report',
+                                    ['controller' => 'Reports', 'action' => 'edit', $doctorReport->id],
+                                    ['class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 'escape' => false]
+                                ); ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-eye me-2"></i>View My Report',
+                                    ['controller' => 'Reports', 'action' => 'view', $doctorReport->id],
+                                    ['class' => 'btn btn-outline-danger d-flex align-items-center justify-content-center', 'escape' => false]
+                                ); ?>
+                            <?php elseif ($hasOtherReports): ?>
+                                <!-- Other reports exist, but doctor hasn't created their own -->
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-file-medical-alt me-2"></i>Create My Report',
+                                    ['controller' => 'Reports', 'action' => 'add', '?' => ['case_id' => $case->id]],
+                                    [
+                                        'class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 
+                                        'escape' => false,
+                                        'confirm' => 'This will create a new doctor report based on existing case data. Continue?'
+                                    ]
+                                ); ?>
+                                <?php 
+                                // Show view link for the first available report
+                                $firstOtherReport = $existingReports->first();
+                                ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-eye me-2"></i>View Previous Report',
+                                    ['controller' => 'Reports', 'action' => 'view', $firstOtherReport->id],
+                                    ['class' => 'btn btn-outline-secondary d-flex align-items-center justify-content-center', 'escape' => false]
+                                ); ?>
+                            <?php else: ?>
+                                <!-- No reports exist yet -->
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-file-medical-alt me-2"></i>Create Report',
+                                    ['controller' => 'Reports', 'action' => 'add', '?' => ['case_id' => $case->id]],
+                                    [
+                                        'class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 
+                                        'escape' => false,
+                                        'confirm' => 'Are you sure you want to create a report for this case?'
+                                    ]
+                                ); ?>
                             <?php endif; ?>
                             
                             <button class="btn btn-outline-danger d-flex align-items-center justify-content-center gap-2" data-bs-toggle="modal" data-bs-target="#uploadModal">

@@ -60,11 +60,6 @@ class ReportsTable extends Table
             'foreignKey' => 'user_id',
             'joinType' => 'LEFT',
         ]);
-        $this->hasMany('ReportImages', [
-            'foreignKey' => 'report_id',
-            'dependent' => true,
-            'sort' => ['ReportImages.slide_order' => 'ASC'],
-        ]);
     }
 
     /**
@@ -108,12 +103,6 @@ class ReportsTable extends Table
         $validator
             ->scalar('status')
             ->notEmptyString('status');
-
-        $validator
-            ->scalar('type')
-            ->maxLength('type', 10)
-            ->inList('type', ['PDF', 'PPT'], 'Report type must be either PDF or PPT')
-            ->notEmptyString('type');
 
         return $validator;
     }
