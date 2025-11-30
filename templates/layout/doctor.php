@@ -99,6 +99,16 @@ $cakeDescription = 'Medical Dashboard - Doctor Portal';
                     </li>
                 </ul>
                 
+                <!-- Tools Section (Different Style) -->
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link bg-white bg-opacity-25 rounded px-3 me-2" href="<?php echo $this->Url->build(['prefix' => 'Doctor', 'controller' => 'Resize', 'action' => 'index']) ?>">
+                            <i class="fas fa-crop-alt me-1"></i>
+                            <span class="fw-bold">Resize Images</span>
+                        </a>
+                    </li>
+                </ul>
+                
                 <!-- User Info & Logout -->
                 <?php if ($this->getRequest()->getAttribute('identity')): ?>
                 <div class="d-flex align-items-center">

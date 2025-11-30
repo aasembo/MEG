@@ -153,7 +153,7 @@ $this->assign('title', 'Report #' . $report->id);
                 </div>
                 <div class="card-body bg-white">
                     <?php if ($reportContent): ?>
-                        <div class="report-content-display p-4 bg-light rounded">
+                        <div class="report-content-display p-4 rounded">
                             <?php echo  $reportContent ?>
                         </div>
                     <?php else: ?>
@@ -393,10 +393,6 @@ $this->assign('title', 'Report #' . $report->id);
     box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
 }
 
-.table-borderless td {
-    border: none;
-    padding: 0.5rem 0.75rem;
-}
 
 .fw-semibold {
     font-weight: 600;
@@ -417,57 +413,6 @@ $this->assign('title', 'Report #' . $report->id);
     border-radius: 6px;
 }
 
-.report-content-display {
-    font-family: 'Times New Roman', serif;
-    line-height: 1.6;
-    max-height: 600px;
-    overflow-y: auto;
-    border: 2px solid #e9ecef;
-}
-
-.report-content-display h1,
-.report-content-display h2,
-.report-content-display h3,
-.report-content-display h4,
-.report-content-display h5,
-.report-content-display h6 {
-    color: #333;
-    margin-top: 1.5em;
-    margin-bottom: 0.5em;
-}
-
-.report-content-display p {
-    margin-bottom: 1em;
-    text-align: justify;
-}
-
-.report-content-display ul,
-.report-content-display ol {
-    margin-bottom: 1em;
-    padding-left: 2em;
-}
-
-.report-content-display li {
-    margin-bottom: 0.5em;
-}
-
-.report-content-display table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1em 0;
-}
-
-.report-content-display table td,
-.report-content-display table th {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
-}
-
-.report-content-display table th {
-    background-color: #f8f9fa;
-    font-weight: bold;
-}
 
 /* Progress bar animations */
 .progress-bar {

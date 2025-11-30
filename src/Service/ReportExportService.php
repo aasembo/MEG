@@ -2588,62 +2588,7 @@ class ReportExportService
     {
         $styles = $forPdf ? $this->getPdfStyles() : $this->getHtmlStyles();
         
-        $html = "<!DOCTYPE html>\n<html>\n<head>\n";
-        $html .= "<meta charset='UTF-8'>\n";
-        $html .= "<title>MEG Report - Case {$report->case_id}</title>\n";
-        $html .= "<style>{$styles}</style>\n";
-        $html .= "</head>\n<body>\n";
-        
-        // Check if we have the new single-content structure or old multi-section structure
-        if (isset($reportData['content']) && !isset($reportData['patient_information'])) {
-            // New single-content structure - use the content directly
-            $html .= "<div class='report-content'>\n";
-            $html .= $reportData['content'];
-            $html .= "\n</div>\n";
-        } else {
-            // Legacy multi-section structure
-            $html .= "<div class='header'>\n";
-            $html .= "<h1>MEG DIAGNOSTIC REPORT</h1>\n";
-            $html .= "</div>\n";
-            
-            $html .= "<table class='info-table'>\n";
-            $html .= "<tr><td><strong>Case ID:</strong></td><td>{$report->case_id}</td></tr>\n";
-            $html .= "<tr><td><strong>Hospital:</strong></td><td>" . ($report->hospital->name ?? '') . "</td></tr>\n";
-            $html .= "<tr><td><strong>Report Date:</strong></td><td>" . $report->created->format('F d, Y') . "</td></tr>\n";
-            $html .= "<tr><td><strong>Status:</strong></td><td>" . ucfirst($report->status) . "</td></tr>\n";
-            $html .= "</table>\n";
-            
-            $sections = [
-                'PATIENT INFORMATION' => $reportData['patient_information'] ?? '',
-                'CLINICAL INDICATION' => $reportData['clinical_indication'] ?? '',
-                'PROCEDURE PERFORMED' => $reportData['procedure_performed'] ?? '',
-                'TECHNICAL PARAMETERS' => $reportData['technical_parameters'] ?? '',
-                'FINDINGS' => $reportData['findings'] ?? '',
-                'CONCLUSION' => $reportData['conclusion'] ?? '',
-                'RECOMMENDATIONS' => $reportData['recommendations'] ?? '',
-            ];
-            
-            foreach ($sections as $title => $content) {
-                if (!empty($content)) {
-                    $html .= "<div class='section'>\n";
-                    $html .= "<h2>{$title}</h2>\n";
-                    $html .= "<div class='content'>{$content}</div>\n";
-                    $html .= "</div>\n";
-                }
-            }
-            
-            if ($report->confidence_score) {
-                $html .= "<div class='confidence'>\n";
-                $html .= "<strong>Confidence Score:</strong> {$report->confidence_score}%\n";
-                $html .= "</div>\n";
-            }
-            
-            $html .= "<div class='footer'>\n";
-            $html .= "<p>Report ID: {$report->id} | Generated: " . date('F d, Y g:i A') . "</p>\n";
-            $html .= "</div>\n";
-        }
-        
-        $html .= "</body>\n</html>";
+        $html = $reportData['content'];
         
         return $html;
     }
