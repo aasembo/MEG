@@ -58,12 +58,12 @@ use App\Constants\SiteConstants;
                     </label>
                     <?php echo $this->Form->control('status', [
                         'type' => 'select',
-                        'options' => [
+                        'options' => $statusOptions ?? [
                             'all' => 'All Statuses',
-                            SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned to Me',
+                            SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned',
                             SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
-                            SiteConstants::CASE_STATUS_REVIEW => 'Under Review',
-                            SiteConstants::CASE_STATUS_COMPLETED => 'Completed'
+                            SiteConstants::CASE_STATUS_COMPLETED => 'Completed',
+                            SiteConstants::CASE_STATUS_CANCELLED => 'Cancelled'
                         ],
                         'value' => $status ?? 'all',
                         'label' => false,
@@ -227,15 +227,13 @@ use App\Constants\SiteConstants;
                             <!-- Status -->
                             <td>
                                 <?php 
-                                // Get scientist-specific status
-                                $roleStatus = $case->scientist_status ?? 'assigned';
-                                $statusConfig = match($roleStatus) {
-                                    'assigned' => ['class' => 'info', 'icon' => 'user-check', 'label' => $case->getStatusLabelForRole('scientist')],
-                                    'in_progress' => ['class' => 'warning', 'icon' => 'spinner', 'label' => $case->getStatusLabelForRole('scientist')],
-                                    'review' => ['class' => 'primary', 'icon' => 'search', 'label' => $case->getStatusLabelForRole('scientist')],
-                                    'completed' => ['class' => 'success', 'icon' => 'check-circle', 'label' => $case->getStatusLabelForRole('scientist')],
-                                    'cancelled' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => $case->getStatusLabelForRole('scientist')],
-                                    default => ['class' => 'secondary', 'icon' => 'circle', 'label' => $case->getStatusLabelForRole('scientist')]
+                                // Get main case status (only: in_progress, completed, cancelled)
+                                $caseStatus = $case->status ?? 'in_progress';
+                                $statusConfig = match($caseStatus) {
+                                    'in_progress' => ['class' => 'warning', 'icon' => 'spinner', 'label' => 'In Progress'],
+                                    'completed' => ['class' => 'success', 'icon' => 'check-circle', 'label' => 'Completed'],
+                                    'cancelled' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => 'Cancelled'],
+                                    default => ['class' => 'secondary', 'icon' => 'circle', 'label' => ucfirst(str_replace('_', ' ', $caseStatus))]
                                 };
                                 ?>
                                 <?php
@@ -330,9 +328,9 @@ use App\Constants\SiteConstants;
                                         ]
                                     ); ?>
                                     <?php 
-                                    // Scientists can promote cases to doctor review
-                                    $scientistStatus = $case->scientist_status ?? 'assigned';
-                                    if (!in_array($scientistStatus, ['completed', 'cancelled'])): 
+                                    // Scientists can promote cases to doctor review (check main status)
+                                    $mainStatus = $case->status ?? 'in_progress';
+                                    if (!in_array($mainStatus, ['completed', 'cancelled'])): 
                                         $hasValidAssignment = !empty($case->case_assignments) &&
                                                           isset($case->case_assignments[0]->assigned_to_user) &&
                                                           $case->case_assignments[0]->assigned_to_user &&

@@ -256,44 +256,6 @@ $this->assign('title', 'Medical Dashboard');
                     </div>
                 </div>
             </div>
-            
-            <!-- System Status Card -->
-            <div class="card border-0 shadow">
-                <div class="card-header bg-light py-3">
-                    <h5 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-server text-danger me-2"></i>System Status
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="status-item d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
-                        <div>
-                            <i class="fas fa-database text-success me-2"></i>
-                            <span class="fw-semibold">Database</span>
-                        </div>
-                        <span class="badge bg-success rounded-pill">
-                            <i class="fas fa-check-circle me-1"></i>Online
-                        </span>
-                    </div>
-                    <div class="status-item d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
-                        <div>
-                            <i class="fas fa-network-wired text-success me-2"></i>
-                            <span class="fw-semibold">Network</span>
-                        </div>
-                        <span class="badge bg-success rounded-pill">
-                            <i class="fas fa-check-circle me-1"></i>Connected
-                        </span>
-                    </div>
-                    <div class="status-item d-flex justify-content-between align-items-center p-2 rounded bg-light">
-                        <div>
-                            <i class="fas fa-chart-line text-success me-2"></i>
-                            <span class="fw-semibold">Services</span>
-                        </div>
-                        <span class="badge bg-success rounded-pill">
-                            <i class="fas fa-check-circle me-1"></i>Operational
-                        </span>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>

@@ -175,8 +175,9 @@ class ReportsController extends AppController
             $data['report_data'] = json_encode($reportDataStructure);
             $data['case_id'] = $caseId;
             $data['hospital_id'] = $case->hospital_id;
-            $data['status'] = 'approved'; // Doctor reports are automatically approved
+            $data['status'] = SiteConstants::CASE_STATUS_IN_PROGRESS; // Doctor report starts as in_progress
             $data['user_id'] = $userId;
+            $data['type'] = 'PDF'; // Doctor creates PDF report
             
             // Add doctor approval data
             $data['doctor_approval'] = json_encode([

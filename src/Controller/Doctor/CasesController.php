@@ -235,6 +235,12 @@ class CasesController extends AppController
                     },
                     'Documents' => array(
                         'Users',
+                        'CasesExamsProcedures' => array(
+                            'ExamsProcedures' => array(
+                                'Exams' => array('Modalities'),
+                                'Procedures'
+                            )
+                        ),
                         'sort' => array('Documents.created' => 'DESC')
                     )
                 )
@@ -299,10 +305,21 @@ class CasesController extends AppController
 
         // Check if case has any reports
         $reportsTable = $this->fetchTable('Reports');
+        $pdf_report = $reportsTable->find()
+            ->contain(['Users' => ['Roles']]) // Include user information
+            ->where(['case_id' => $id, 'Reports.type' => 'PDF', 'user_id' => $user->id])
+            ->first();
+            
+
+        $ppt_report = $reportsTable->find()
+            ->contain(['Users' => ['Roles']]) // Include user information
+            ->where(['case_id' => $id, 'Reports.type' => 'PPT', 'user_id' => $user->id])
+            ->first();
+
         $existingReports = $reportsTable->find()
             ->contain(['Users' => ['Roles']]) // Include user information
-            ->where(['case_id' => $id])
-            ->all();
+            ->where(['case_id' => $id, 'Reports.type IN' => ['PPT', 'PDF']])
+            ->all();    
 
         // Get case version history
         $caseVersionsTable = $this->fetchTable('CaseVersions');
@@ -312,7 +329,7 @@ class CasesController extends AppController
             ->orderBy(array('version_number' => 'DESC'))
             ->all();
 
-        $this->set(compact('case', 'caseVersions', 'currentHospital', 'isS3Enabled', 'existingReports'));
+        $this->set(compact('case', 'caseVersions', 'currentHospital', 'isS3Enabled', 'pdf_report', 'ppt_report', 'existingReports'));
         // Pass user with roles for role badge helper
         $this->set('user', $userWithRoles);
     }

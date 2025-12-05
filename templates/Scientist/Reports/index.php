@@ -131,6 +131,7 @@ foreach ($reportsByCase as &$caseData) {
                     <thead class="table-light">
                         <tr>
                             <th class="border-0 fw-semibold text-uppercase small text-muted ps-4">Report</th>
+                            <th class="border-0 fw-semibold text-uppercase small text-muted">Type</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Creator Role</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Hospital</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Status</th>
@@ -195,6 +196,21 @@ foreach ($reportsByCase as &$caseData) {
                                 </div>
                             </td>
                             <td>
+                                <?php 
+                                $reportType = strtoupper($report->type ?? 'PDF');
+                                $typeIcon = $reportType === 'PPT' ? 'fa-file-powerpoint' : 'fa-file-pdf';
+                                $typeColor = $reportType === 'PPT' ? 'warning' : 'danger';
+                                $typeName = $reportType === 'PPT' ? 'MEG Report' : 'EEG Report';
+                                ?>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-<?php echo $typeColor ?> me-2">
+                                        <i class="fas <?php echo $typeIcon ?> me-1"></i>
+                                        <?php echo h($reportType) ?>
+                                    </span>
+                                    <small class="text-muted"><?php echo h($typeName) ?></small>
+                                </div>
+                            </td>
+                            <td>
                                 <div class="d-flex align-items-center">
                                     <span class="badge bg-<?php echo  $roleColor ?> me-2">
                                         <i class="fas <?php echo  $hierarchyIcon ?> me-1"></i>
@@ -215,15 +231,14 @@ foreach ($reportsByCase as &$caseData) {
                             <td>
                                 <?php
                                 $statusClass = match($report->status) {
-                                    'pending' => 'warning',
-                                    'reviewed' => 'info',
-                                    'approved' => 'success',
-                                    'rejected' => 'danger',
+                                    'in_progress' => 'warning',
+                                    'completed' => 'success',
                                     default => 'secondary'
                                 };
+                                $statusLabel = ucwords(str_replace('_', ' ', $report->status));
                                 ?>
                                 <span class="badge bg-<?php echo  $statusClass ?>">
-                                    <?php echo  h(ucfirst($report->status)) ?>
+                                    <?php echo  h($statusLabel) ?>
                                 </span>
                                 
                                 <?php if ($report->confidence_score): ?>

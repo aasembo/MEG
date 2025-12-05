@@ -73,7 +73,7 @@ class CasesController extends AppController {
             ))
             ->where(['Cases.hospital_id' => $currentHospital->id]);
 
-        // Apply filters
+        // Apply filters (use main case status)
         if ($status && $status !== 'all') {
             $query->where(['Cases.status' => $status]);
         }
@@ -121,13 +121,10 @@ class CasesController extends AppController {
         // Apply patient masking to all cases
         // (Removed - now handled by PatientMask helper in templates)
 
-        // Get filter options
+        // Get filter options (main case statuses: in_progress, completed, cancelled)
         $statusOptions = [
             'all' => 'All Status',
-            SiteConstants::CASE_STATUS_DRAFT => 'Draft',
-            SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned',
             SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
-            'review' => 'Under Review',
             SiteConstants::CASE_STATUS_COMPLETED => 'Completed',
             SiteConstants::CASE_STATUS_CANCELLED => 'Cancelled'
         ];
@@ -1532,10 +1529,76 @@ class CasesController extends AppController {
                 throw new RecordNotFoundException(__('Case not found.'));
             }
 
-            // Check if case can be assigned
-            if (!in_array($case->status, [SiteConstants::CASE_STATUS_DRAFT, SiteConstants::CASE_STATUS_ASSIGNED, SiteConstants::CASE_STATUS_IN_PROGRESS])) {
+            // Check if case can be assigned (main status should be in_progress, not completed/cancelled)
+            if (!in_array($case->status, [SiteConstants::CASE_STATUS_IN_PROGRESS])) {
                 $this->Flash->error(__('This case cannot be assigned in its current status.'));
                 return $this->redirect(['action' => 'view', $id]);
+            }
+
+            // Check if technician has created a PDF report for this case
+            $reportsTable = $this->fetchTable('Reports');
+            $existingReport = $reportsTable->find()
+                ->where([
+                    'case_id' => $id,
+                    'user_id' => $user->id,
+                    'type' => 'PDF'
+                ])
+                ->first();
+            
+            // If no report exists, auto-create one with default content
+            if (!$existingReport) {
+                // Load case with all data for report generation
+                $caseWithData = $this->Cases->get($id, [
+                    'contain' => [
+                        'PatientUsers',
+                        'Hospitals',
+                        'Departments',
+                        'Sedations',
+                        'CasesExamsProcedures' => [
+                            'ExamsProcedures' => [
+                                'Exams' => ['Modalities'],
+                                'Procedures'
+                            ]
+                        ],
+                        'Documents'
+                    ]
+                ]);
+                
+                // Generate default report content
+                $view = new \Cake\View\View($this->request, $this->response);
+                $defaultContent = $view->element('Reports/report_content', ['case' => $caseWithData]);
+                
+                $report = $reportsTable->newEntity([
+                    'case_id' => $id,
+                    'hospital_id' => $case->hospital_id,
+                    'status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
+                    'user_id' => $user->id,
+                    'type' => 'PDF',
+                    'status' => SiteConstants::CASE_STATUS_COMPLETED,
+                    'report_data' => json_encode(['content' => $defaultContent])
+                ]);
+                
+                if ($reportsTable->save($report)) {
+                    // Log activity
+                    $this->activityLogger->log(
+                        'report_created',
+                        [
+                            'user_id' => $user->id,
+                            'request' => $this->request,
+                            'event_data' => [
+                                'case_id' => $id,
+                                'report_id' => $report->id,
+                                'auto_created' => true,
+                                'status' => SiteConstants::CASE_STATUS_IN_PROGRESS
+                            ]
+                        ]
+                    );
+                    
+                    $this->Flash->success(__('PDF report has been automatically created. You can now proceed with assignment.'));
+                } else {
+                    $this->Flash->error(__('Unable to create report. Please try again.'));
+                    return $this->redirect(['action' => 'view', $id]);
+                }
             }
 
         } catch (RecordNotFoundException $e) {
@@ -2057,10 +2120,10 @@ class CasesController extends AppController {
             'department_id' => $step2Data['department_id'],
             'sedation_id' => $step2Data['sedation_id'],
             'priority' => $step2Data['priority'],
-            'status' => SiteConstants::CASE_STATUS_DRAFT,
-            'technician_status' => 'draft',
-            'scientist_status' => 'draft',
-            'doctor_status' => 'draft',
+            'status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
+            'technician_status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
+            'scientist_status' => SiteConstants::CASE_STATUS_ASSIGNED,
+            'doctor_status' => SiteConstants::CASE_STATUS_ASSIGNED,
             'notes' => $combinedNotes,
             'symptoms' => $step1Data['symptoms']
         ]);

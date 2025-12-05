@@ -156,9 +156,8 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
                     <div class="mb-3">
                         <?php echo  $this->Form->control('status', [
                             'options' => [
-                                'pending' => 'Pending (Draft)',
-                                'reviewed' => 'Ready for Review',
-                                'approved' => 'Approved & Final',
+                                'in_progress' => 'In Progress (Draft)',
+                                'completed' => 'Completed & Final',
                             ],
                             'class' => 'form-select',
                             'label' => ['text' => 'Report Status', 'class' => 'form-label fw-semibold'],

@@ -60,9 +60,8 @@ use App\Constants\SiteConstants;
                         'type' => 'select',
                         'options' => [
                             'all' => 'All Statuses',
-                            SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned to Me',
+                            SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned',
                             SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
-                            SiteConstants::CASE_STATUS_REVIEW => 'Under Review',
                             SiteConstants::CASE_STATUS_COMPLETED => 'Completed'
                         ],
                         'value' => $status ?? 'all',
@@ -227,15 +226,13 @@ use App\Constants\SiteConstants;
                             <!-- Status -->
                             <td>
                                 <?php 
-                                // Get doctor-specific status
-                                $roleStatus = $case->doctor_status ?? 'assigned';
-                                $statusConfig = match($roleStatus) {
-                                    'assigned' => ['class' => 'info', 'icon' => 'user-check', 'label' => $case->getStatusLabelForRole('doctor')],
-                                    'in_progress' => ['class' => 'warning', 'icon' => 'spinner', 'label' => $case->getStatusLabelForRole('doctor')],
-                                    'review' => ['class' => 'primary', 'icon' => 'search', 'label' => $case->getStatusLabelForRole('doctor')],
-                                    'completed' => ['class' => 'success', 'icon' => 'check-circle', 'label' => $case->getStatusLabelForRole('doctor')],
-                                    'cancelled' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => $case->getStatusLabelForRole('doctor')],
-                                    default => ['class' => 'secondary', 'icon' => 'circle', 'label' => $case->getStatusLabelForRole('doctor')]
+                                // Display main case status
+                                $caseStatus = $case->status ?? 'in_progress';
+                                $statusConfig = match($caseStatus) {
+                                    'in_progress' => ['class' => 'warning', 'icon' => 'spinner', 'label' => 'In Progress'],
+                                    'completed' => ['class' => 'success', 'icon' => 'check-circle', 'label' => 'Completed'],
+                                    'cancelled' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => 'Cancelled'],
+                                    default => ['class' => 'secondary', 'icon' => 'circle', 'label' => ucwords(str_replace('_', ' ', $caseStatus))]
                                 };
                                 ?>
                                 <?php
@@ -330,9 +327,9 @@ use App\Constants\SiteConstants;
                                         ]
                                     ); ?>
                                     <?php 
-                                    // Doctors can complete cases or mark them as reviewed
-                                    $doctorStatus = $case->doctor_status ?? 'assigned';
-                                    if (!in_array($doctorStatus, ['completed', 'cancelled'])): 
+                                    // Doctors can complete cases based on main status
+                                    $mainStatus = $case->status ?? 'in_progress';
+                                    if (!in_array($mainStatus, ['completed', 'cancelled'])): 
                                     ?>
                                         <?php echo $this->Html->link(
                                             '<i class="fas fa-check-circle"></i>',

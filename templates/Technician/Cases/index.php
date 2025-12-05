@@ -212,16 +212,13 @@ $this->assign('title', 'Case Management');
                             <!-- Status -->
                             <td>
                                 <?php 
-                                // Get technician-specific status
-                                $roleStatus = $case->technician_status ?? 'draft';
-                                $statusConfig = match($roleStatus) {
-                                    'draft' => ['class' => 'secondary', 'icon' => 'file', 'label' => $case->getStatusLabelForRole('technician')],
-                                    'assigned' => ['class' => 'info', 'icon' => 'user-check', 'label' => $case->getStatusLabelForRole('technician')],
-                                    'in_progress' => ['class' => 'warning', 'icon' => 'spinner', 'label' => $case->getStatusLabelForRole('technician')],
-                                    'review' => ['class' => 'primary', 'icon' => 'search', 'label' => $case->getStatusLabelForRole('technician')],
-                                    'completed' => ['class' => 'success', 'icon' => 'check-circle', 'label' => $case->getStatusLabelForRole('technician')],
-                                    'cancelled' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => $case->getStatusLabelForRole('technician')],
-                                    default => ['class' => 'secondary', 'icon' => 'circle', 'label' => $case->getStatusLabelForRole('technician')]
+                                // Get main case status (only: in_progress, completed, cancelled)
+                                $caseStatus = $case->status ?? 'in_progress';
+                                $statusConfig = match($caseStatus) {
+                                    'in_progress' => ['class' => 'warning', 'icon' => 'spinner', 'label' => 'In Progress'],
+                                    'completed' => ['class' => 'success', 'icon' => 'check-circle', 'label' => 'Completed'],
+                                    'cancelled' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => 'Cancelled'],
+                                    default => ['class' => 'secondary', 'icon' => 'circle', 'label' => ucfirst(str_replace('_', ' ', $caseStatus))]
                                 };
                                 ?>
                                 <?php
@@ -316,9 +313,9 @@ $this->assign('title', 'Case Management');
                                         ]
                                     ); ?>
                                     <?php 
-                                    // Check technician's role-specific status for permissions
-                                    $technicianStatus = $case->technician_status ?? 'draft';
-                                    if (!in_array($technicianStatus, ['completed', 'cancelled'])): 
+                                    // Check main case status for permissions (not role-based)
+                                    $mainStatus = $case->status ?? 'in_progress';
+                                    if (!in_array($mainStatus, ['completed', 'cancelled'])): 
                                     ?>
                                         <?php echo $this->Html->link(
                                             '<i class="fas fa-edit"></i>',
@@ -331,7 +328,7 @@ $this->assign('title', 'Case Management');
                                             ]
                                         ); ?>
                                     <?php endif; ?>
-                                    <?php if (!in_array($technicianStatus, ['completed', 'cancelled'])): ?>
+                                    <?php if (!in_array($mainStatus, ['completed', 'cancelled'])): ?>
                                         <?php echo $this->Html->link(
                                             '<i class="fas fa-user-plus"></i>',
                                             ['action' => 'assign', $case->id],

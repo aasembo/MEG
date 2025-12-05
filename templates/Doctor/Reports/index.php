@@ -131,6 +131,7 @@ foreach ($reportsByCase as &$caseData) {
                     <thead class="table-light">
                         <tr>
                             <th class="border-0 fw-semibold text-uppercase small text-muted ps-4">Report</th>
+                            <th class="border-0 fw-semibold text-uppercase small text-muted">Type</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Creator Role</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Hospital</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Status</th>
@@ -195,6 +196,21 @@ foreach ($reportsByCase as &$caseData) {
                                 </div>
                             </td>
                             <td>
+                                <?php 
+                                $reportType = strtoupper($report->type ?? 'PDF');
+                                $typeIcon = $reportType === 'PPT' ? 'fa-file-powerpoint' : 'fa-file-pdf';
+                                $typeColor = $reportType === 'PPT' ? 'warning' : 'danger';
+                                $typeName = $reportType === 'PPT' ? 'MEG Report' : 'EEG Report';
+                                ?>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-<?php echo $typeColor ?> me-2">
+                                        <i class="fas <?php echo $typeIcon ?> me-1"></i>
+                                        <?php echo h($reportType) ?>
+                                    </span>
+                                    <small class="text-muted"><?php echo h($typeName) ?></small>
+                                </div>
+                            </td>
+                            <td>
                                 <div class="d-flex align-items-center">
                                     <span class="badge bg-<?php echo  $roleColor ?> me-2">
                                         <i class="fas <?php echo  $hierarchyIcon ?> me-1"></i>
@@ -255,14 +271,28 @@ foreach ($reportsByCase as &$caseData) {
                             </td>
                             <td class="text-center">
                                 <div class="btn-group" role="group">
+                                    <?php 
+                                    // Determine URLs based on report type
+                                    $isPPT = ($report->type === 'PPT');
+                                    $viewUrl = $isPPT 
+                                        ? ['controller' => 'MegReports', 'action' => 'index', '?' => ['report_id' => $report->id]]
+                                        : ['action' => 'view', $report->id];
+                                    $editUrl = $isPPT 
+                                        ? ['controller' => 'MegReports', 'action' => 'add', '?' => ['report_id' => $report->id]]
+                                        : ['action' => 'edit', $report->id];
+                                    $downloadUrl = $isPPT 
+                                        ? ['controller' => 'MegReports', 'action' => 'downloadPpt', $report->id]
+                                        : ['action' => 'download', $report->id, 'pdf'];
+                                    ?>
+                                    
                                     <?php echo  $this->Html->link(
                                         '<i class="fas fa-eye"></i>',
-                                        ['action' => 'view', $report->id],
+                                        $viewUrl,
                                         [
                                             'class' => 'btn btn-sm btn-outline-danger',
                                             'escape' => false,
                                             'data-bs-toggle' => 'tooltip',
-                                            'title' => 'View Report'
+                                            'title' => $isPPT ? 'View Slides' : 'View Report'
                                         ]
                                     ) ?>
                                     
@@ -271,25 +301,25 @@ foreach ($reportsByCase as &$caseData) {
                                     if ($creatorRole === 'doctor' && $currentUserId && $report->user_id == $currentUserId): 
                                     ?>
                                     <?php echo  $this->Html->link(
-                                        '<i class="fas fa-edit"></i>',
-                                        ['action' => 'edit', $report->id],
+                                        $isPPT ? '<i class="fas fa-plus-circle"></i>' : '<i class="fas fa-edit"></i>',
+                                        $editUrl,
                                         [
                                             'class' => 'btn btn-sm btn-outline-primary',
                                             'escape' => false,
                                             'data-bs-toggle' => 'tooltip',
-                                            'title' => 'Edit Report'
+                                            'title' => $isPPT ? 'Add Slides' : 'Edit Report'
                                         ]
                                     ) ?>
                                     <?php endif; ?>
                                     
                                     <?php echo  $this->Html->link(
                                         '<i class="fas fa-download"></i>',
-                                        ['action' => 'download', $report->id, 'pdf'],
+                                        $downloadUrl,
                                         [
                                             'class' => 'btn btn-sm btn-outline-info',
                                             'escape' => false,
                                             'data-bs-toggle' => 'tooltip',
-                                            'title' => 'Download PDF'
+                                            'title' => $isPPT ? 'Download PPT' : 'Download PDF'
                                         ]
                                     ) ?>
                                     

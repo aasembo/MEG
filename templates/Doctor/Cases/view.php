@@ -26,15 +26,12 @@ $this->assign('title', 'Case #' . $case->id);
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <div class="btn-group" role="group">
-                        <?php if (!empty($existingReports)): ?>
-                            <?php $firstReport = $existingReports->first(); ?>
-                            <?php if ($firstReport): ?>
-                                <?php echo $this->Html->link(
-                                    '<i class="fas fa-file-medical-alt me-1"></i>View Report',
-                                    ['controller' => 'Reports', 'action' => 'view', $firstReport->id],
-                                    ['class' => 'btn btn-light', 'escape' => false]
-                                ); ?>
-                            <?php endif; ?>
+                        <?php if ($pdf_report): ?>
+                            <?php echo $this->Html->link(
+                                '<i class="fas fa-file-medical-alt me-1"></i>View EEG Report',
+                                ['controller' => 'Reports', 'action' => 'view', $pdf_report->id],
+                                ['class' => 'btn btn-light', 'escape' => false]
+                            ); ?>
                         <?php endif; ?>
                         
                         <?php 
@@ -226,61 +223,47 @@ $this->assign('title', 'Case #' . $case->id);
                         <table class="table table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Procedure & Modality</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Status</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Documents</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Actions</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 70%;">Procedure & Modality</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted text-end" style="width: 30%;">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($case->cases_exams_procedures as $cep): ?>
                                     <tr>
-                                        <td>
-                                            <div>
-                                                <strong><?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?></strong>
-                                                <span class="badge rounded-pill bg-danger text-white ms-2">
-                                                    <i class="fas fa-microscope me-1"></i>
-                                                    <?php echo h($cep->exams_procedure->exam->modality->name ?? 'N/A'); ?>
-                                                </span>
-                                                <br>
-                                                <small class="text-muted">
-                                                    <?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>
-                                                </small>
+                                        <td class="py-3">
+                                            <div class="d-flex align-items-start justify-content-between">
+                                                <div class="flex-grow-1">
+                                                    <div class="mb-2">
+                                                        <h6 class="mb-1 fw-bold text-dark d-inline"><?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?></h6>
+                                                        <span class="badge bg-danger text-white ms-2" style="font-size: 0.7rem;">
+                                                            <i class="fas fa-microscope me-1"></i><?php echo h($cep->exams_procedure->exam->modality->name ?? 'N/A'); ?>
+                                                        </span>
+                                                    </div>
+                                                    <div class="text-muted small mb-2">
+                                                        <i class="fas fa-procedures me-1"></i><?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>
+                                                    </div>
+                                                    <?php if ($cep->hasDocuments()): ?>
+                                                        <button class="badge bg-info text-white border-0 view-procedure-docs-btn" 
+                                                                style="font-size: 0.7rem; cursor: pointer;"
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#documentsModal"
+                                                                data-procedure-id="<?php echo $cep->id; ?>"
+                                                                data-exam-name="<?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?>"
+                                                                data-procedure-name="<?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>">
+                                                            <i class="fas fa-file me-1"></i><?php echo $cep->getDocumentCount(); ?> <?php echo $cep->getDocumentCount() === 1 ? 'document' : 'documents'; ?>
+                                                        </button>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-secondary" style="font-size: 0.7rem;">
+                                                            <i class="fas fa-folder-open me-1"></i>No documents
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td>
-                                            <span class="badge rounded-pill <?php echo $cep->getStatusBadgeClass(); ?>">
+                                        <td class="py-3 text-end">
+                                            <span class="badge rounded-pill <?php echo $cep->getStatusBadgeClass(); ?>" style="font-size: 0.8rem; padding: 0.5em 1em;">
                                                 <?php echo h($cep->getStatusLabel()); ?>
                                             </span>
-                                        </td>
-                                        <td>
-                                            <?php if ($cep->hasDocuments()): ?>
-                                                <span class="badge rounded-pill bg-danger text-white">
-                                                    <i class="fas fa-file me-1"></i>
-                                                    <?php echo $cep->getDocumentCount(); ?> files
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="text-muted">No files</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm">
-                                                <button class="btn btn-outline-primary" 
-                                                        data-bs-toggle="modal" 
-                                                        data-bs-target="#documentsModal"
-                                                        title="View Documents">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <?php if (in_array($doctorStatus, ['assigned', 'in_progress']) && $case->status !== 'completed'): ?>
-                                                    <button class="btn btn-outline-secondary" 
-                                                            data-bs-toggle="modal" 
-                                                            data-bs-target="#uploadModal"
-                                                            data-procedure-id="<?php echo $cep->id; ?>"
-                                                            title="Upload Document for this Procedure">
-                                                        <i class="fas fa-upload"></i>
-                                                    </button>
-                                                <?php endif; ?>
-                                            </div>
                                         </td>
                                     </tr>
                                     
@@ -326,17 +309,15 @@ $this->assign('title', 'Case #' . $case->id);
                         <table class="table table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted ps-4" style="width: 50px;"><i class="fas fa-file"></i></th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 250px;">Document Name</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 200px;">Procedure</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Uploaded</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted text-center" style="width: 130px;">Actions</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted ps-4" style="width: 60px;"><i class="fas fa-file"></i></th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Document Details</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted text-center" style="width: 100px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($case->documents as $index => $document): ?>
                                 <tr>
-                                    <td class="ps-4">
+                                    <td class="ps-4 pe-3 align-top pt-3">
                                         <?php 
                                             // Get file extension from original_filename
                                             $ext = !empty($document->original_filename) ? strtolower(pathinfo($document->original_filename, PATHINFO_EXTENSION)) : '';
@@ -354,7 +335,7 @@ $this->assign('title', 'Case #' . $case->id);
                                             };
                                         ?>
                                         <div class="d-flex align-items-center justify-content-center rounded <?php echo $bgClass; ?>" 
-                                             style="width: 40px; height: 40px;">
+                                             style="width: 42px; height: 42px; flex-shrink: 0;">
                                             <i class="<?php 
                                                 echo match($ext) {
                                                     'pdf' => 'fas fa-file-pdf',
@@ -372,65 +353,66 @@ $this->assign('title', 'Case #' . $case->id);
                                             ?> text-white fs-5"></i>
                                         </div>
                                     </td>
-                                    <td style="max-width: 250px;">
-                                        <div class="d-flex flex-column">
-                                            <span class="fw-semibold text-dark text-truncate" 
-                                                  style="cursor: pointer;" 
-                                                  title="<?php echo h($document->original_filename); ?>">
-                                                <?php echo h($document->original_filename); ?>
-                                            </span>
-                                            <span class="text-muted small">
-                                                <?php 
-                                                    $filesize = !empty($document->file_size) ? $document->file_size : 0;
-                                                    if ($filesize > 1024 * 1024) {
-                                                        echo number_format($filesize / (1024 * 1024), 2) . ' MB';
-                                                    } elseif ($filesize > 1024) {
-                                                        echo number_format($filesize / 1024, 2) . ' KB';
-                                                    } else {
-                                                        echo $filesize . ' bytes';
-                                                    }
-                                                ?>
-                                                <span class="mx-1">•</span>
-                                                <?php echo strtoupper($ext ?? 'File'); ?>
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td style="max-width: 200px;">
-                                        <?php if (!empty($document->cases_exams_procedure) && !empty($document->cases_exams_procedure->exams_procedure)): ?>
-                                            <div class="d-flex flex-column gap-1">
-                                                <span class="badge rounded-pill bg-danger" style="width: fit-content;">
-                                                    <i class="fas fa-stethoscope me-1"></i>
-                                                    <?php echo h($document->cases_exams_procedure->exams_procedure->exam->name ?? ''); ?>
+                                    <td class="pe-3 py-3">
+                                        <div class="d-flex flex-column gap-2">
+                                            <!-- Document Name -->
+                                            <div>
+                                                <span class="fw-bold text-dark d-block mb-1" style="font-size: 0.95rem;">
+                                                    <?php echo h($document->original_filename); ?>
                                                 </span>
-                                                <?php if (!empty($document->cases_exams_procedure->exams_procedure->procedure->name)): ?>
-                                                    <span class="badge rounded-pill bg-info text-white" style="width: fit-content;">
-                                                        <i class="fas fa-procedures me-1"></i>
-                                                        <?php echo h($document->cases_exams_procedure->exams_procedure->procedure->name); ?>
+                                                <span class="text-muted" style="font-size: 0.8rem;">
+                                                    <?php 
+                                                        $filesize = !empty($document->file_size) ? $document->file_size : 0;
+                                                        if ($filesize > 1024 * 1024) {
+                                                            echo number_format($filesize / (1024 * 1024), 2) . ' MB';
+                                                        } elseif ($filesize > 1024) {
+                                                            echo number_format($filesize / 1024, 2) . ' KB';
+                                                        } else {
+                                                            echo $filesize . ' bytes';
+                                                        }
+                                                    ?>
+                                                    <span class="mx-1">•</span>
+                                                    <?php echo strtoupper($ext ?? 'File'); ?>
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Exam/Procedure -->
+                                            <div>
+                                                <?php if (!empty($document->cases_exams_procedure) && !empty($document->cases_exams_procedure->exams_procedure)): ?>
+                                                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                                                        <span class="badge bg-danger text-white" style="font-size: 0.75rem;">
+                                                            <i class="fas fa-stethoscope me-1"></i>
+                                                            <?php echo h($document->cases_exams_procedure->exams_procedure->exam->name ?? ''); ?>
+                                                        </span>
+                                                        <?php if (!empty($document->cases_exams_procedure->exams_procedure->procedure->name)): ?>
+                                                            <span class="badge bg-info text-white" style="font-size: 0.75rem;">
+                                                                <i class="fas fa-procedures me-1"></i>
+                                                                <?php echo h($document->cases_exams_procedure->exams_procedure->procedure->name); ?>
+                                                            </span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary" style="font-size: 0.75rem;">
+                                                        <i class="fas fa-file-medical me-1"></i>General
                                                     </span>
                                                 <?php endif; ?>
                                             </div>
-                                        <?php else: ?>
-                                            <span class="badge rounded-pill bg-secondary">
-                                                <i class="fas fa-file-medical me-1"></i> General
-                                            </span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex flex-column">
-                                            <?php 
-                                                $firstName = $document->user->first_name ?? '';
-                                                $lastName = $document->user->last_name ?? '';
-                                            ?>
-                                            <span class="text-dark small fw-semibold">
+                                            
+                                            <!-- Uploaded by -->
+                                            <div class="text-muted" style="font-size: 0.8rem;">
+                                                <?php 
+                                                    $firstName = $document->user->first_name ?? '';
+                                                    $lastName = $document->user->last_name ?? '';
+                                                ?>
+                                                <i class="fas fa-user me-1"></i>
                                                 <?php if ($document->user_id === $user->id): ?>
-                                                    <span class="text-danger">You</span>
+                                                    <span class="text-danger fw-semibold">You</span>
                                                 <?php else: ?>
-                                                    <?php echo h($firstName . ' ' . $lastName); ?>
+                                                    <span class="fw-semibold"><?php echo h($firstName . ' ' . $lastName); ?></span>
                                                 <?php endif; ?>
-                                            </span>
-                                            <span class="text-muted" style="font-size: 0.75rem;">
+                                                <span class="mx-2">•</span>
                                                 <i class="far fa-calendar-alt me-1"></i><?php echo $document->created->format('M j, Y'); ?>
-                                            </span>
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="text-center">
@@ -537,59 +519,54 @@ $this->assign('title', 'Case #' . $case->id);
                             $doctorReport = null;
                             $hasOtherReports = false;
                             
-                            if (!empty($existingReports)) {
-                                foreach ($existingReports as $report) {
-                                    if ($report->user_id === $user->id) {
-                                        $doctorReport = $report;
-                                    } else {
-                                        $hasOtherReports = true;
-                                    }
-                                }
+                            if (!empty($pdf_report)) {
+                                $doctorReport = $pdf_report;
+                            }
+                            
+                            // Check if there's a PPT report for MEG slides (check all reports)
+                            $megReportSidebar = null;
+                            if (!empty($ppt_report)) {
+                                $megReportSidebar = $ppt_report;
                             }
                             ?>
                             
                             <?php if ($doctorReport): ?>
                                 <!-- Doctor has their own report -->
                                 <?php echo $this->Html->link(
-                                    '<i class="fas fa-edit me-2"></i>Edit My Report',
+                                    '<i class="fas fa-edit me-2"></i>Edit EEG Report',
                                     ['controller' => 'Reports', 'action' => 'edit', $doctorReport->id],
                                     ['class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 'escape' => false]
                                 ); ?>
                                 <?php echo $this->Html->link(
-                                    '<i class="fas fa-eye me-2"></i>View My Report',
+                                    '<i class="fas fa-eye me-2"></i>View EEG Report',
                                     ['controller' => 'Reports', 'action' => 'view', $doctorReport->id],
                                     ['class' => 'btn btn-outline-danger d-flex align-items-center justify-content-center', 'escape' => false]
-                                ); ?>
-                            <?php elseif ($hasOtherReports): ?>
-                                <!-- Other reports exist, but doctor hasn't created their own -->
-                                <?php echo $this->Html->link(
-                                    '<i class="fas fa-file-medical-alt me-2"></i>Create My Report',
-                                    ['controller' => 'Reports', 'action' => 'add', '?' => ['case_id' => $case->id]],
-                                    [
-                                        'class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 
-                                        'escape' => false,
-                                        'confirm' => 'This will create a new doctor report based on existing case data. Continue?'
-                                    ]
-                                ); ?>
-                                <?php 
-                                // Show view link for the first available report
-                                $firstOtherReport = $existingReports->first();
-                                ?>
-                                <?php echo $this->Html->link(
-                                    '<i class="fas fa-eye me-2"></i>View Previous Report',
-                                    ['controller' => 'Reports', 'action' => 'view', $firstOtherReport->id],
-                                    ['class' => 'btn btn-outline-secondary d-flex align-items-center justify-content-center', 'escape' => false]
                                 ); ?>
                             <?php else: ?>
                                 <!-- No reports exist yet -->
                                 <?php echo $this->Html->link(
-                                    '<i class="fas fa-file-medical-alt me-2"></i>Create Report',
+                                    '<i class="fas fa-file-medical-alt me-2"></i>Create EEG Report',
                                     ['controller' => 'Reports', 'action' => 'add', '?' => ['case_id' => $case->id]],
                                     [
                                         'class' => 'btn btn-outline-info d-flex align-items-center justify-content-center', 
                                         'escape' => false,
                                         'confirm' => 'Are you sure you want to create a report for this case?'
                                     ]
+                                ); ?>
+                            <?php endif; ?>
+                            
+                            <!-- MEG Report Button - Always Show -->
+                            <?php if ($megReportSidebar): ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-file-powerpoint me-2"></i>Update MEG Report',
+                                    ['controller' => 'MegReports', 'action' => 'index', $megReportSidebar->id],
+                                    ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false]
+                                ); ?>
+                            <?php else: ?>
+                                <?php echo $this->Html->link(
+                                    '<i class="fas fa-file-powerpoint me-2"></i>Create MEG Report',
+                                    ['controller' => 'MegReports', 'action' => 'index', '?' => ['case_id' => $case->id]],
+                                    ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false]
                                 ); ?>
                             <?php endif; ?>
                             
@@ -621,11 +598,11 @@ $this->assign('title', 'Case #' . $case->id);
             <!-- Report Hierarchy Information -->
             <?php if (!empty($existingReports)): ?>
                 <?php 
-                // Organize reports by role hierarchy
+                // Organize reports by role hierarchy (support multiple reports per role)
                 $reportHierarchy = [
-                    'technician' => null,
-                    'scientist' => null,
-                    'doctor' => null
+                    'technician' => [],
+                    'scientist' => [],
+                    'doctor' => []
                 ];
                 
                 // Categorize reports by creator role
@@ -633,14 +610,14 @@ $this->assign('title', 'Case #' . $case->id);
                     if (!empty($report->user->role->type)) {
                         $roleType = strtolower($report->user->role->type);
                         if (array_key_exists($roleType, $reportHierarchy)) {
-                            $reportHierarchy[$roleType] = $report;
+                            $reportHierarchy[$roleType][] = $report;
                         }
                     }
                 }
                 
                 // Find current user's role for ownership detection
                 $currentUserRole = strtolower($user->role->type ?? 'unknown');
-                $hasAnyReports = array_filter($reportHierarchy) !== [];
+                $hasAnyReports = !empty(array_filter($reportHierarchy, fn($reports) => !empty($reports)));
                 ?>
                 
                 <?php if ($hasAnyReports): ?>
@@ -658,7 +635,7 @@ $this->assign('title', 'Case #' . $case->id);
                                 <span class="small fw-semibold text-muted">Workflow Progress</span>
                                 <span class="small fw-bold text-danger">
                                     <?php 
-                                    $completedStages = count(array_filter($reportHierarchy));
+                                    $completedStages = count(array_filter($reportHierarchy, fn($reports) => !empty($reports)));
                                     echo $completedStages . '/3 Stages Complete';
                                     ?>
                                 </span>
@@ -694,9 +671,9 @@ $this->assign('title', 'Case #' . $case->id);
                             ?>
                             
                             <?php foreach ($hierarchyConfig as $roleType => $config): ?>
-                                <?php $report = $reportHierarchy[$roleType]; ?>
+                                <?php $reports = $reportHierarchy[$roleType]; ?>
                                 <?php $isCurrentUserRole = ($roleType === $currentUserRole); ?>
-                                <?php $isCompleted = ($report !== null); ?>
+                                <?php $isCompleted = !empty($reports); ?>
                                 
                                 <div class="hierarchy-stage mb-3 <?php echo  $isCompleted ? 'completed' : 'pending' ?> <?php echo  $isCurrentUserRole ? 'current-user' : '' ?>">
                                     <div class="d-flex align-items-center p-3 rounded border <?php echo  $isCompleted ? 'border-' . $config['color'] . ' bg-' . $config['color'] . ' bg-opacity-10' : 'border-light bg-light' ?>">
@@ -732,10 +709,18 @@ $this->assign('title', 'Case #' . $case->id);
                                             <p class="mb-2 small text-muted"><?php echo  $config['description'] ?></p>
                                             
                                             <?php if ($isCompleted): ?>
-                                                <!-- Report Details -->
-                                                <div class="row align-items-center">
-                                                    <div class="col-md-8">
+                                                <!-- Report Details - Loop through multiple reports -->
+                                                <?php foreach ($reports as $report): ?>
+                                                <div class="row align-items-center mb-2 p-2 border-start border-3 border-<?php echo $config['color'] ?> bg-white">
+                                                    <div class="col-md-7">
                                                         <div class="small">
+                                                            <?php 
+                                                            $isPPT = ($report->type === 'PPT');
+                                                            $reportTypeBadge = $isPPT 
+                                                                ? '<span class="badge bg-warning me-1"><i class="fas fa-file-powerpoint me-1"></i>MEG</span>' 
+                                                                : '<span class="badge bg-danger me-1"><i class="fas fa-file-pdf me-1"></i>EEG</span>';
+                                                            echo $reportTypeBadge;
+                                                            ?>
                                                             <strong>Report #<?php echo  h($report->id) ?></strong>
                                                             <?php if (!$isCurrentUserRole && !empty($report->user)): ?>
                                                                 <span class="text-muted">
@@ -759,42 +744,56 @@ $this->assign('title', 'Case #' . $case->id);
                                                             <span class="badge bg-<?php echo  $statusClass ?> ms-2"><?php echo  h(ucfirst($report->status)) ?></span>
                                                         </div>
                                                     </div>
-                                                    <div class="col-md-4 text-end">
+                                                    <div class="col-md-5 text-end">
                                                         <div class="btn-group btn-group-sm">
+                                                            <?php 
+                                                            // Route based on report type
+                                                            $viewUrl = $isPPT 
+                                                                ? ['controller' => 'MegReports', 'action' => 'index', '?' => ['report_id' => $report->id]]
+                                                                : ['controller' => 'Reports', 'action' => 'view', $report->id];
+                                                            $editUrl = $isPPT 
+                                                                ? ['controller' => 'MegReports', 'action' => 'add', '?' => ['report_id' => $report->id]]
+                                                                : ['controller' => 'Reports', 'action' => 'edit', $report->id];
+                                                            $downloadUrl = $isPPT 
+                                                                ? ['controller' => 'MegReports', 'action' => 'downloadPpt', $report->id]
+                                                                : ['controller' => 'Reports', 'action' => 'download', $report->id, 'pdf'];
+                                                            ?>
+                                                            
                                                             <?php echo  $this->Html->link(
                                                                 '<i class="fas fa-eye"></i>',
-                                                                ['controller' => 'Reports', 'action' => 'view', $report->id],
+                                                                $viewUrl,
                                                                 [
                                                                     'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
                                                                     'escape' => false,
-                                                                    'title' => 'View Report'
+                                                                    'title' => $isPPT ? 'View Slides' : 'View Report'
                                                                 ]
                                                             ); ?>
                                                             
                                                             <?php if ($isCurrentUserRole): ?>
                                                                 <?php echo  $this->Html->link(
-                                                                    '<i class="fas fa-edit"></i>',
-                                                                    ['controller' => 'Reports', 'action' => 'edit', $report->id],
+                                                                    $isPPT ? '<i class="fas fa-plus-circle"></i>' : '<i class="fas fa-edit"></i>',
+                                                                    $editUrl,
                                                                     [
                                                                         'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
                                                                         'escape' => false,
-                                                                        'title' => 'Edit My Report'
+                                                                        'title' => $isPPT ? 'Add Slides' : 'Edit Report'
                                                                     ]
                                                                 ); ?>
                                                             <?php endif; ?>
                                                             
                                                             <?php echo  $this->Html->link(
                                                                 '<i class="fas fa-download"></i>',
-                                                                ['controller' => 'Reports', 'action' => 'download', $report->id, 'pdf'],
+                                                                $downloadUrl,
                                                                 [
                                                                     'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
                                                                     'escape' => false,
-                                                                    'title' => 'Download PDF'
+                                                                    'title' => $isPPT ? 'Download PPT' : 'Download PDF'
                                                                 ]
                                                             ); ?>
                                                         </div>
                                                     </div>
                                                 </div>
+                                                <?php endforeach; ?>
                                             <?php else: ?>
                                                 <!-- No Report Available -->
                                                 <?php if ($isCurrentUserRole): ?>
@@ -1066,8 +1065,9 @@ $this->assign('title', 'Case #' . $case->id);
                 <div class="card-body">
                     <div class="small">
                         <?php 
-                        $statuses = ['draft', 'assigned', 'in_progress', 'review', 'completed'];
-                        $currentIndex = array_search($case->status, $statuses);
+                        // Doctor workflow: Assigned → In Progress → Completed
+                        $statuses = ['assigned', 'in_progress', 'completed'];
+                        $currentIndex = array_search($doctorStatus, $statuses);
                         if ($currentIndex === false) $currentIndex = -1;
                         ?>
                         
@@ -1075,14 +1075,14 @@ $this->assign('title', 'Case #' . $case->id);
                             <div class="d-flex align-items-center mb-2">
                                 <div class="me-2">
                                     <?php if ($index < $currentIndex): ?>
-                                        <i class="fas fa-check-circle text-danger"></i>
+                                        <i class="fas fa-check-circle text-success"></i>
                                     <?php elseif ($index === $currentIndex): ?>
                                         <i class="fas fa-circle text-danger"></i>
                                     <?php else: ?>
                                         <i class="far fa-circle text-muted"></i>
                                     <?php endif; ?>
                                 </div>
-                                <div class="<?php echo $index === $currentIndex ? 'fw-semibold' : ($index < $currentIndex ? 'text-danger' : 'text-muted'); ?>">
+                                <div class="<?php echo $index === $currentIndex ? 'fw-bold text-danger' : ($index < $currentIndex ? 'text-success' : 'text-muted'); ?>">
                                     <?php echo ucfirst(str_replace('_', ' ', $status)); ?>
                                 </div>
                             </div>
@@ -1436,6 +1436,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const cancelUploadBtn = document.getElementById('cancelUploadBtn');
     const uploadBtnText = document.getElementById('uploadBtnText');
     
+    // Handle document badge clicks to view documents
+    const viewProcedureDocsButtons = document.querySelectorAll('.view-procedure-docs-btn');
+    viewProcedureDocsButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent any parent handlers
+            const procedureId = this.getAttribute('data-procedure-id');
+            const examName = this.getAttribute('data-exam-name');
+            const procedureName = this.getAttribute('data-procedure-name');
+            loadProcedureDocuments(procedureId, examName, procedureName);
+        });
+    });
+    
     // Handle procedure-specific upload button clicks
     const uploadButtons = document.querySelectorAll('[data-procedure-id]');
     uploadButtons.forEach(button => {
@@ -1484,6 +1496,113 @@ document.addEventListener('DOMContentLoaded', function() {
     // Description change handler
     if (documentDescription) {
         documentDescription.addEventListener('input', updateUploadSummary);
+    }
+    
+    // Load documents for a specific procedure
+    function loadProcedureDocuments(procedureId, examName, procedureName) {
+        const documentsContent = document.getElementById('documentsContent');
+        const modalTitle = document.getElementById('documentsModalLabel');
+        
+        // Update modal title
+        modalTitle.innerHTML = `<i class="fas fa-folder-open me-2"></i>${examName} - ${procedureName}`;
+        
+        // Show loading state
+        documentsContent.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3 text-muted">Loading documents...</p>
+            </div>
+        `;
+        
+        // Get documents for this procedure from the page data
+        const caseDocuments = <?php echo json_encode($case->documents ?? []); ?>;
+        const procedureDocs = caseDocuments.filter(doc => 
+            doc.cases_exams_procedure_id == procedureId
+        );
+        
+        if (procedureDocs.length === 0) {
+            documentsContent.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No documents found</h5>
+                    <p class="text-muted">No documents have been uploaded for this procedure yet.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Display documents
+        let html = '<div class="list-group list-group-flush">';
+        procedureDocs.forEach((doc, index) => {
+            const ext = doc.original_filename ? doc.original_filename.split('.').pop().toLowerCase() : '';
+            const iconClass = getFileIcon(ext);
+            const bgClass = getFileBgClass(ext);
+            const fileSize = formatFileSize(doc.file_size || 0);
+            
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="d-flex align-items-center justify-content-center rounded ${bgClass}" 
+                             style="width: 42px; height: 42px; flex-shrink: 0;">
+                            <i class="${iconClass} text-white fs-5"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${doc.original_filename || 'Untitled'}</h6>
+                            <p class="mb-1 text-muted small">${fileSize} • ${ext.toUpperCase()}</p>
+                            ${doc.description ? `<p class="mb-0 text-muted small">${doc.description}</p>` : ''}
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-primary preview-doc-btn" 
+                                    data-doc-id="${doc.id}"
+                                    data-file-path="${doc.file_path}"
+                                    data-filename="${doc.original_filename}"
+                                    title="Preview">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <a href="<?php echo $this->Url->build(['controller' => 'Cases', 'action' => 'downloadDocument']); ?>/${doc.id}" 
+                               class="btn btn-sm btn-outline-danger"
+                               title="Download">
+                                <i class="fas fa-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        documentsContent.innerHTML = html;
+    }
+    
+    // Helper function to get file icon
+    function getFileIcon(ext) {
+        const icons = {
+            'pdf': 'fas fa-file-pdf',
+            'doc': 'fas fa-file-word', 'docx': 'fas fa-file-word',
+            'ppt': 'fas fa-file-powerpoint', 'pptx': 'fas fa-file-powerpoint',
+            'xls': 'fas fa-file-excel', 'xlsx': 'fas fa-file-excel',
+            'jpg': 'fas fa-file-image', 'jpeg': 'fas fa-file-image', 
+            'png': 'fas fa-file-image', 'gif': 'fas fa-file-image',
+            'txt': 'fas fa-file-alt', 'log': 'fas fa-file-alt',
+            'zip': 'fas fa-file-archive', 'rar': 'fas fa-file-archive'
+        };
+        return icons[ext] || 'fas fa-file';
+    }
+    
+    // Helper function to get file background class
+    function getFileBgClass(ext) {
+        const classes = {
+            'pdf': 'bg-danger',
+            'doc': 'bg-primary', 'docx': 'bg-primary',
+            'ppt': 'bg-warning', 'pptx': 'bg-warning',
+            'xls': 'bg-success', 'xlsx': 'bg-success',
+            'jpg': 'bg-info', 'jpeg': 'bg-info', 'png': 'bg-info', 'gif': 'bg-info',
+            'txt': 'bg-secondary', 'log': 'bg-secondary',
+            'zip': 'bg-dark', 'rar': 'bg-dark'
+        };
+        return classes[ext] || 'bg-secondary';
     }
     
     // Helper function to get CSRF token

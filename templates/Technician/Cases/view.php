@@ -211,83 +211,75 @@ $this->assign('title', 'Case #' . $case->id);
             <div class="card border-0 shadow mb-4">
                 <div class="card-header bg-light border-0 py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-procedures me-2 text-primary"></i>Assigned Procedures
+                        <i class="fas fa-procedures me-2 text-danger"></i>Assigned Procedures
                     </h5>
-                    <?php if (!in_array($technicianStatus, ['completed', 'cancelled'])): ?>
-                        <?php echo $this->Html->link(
-                            '<i class="fas fa-plus-circle me-2"></i>Assign Procedures',
-                            ['action' => 'assignProcedures', $case->id],
-                            ['class' => 'btn btn-sm btn-primary d-flex align-items-center gap-2', 'escape' => false]
-                        ); ?>
-                    <?php endif; ?>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge rounded-pill bg-danger">
+                            <?php echo count($case->cases_exams_procedures); ?> 
+                            <?php echo count($case->cases_exams_procedures) === 1 ? 'Procedure' : 'Procedures'; ?>
+                        </span>
+                        <?php if (!in_array($technicianStatus, ['completed', 'cancelled'])): ?>
+                            <?php echo $this->Html->link(
+                                '<i class="fas fa-plus-circle me-1"></i>Assign',
+                                ['action' => 'assignProcedures', $case->id],
+                                ['class' => 'btn btn-sm btn-primary d-flex align-items-center gap-1', 'escape' => false]
+                            ); ?>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div class="card-body bg-white p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Procedure & Modality</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Status</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Documents</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Actions</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 70%;">Procedure & Modality</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted text-end" style="width: 30%;">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($case->cases_exams_procedures as $cep): ?>
                                     <tr>
-                                        <td>
-                                            <div>
-                                                <strong><?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?></strong>
-                                                <span class="badge rounded-pill bg-info text-white ms-2">
-                                                    <i class="fas fa-microscope me-1"></i>
-                                                    <?php echo h($cep->exams_procedure->exam->modality->name ?? 'N/A'); ?>
-                                                </span>
-                                                <br>
-                                                <small class="text-muted">
-                                                    <?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>
-                                                </small>
+                                        <td class="py-3">
+                                            <div class="d-flex align-items-start justify-content-between">
+                                                <div class="flex-grow-1">
+                                                    <div class="mb-2">
+                                                        <h6 class="mb-1 fw-bold text-dark d-inline"><?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?></h6>
+                                                        <span class="badge bg-danger text-white ms-2" style="font-size: 0.7rem;">
+                                                            <i class="fas fa-microscope me-1"></i><?php echo h($cep->exams_procedure->exam->modality->name ?? 'N/A'); ?>
+                                                        </span>
+                                                    </div>
+                                                    <div class="text-muted small mb-2">
+                                                        <i class="fas fa-procedures me-1"></i><?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>
+                                                    </div>
+                                                    <?php if ($cep->hasDocuments()): ?>
+                                                        <button class="badge bg-info text-white border-0 view-procedure-docs-btn" 
+                                                                style="font-size: 0.7rem; cursor: pointer;"
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#documentsModal"
+                                                                data-procedure-id="<?php echo $cep->id; ?>"
+                                                                data-exam-name="<?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?>"
+                                                                data-procedure-name="<?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>">
+                                                            <i class="fas fa-file me-1"></i><?php echo $cep->getDocumentCount(); ?> <?php echo $cep->getDocumentCount() === 1 ? 'document' : 'documents'; ?>
+                                                        </button>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-secondary" style="font-size: 0.7rem;">
+                                                            <i class="fas fa-folder-open me-1"></i>No documents
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td>
-                                            <span class="badge rounded-pill <?php echo $cep->getStatusBadgeClass(); ?>">
+                                        <td class="py-3 text-end">
+                                            <span class="badge rounded-pill <?php echo $cep->getStatusBadgeClass(); ?>" style="font-size: 0.8rem; padding: 0.5em 1em;">
                                                 <?php echo h($cep->getStatusLabel()); ?>
                                             </span>
-                                        </td>
-                                        <td>
-                                            <?php if ($cep->hasDocuments()): ?>
-                                                <span class="badge rounded-pill bg-success text-white">
-                                                    <i class="fas fa-file me-1"></i>
-                                                    <?php echo $cep->getDocumentCount(); ?> files
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="text-muted">No files</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm">
-                                                <button class="btn btn-outline-primary" 
-                                                        data-bs-toggle="modal" 
-                                                        data-bs-target="#documentsModal"
-                                                        title="View Documents">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
-                                                    <button class="btn btn-outline-secondary" 
-                                                            data-bs-toggle="modal" 
-                                                            data-bs-target="#uploadModal"
-                                                            data-procedure-id="<?php echo $cep->id; ?>"
-                                                            title="Upload Document for this Procedure">
-                                                        <i class="fas fa-upload"></i>
-                                                    </button>
-                                                <?php endif; ?>
-                                            </div>
                                         </td>
                                     </tr>
                                     
                                     <!-- Procedure Notes Row -->
                                     <?php if ($cep->notes): ?>
                                     <tr class="table-light">
-                                        <td colspan="5">
+                                        <td colspan="2">
                                             <small>
                                                 <i class="fas fa-comment me-1"></i>
                                                 <strong>Notes:</strong> <?php echo h($cep->notes); ?>
@@ -305,7 +297,7 @@ $this->assign('title', 'Case #' . $case->id);
             <div class="card border-0 shadow mb-4">
                 <div class="card-header bg-light border-0 py-3">
                     <h5 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-procedures me-2 text-primary"></i>Assigned Procedures
+                        <i class="fas fa-procedures me-2 text-danger"></i>Assigned Procedures
                     </h5>
                 </div>
                 <div class="card-body bg-white">
@@ -313,7 +305,7 @@ $this->assign('title', 'Case #' . $case->id);
                         <i class="fas fa-info-circle me-2"></i>
                         <strong>No procedures assigned</strong><br>
                         This case doesn't have any procedures assigned yet. 
-                        <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
+                        <?php if (!in_array($technicianStatus, ['completed', 'cancelled'])): ?>
                             <?php echo $this->Html->link(
                                 'Edit case',
                                 ['action' => 'edit', $case->id],
@@ -336,11 +328,6 @@ $this->assign('title', 'Case #' . $case->id);
                         <span class="badge rounded-pill bg-primary">
                             <?php echo count($case->documents); ?> <?php echo count($case->documents) === 1 ? 'Document' : 'Documents'; ?>
                         </span>
-                        <?php if (in_array($technicianStatus, ['draft', 'in_progress', 'assigned'])): ?>
-                            <button class="btn btn-sm btn-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                <i class="fas fa-upload"></i>Upload Documents
-                            </button>
-                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="card-body bg-white p-0">
@@ -670,10 +657,6 @@ $this->assign('title', 'Case #' . $case->id);
                                     ['class' => 'btn btn-outline-success d-flex align-items-center justify-content-center', 'escape' => false]
                                 ); ?>
                             <?php endif; ?>
-                            
-                            <button class="btn btn-outline-success d-flex align-items-center justify-content-center gap-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                <i class="fas fa-upload"></i>Upload Documents
-                            </button>
                         </div>
                     <?php else: ?>
                         <p class="text-muted mb-0">
@@ -815,14 +798,13 @@ $this->assign('title', 'Case #' . $case->id);
                                                             </span>
                                                             <?php 
                                                             $statusClass = match($report->status) {
-                                                                'pending' => 'warning',
-                                                                'reviewed' => 'info', 
-                                                                'approved' => 'success',
-                                                                'rejected' => 'danger',
+                                                                'in_progress' => 'warning',
+                                                                'completed' => 'success',
                                                                 default => 'secondary'
                                                             };
+                                                            $statusLabel = ucwords(str_replace('_', ' ', $report->status));
                                                             ?>
-                                                            <span class="badge bg-<?php echo  $statusClass ?> ms-2"><?php echo  h(ucfirst($report->status)) ?></span>
+                                                            <span class="badge bg-<?php echo  $statusClass ?> ms-2"><?php echo  h($statusLabel) ?></span>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-4 text-end">
@@ -1233,18 +1215,20 @@ $this->assign('title', 'Case #' . $case->id);
                 <div class="card-body bg-white">
                     <div class="small">
                         <?php 
-                        $statuses = ['draft', 'assigned', 'in_progress', 'review', 'completed'];
-                        $currentIndex = array_search($case->status, $statuses);
+                        // Technician status flow: in_progress → completed/cancelled
+                        $statuses = ['in_progress', 'completed', 'cancelled'];
+                        $technicianStatus = $case->technician_status ?? 'in_progress';
+                        $currentIndex = array_search($technicianStatus, $statuses);
                         if ($currentIndex === false) $currentIndex = -1;
                         ?>
                         
                         <?php foreach ($statuses as $index => $status): ?>
                             <div class="d-flex align-items-center mb-2">
                                 <div class="me-2">
-                                    <?php if ($index < $currentIndex): ?>
+                                    <?php if ($index < $currentIndex || ($technicianStatus === 'completed' && $status === 'completed')): ?>
                                         <i class="fas fa-check-circle text-success"></i>
-                                    <?php elseif ($index === $currentIndex): ?>
-                                        <i class="fas fa-circle text-primary"></i>
+                                    <?php elseif ($index === $currentIndex || ($technicianStatus === 'cancelled' && $status === 'cancelled')): ?>
+                                        <i class="fas fa-circle text-danger"></i>
                                     <?php else: ?>
                                         <i class="far fa-circle text-muted"></i>
                                     <?php endif; ?>

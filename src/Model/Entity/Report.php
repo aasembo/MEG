@@ -56,5 +56,6 @@ class Report extends Entity
         'modified' => true,
         'case' => true,
         'hospital' => true,
+        'type' => true,
     ];
 }

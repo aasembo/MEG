@@ -211,8 +211,16 @@ class CasesController extends AppController
 
         $cases = $this->paginate($query, array('limit' => 20));
 
-        // Get counts for status badges (matching new visibility logic) - using role-based status for scientists
-        // Scientists don't have draft status - their default is 'assigned'
+        // Status options for scientist (role-based: assigned, in_progress, completed, cancelled)
+        $statusOptions = [
+            'all' => 'All Statuses',
+            SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned',
+            SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
+            SiteConstants::CASE_STATUS_COMPLETED => 'Completed',
+            SiteConstants::CASE_STATUS_CANCELLED => 'Cancelled'
+        ];
+
+        // Get counts for status badges (using role-based scientist_status)
         $statusCounts = array();
         foreach (array(SiteConstants::CASE_STATUS_ASSIGNED, SiteConstants::CASE_STATUS_IN_PROGRESS, SiteConstants::CASE_STATUS_COMPLETED, SiteConstants::CASE_STATUS_CANCELLED) as $statusValue) {
             $count = $this->Cases->find()
@@ -239,7 +247,7 @@ class CasesController extends AppController
             $statusCounts[$statusValue] = $count;
         }
 
-        $this->set(compact('cases', 'currentHospital', 'statusCounts', 'user'));
+        $this->set(compact('cases', 'currentHospital', 'statusCounts', 'statusOptions', 'user'));
     }
 
     /**
@@ -462,6 +470,80 @@ class CasesController extends AppController
                 return $this->redirect(array('action' => 'view', $id));
             }
 
+            // Check if scientist has created a PDF report for this case
+            $reportsTable = $this->fetchTable('Reports');
+            $existingReport = $reportsTable->find()
+                ->where([
+                    'case_id' => $id,
+                    'user_id' => $user->id,
+                    'type' => 'PDF'
+                ])
+                ->first();
+            
+            // If no report exists, auto-create one with default content
+            if (!$existingReport) {
+                // Load case with all data for report generation
+                $caseWithData = $this->Cases->get($id, [
+                    'contain' => [
+                        'PatientUsers',
+                        'Hospitals',
+                        'Departments',
+                        'Sedations',
+                        'CasesExamsProcedures' => [
+                            'ExamsProcedures' => [
+                                'Exams' => ['Modalities'],
+                                'Procedures'
+                            ]
+                        ],
+                        'Documents'
+                    ]
+                ]);
+                
+                // Generate default report content
+                $view = new \Cake\View\View($this->request, $this->response);
+                $defaultContent = $view->element('Reports/report_content', ['case' => $caseWithData]);
+
+                // Mark this as a scientist report by setting scientist_review
+                $scientistReview = [
+                    'reviewed_by' => $user->getIdentifier(),
+                    'reviewed_at' => date('Y-m-d H:i:s'),
+                    'scientist_notes' => $data['scientist_notes'] ?? '',
+                    'confidence_score' => $data['confidence_score'] ?? null,
+                ];
+                
+                $report = $reportsTable->newEntity([
+                    'case_id' => $id,
+                    'hospital_id' => $case->hospital_id,
+                    'status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
+                    'user_id' => $user->id,
+                    'type' => 'PDF',
+                    'report_data' => json_encode(['content' => $defaultContent]),
+                    'scientist_review' => json_encode($scientistReview)
+                ]);
+                
+                if ($reportsTable->save($report)) {
+                    // Log activity
+                    $this->activityLogger->log(
+                        'report_created',
+                        [
+                            'user_id' => $user->id,
+                            'request' => $this->request,
+                            'event_data' => [
+                                'case_id' => $id,
+                                'report_id' => $report->id,
+                                'auto_created' => true,
+                                'created_before_promotion' => true
+                            ]
+                        ]
+                    );
+                    
+                    $this->Flash->success(__('PDF report has been automatically created. You can now proceed with assignment.'));
+                } else {
+                    $this->Flash->error(__('Unable to create report. Please try again.'));
+                    return $this->redirect(array('action' => 'view', $id));
+                }
+            }
+
         } catch (RecordNotFoundException $e) {
             $this->Flash->error(__('Case not found or you do not have access to this case.'));
             return $this->redirect(array('action' => 'index'));
@@ -509,9 +591,25 @@ class CasesController extends AppController
 
                     // Handle role-based status transition
                     if ($assignedRole === 'doctor') {
+                        // Update scientist's report status to completed
+                        $reportsTable = $this->fetchTable('Reports');
+                        $scientistReport = $reportsTable->find()
+                            ->where([
+                                'case_id' => $case->id,
+                                'user_id' => $user->id,
+                                'type' => 'PDF'
+                            ])
+                            ->first();
+                        
+                        if ($scientistReport) {
+                            $scientistReport->status = SiteConstants::CASE_STATUS_COMPLETED;
+                            if ($reportsTable->save($scientistReport)) {
+                                Log::info("Updated scientist report #{$scientistReport->id} status to completed for case #{$case->id}");
+                            }
+                        }
+                        
                         $this->caseStatusService->transitionOnAssignment(
                             $case, 
-                            'scientist', 
                             'doctor', 
                             $user->id
                         );

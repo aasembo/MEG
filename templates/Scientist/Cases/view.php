@@ -867,14 +867,13 @@ $this->assign('title', 'Case #' . $case->id);
                                                             </span>
                                                             <?php 
                                                             $statusClass = match($report->status) {
-                                                                'pending' => 'warning',
-                                                                'reviewed' => 'info', 
-                                                                'approved' => 'success',
-                                                                'rejected' => 'danger',
+                                                                'in_progress' => 'warning',
+                                                                'completed' => 'success',
                                                                 default => 'secondary'
                                                             };
+                                                            $statusLabel = ucwords(str_replace('_', ' ', $report->status));
                                                             ?>
-                                                            <span class="badge bg-<?php echo  $statusClass ?> ms-2"><?php echo  h(ucfirst($report->status)) ?></span>
+                                                            <span class="badge bg-<?php echo  $statusClass ?> ms-2"><?php echo  h($statusLabel) ?></span>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-4 text-end">
@@ -1251,18 +1250,20 @@ $this->assign('title', 'Case #' . $case->id);
                 <div class="card-body">
                     <div class="small">
                         <?php 
-                        $statuses = ['draft', 'assigned', 'in_progress', 'review', 'completed'];
-                        $currentIndex = array_search($case->status, $statuses);
+                        // Main case status flow: in_progress → completed/cancelled
+                        $statuses = ['in_progress', 'completed', 'cancelled'];
+                        $caseStatus = $case->status ?? 'in_progress';
+                        $currentIndex = array_search($caseStatus, $statuses);
                         if ($currentIndex === false) $currentIndex = -1;
                         ?>
                         
                         <?php foreach ($statuses as $index => $status): ?>
                             <div class="d-flex align-items-center mb-2">
                                 <div class="me-2">
-                                    <?php if ($index < $currentIndex): ?>
+                                    <?php if ($index < $currentIndex || ($caseStatus === 'completed' && $status === 'completed')): ?>
                                         <i class="fas fa-check-circle text-success"></i>
-                                    <?php elseif ($index === $currentIndex): ?>
-                                        <i class="fas fa-circle text-success"></i>
+                                    <?php elseif ($index === $currentIndex || ($caseStatus === 'cancelled' && $status === 'cancelled')): ?>
+                                        <i class="fas fa-circle text-danger"></i>
                                     <?php else: ?>
                                         <i class="far fa-circle text-muted"></i>
                                     <?php endif; ?>

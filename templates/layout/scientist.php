@@ -187,35 +187,6 @@ $cakeDescription = 'Research Dashboard - Scientist Portal';
                             </a>
                         </div>
                     </div>
-                    
-                    <!-- System Status Card -->
-                    <div class="mx-3">
-                        <div class="card border-0 shadow-sm">
-                            <div class="card-body p-3">
-                                <h6 class="card-title mb-3 fw-bold small">
-                                    <i class="fas fa-server me-2 text-success"></i>System Status
-                                </h6>
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="small text-muted">
-                                        <i class="fas fa-database me-1"></i>Database
-                                    </span>
-                                    <span class="badge bg-success bg-opacity-10 text-success small">Online</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="small text-muted">
-                                        <i class="fas fa-network-wired me-1"></i>Network
-                                    </span>
-                                    <span class="badge bg-success bg-opacity-10 text-success small">Connected</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="small text-muted">
-                                        <i class="fas fa-chart-line me-1"></i>Services
-                                    </span>
-                                    <span class="badge bg-info bg-opacity-10 text-info small">Active</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </nav>
 

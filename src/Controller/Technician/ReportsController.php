@@ -128,7 +128,7 @@ class ReportsController extends AppController
             $data['report_data'] = json_encode($reportDataStructure);
             $data['case_id'] = $caseId;
             $data['hospital_id'] = $case->hospital_id;
-            $data['status'] = $data['status'] ?? 'pending';
+            $data['status'] = $data['status'] ?? \App\Constants\SiteConstants::CASE_STATUS_IN_PROGRESS;
             $data['user_id'] = $user->getIdentifier();
             
             // Debug: Log the final data being saved
