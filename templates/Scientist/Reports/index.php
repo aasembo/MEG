@@ -270,6 +270,7 @@ foreach ($reportsByCase as &$caseData) {
                             </td>
                             <td class="text-center">
                                 <div class="btn-group" role="group">
+                                    <?php if ($reportType !== 'PPT'): ?>
                                     <?php echo  $this->Html->link(
                                         '<i class="fas fa-eye"></i>',
                                         ['action' => 'view', $report->id],
@@ -280,6 +281,7 @@ foreach ($reportsByCase as &$caseData) {
                                             'title' => 'View Report'
                                         ]
                                     ) ?>
+                                    <?php endif; ?>
                                     
                                     <?php 
                                     $currentUserId = $this->request->getAttribute('identity')?->getIdentifier();
