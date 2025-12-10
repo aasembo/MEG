@@ -141,6 +141,7 @@ foreach ($reportsByCase as &$caseData) {
                     <thead class="table-light">
                         <tr>
                             <th class="border-0 fw-semibold text-uppercase small text-muted ps-4">Report</th>
+                            <th class="border-0 fw-semibold text-uppercase small text-muted">Type</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Creator</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Hospital</th>
                             <th class="border-0 fw-semibold text-uppercase small text-muted">Status</th>
@@ -205,6 +206,21 @@ foreach ($reportsByCase as &$caseData) {
                                 </div>
                             </td>
                             <td>
+                                <?php 
+                                $reportType = strtoupper($report->type ?? 'PDF');
+                                $typeIcon = $reportType === 'PPT' ? 'fa-file-powerpoint' : 'fa-file-pdf';
+                                $typeColor = $reportType === 'PPT' ? 'warning' : 'danger';
+                                $typeName = $reportType === 'PPT' ? 'MEG Report' : 'EEG Report';
+                                ?>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-<?php echo $typeColor ?> me-2">
+                                        <i class="fas <?php echo $typeIcon ?> me-1"></i>
+                                        <?php echo h($reportType) ?>
+                                    </span>
+                                    <small class="text-muted"><?php echo h($typeName) ?></small>
+                                </div>
+                            </td>
+                            <td>
                                 <div class="d-flex align-items-center">
                                     <span class="badge bg-<?php echo  $roleColor ?> me-2">
                                         <i class="fas <?php echo  $hierarchyIcon ?> me-1"></i>
@@ -225,15 +241,18 @@ foreach ($reportsByCase as &$caseData) {
                             <td>
                                 <?php
                                 $statusClass = match($report->status) {
+                                    'in_progress' => 'warning',
+                                    'completed' => 'success',
                                     'pending' => 'warning',
                                     'reviewed' => 'info',
                                     'approved' => 'success',
                                     'rejected' => 'danger',
                                     default => 'secondary'
                                 };
+                                $statusLabel = ucwords(str_replace('_', ' ', $report->status));
                                 ?>
                                 <span class="badge bg-<?php echo  $statusClass ?>">
-                                    <?php echo  h(ucfirst($report->status)) ?>
+                                    <?php echo  h($statusLabel) ?>
                                 </span>
                                 
                                 <?php if ($report->confidence_score): ?>
@@ -265,48 +284,47 @@ foreach ($reportsByCase as &$caseData) {
                             </td>
                             <td class="text-center">
                                 <div class="btn-group" role="group">
-                                    <?php echo  $this->Html->link(
-                                        '<i class="fas fa-eye"></i>',
-                                        ['action' => 'view', $report->id],
-                                        [
-                                            'class' => 'btn btn-sm btn-outline-primary',
-                                            'escape' => false,
-                                            'data-bs-toggle' => 'tooltip',
-                                            'title' => 'View Report'
-                                        ]
-                                    ) ?>
+                                    <?php 
+                                    $isPPT = ($reportType === 'PPT');
+                                    ?>
                                     
-                                    <?php echo  $this->Html->link(
-                                        '<i class="fas fa-search"></i>',
-                                        ['action' => 'preview', $report->id],
-                                        [
-                                            'class' => 'btn btn-sm btn-outline-info',
-                                            'escape' => false,
-                                            'data-bs-toggle' => 'tooltip',
-                                            'title' => 'Preview Report'
-                                        ]
-                                    ) ?>
+                                    <?php if (!$isPPT): ?>
+                                        <?php echo  $this->Html->link(
+                                            '<i class="fas fa-eye"></i>',
+                                            ['action' => 'view', $report->id],
+                                            [
+                                                'class' => 'btn btn-sm btn-outline-primary',
+                                                'escape' => false,
+                                                'data-bs-toggle' => 'tooltip',
+                                                'title' => 'View Report'
+                                            ]
+                                        ) ?>
+                                        
+                                        <?php echo  $this->Html->link(
+                                            '<i class="fas fa-search"></i>',
+                                            ['action' => 'preview', $report->id],
+                                            [
+                                                'class' => 'btn btn-sm btn-outline-info',
+                                                'escape' => false,
+                                                'data-bs-toggle' => 'tooltip',
+                                                'title' => 'Preview Report'
+                                            ]
+                                        ) ?>
+                                    <?php endif; ?>
                                     
+                                    <?php 
+                                    $downloadUrl = $isPPT 
+                                        ? ['controller' => 'MegReports', 'action' => 'downloadPpt', $report->id]
+                                        : ['action' => 'download', $report->id, 'pdf'];
+                                    ?>
                                     <?php echo  $this->Html->link(
                                         '<i class="fas fa-download"></i>',
-                                        ['action' => 'download', $report->id, 'pdf'],
+                                        $downloadUrl,
                                         [
                                             'class' => 'btn btn-sm btn-outline-success',
                                             'escape' => false,
                                             'data-bs-toggle' => 'tooltip',
-                                            'title' => 'Download PDF'
-                                        ]
-                                    ) ?>
-                                    
-                                    <?php echo  $this->Form->postLink(
-                                        '<i class="fas fa-trash"></i>',
-                                        ['action' => 'delete', $report->id],
-                                        [
-                                            'class' => 'btn btn-sm btn-outline-danger',
-                                            'escape' => false,
-                                            'data-bs-toggle' => 'tooltip',
-                                            'title' => 'Delete Report',
-                                            'confirm' => 'Are you sure you want to delete this report?'
+                                            'title' => $isPPT ? 'Download PPT' : 'Download PDF'
                                         ]
                                     ) ?>
                                 </div>

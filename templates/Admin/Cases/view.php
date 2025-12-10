@@ -188,8 +188,9 @@ $this->assign('title', 'Case #' . $case->id);
                     <h5 class="mb-0 fw-bold text-dark">
                         <i class="fas fa-procedures me-2 text-warning"></i>Assigned Procedures
                     </h5>
-                    <span class="badge bg-warning text-dark">
-                        <?php echo count($case->cases_exams_procedures); ?> Procedures
+                    <span class="badge rounded-pill bg-warning text-dark">
+                        <?php echo count($case->cases_exams_procedures); ?> 
+                        <?php echo count($case->cases_exams_procedures) === 1 ? 'Procedure' : 'Procedures'; ?>
                     </span>
                 </div>
                 <div class="card-body bg-white p-0">
@@ -197,55 +198,55 @@ $this->assign('title', 'Case #' . $case->id);
                         <table class="table table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Procedure & Modality</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Status</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Documents</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 70%;">Procedure & Modality</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted text-end" style="width: 30%;">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($case->cases_exams_procedures as $cep): ?>
                                     <tr>
-                                        <td>
-                                            <div>
-                                                <strong><?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?></strong>
-                                                <span class="badge rounded-pill bg-info text-white ms-2">
-                                                    <i class="fas fa-microscope me-1"></i>
-                                                    <?php echo h($cep->exams_procedure->exam->modality->name ?? 'N/A'); ?>
-                                                </span>
-                                                <br>
-                                                <small class="text-muted">
-                                                    <?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>
-                                                </small>
+                                        <td class="py-3">
+                                            <div class="d-flex align-items-start justify-content-between">
+                                                <div class="flex-grow-1">
+                                                    <div class="mb-2">
+                                                        <h6 class="mb-1 fw-bold text-dark d-inline"><?php echo h($cep->exams_procedure->exam->name ?? 'N/A'); ?></h6>
+                                                        <span class="badge bg-warning text-dark ms-2" style="font-size: 0.7rem;">
+                                                            <i class="fas fa-microscope me-1"></i><?php echo h($cep->exams_procedure->exam->modality->name ?? 'N/A'); ?>
+                                                        </span>
+                                                    </div>
+                                                    <div class="text-muted" style="font-size: 0.9rem;">
+                                                        <i class="fas fa-check-circle me-1 text-info"></i>
+                                                        <?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>
+                                                    </div>
+                                                    <?php if ($cep->hasDocuments()): ?>
+                                                        <div class="mt-2">
+                                                            <span class="badge bg-success text-white" style="font-size: 0.75rem;" 
+                                                                  role="button" 
+                                                                  data-bs-toggle="modal" 
+                                                                  data-bs-target="#procedureDocumentsModal<?php echo $cep->id; ?>">
+                                                                <i class="fas fa-paperclip me-1"></i>
+                                                                <?php echo $cep->getDocumentCount(); ?> 
+                                                                <?php echo $cep->getDocumentCount() === 1 ? 'Document' : 'Documents'; ?>
+                                                            </span>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <?php if ($cep->notes): ?>
+                                                        <div class="mt-2 p-2 bg-light rounded border-start border-3 border-info">
+                                                            <small class="text-muted">
+                                                                <i class="fas fa-comment me-1"></i>
+                                                                <strong>Notes:</strong> <?php echo h($cep->notes); ?>
+                                                            </small>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td>
-                                            <span class="badge rounded-pill <?php echo $cep->getStatusBadgeClass(); ?>">
+                                        <td class="py-3 text-end align-top">
+                                            <span class="badge rounded-pill <?php echo $cep->getStatusBadgeClass(); ?>" style="font-size: 0.8rem; padding: 0.5rem 0.75rem;">
                                                 <?php echo h($cep->getStatusLabel()); ?>
                                             </span>
                                         </td>
-                                        <td>
-                                            <?php if ($cep->hasDocuments()): ?>
-                                                <span class="badge rounded-pill bg-success text-white">
-                                                    <i class="fas fa-file me-1"></i>
-                                                    <?php echo $cep->getDocumentCount(); ?> files
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="text-muted">No files</span>
-                                            <?php endif; ?>
-                                        </td>
                                     </tr>
-                                    
-                                    <!-- Procedure Notes Row -->
-                                    <?php if ($cep->notes): ?>
-                                    <tr class="table-light">
-                                        <td colspan="4">
-                                            <small>
-                                                <i class="fas fa-comment me-1"></i>
-                                                <strong>Notes:</strong> <?php echo h($cep->notes); ?>
-                                            </small>
-                                        </td>
-                                    </tr>
-                                    <?php endif; ?>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
@@ -285,17 +286,15 @@ $this->assign('title', 'Case #' . $case->id);
                         <table class="table table-hover mb-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted ps-4" style="width: 50px;"><i class="fas fa-file"></i></th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 250px;">Document Name</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted" style="width: 200px;">Procedure</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Uploaded</th>
-                                    <th class="border-0 fw-semibold text-uppercase small text-muted text-center" style="width: 130px;">Actions</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted ps-4" style="width: 60px;"><i class="fas fa-file"></i></th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted">Document Details</th>
+                                    <th class="border-0 fw-semibold text-uppercase small text-muted text-center" style="width: 100px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($case->documents as $index => $document): ?>
                                 <tr>
-                                    <td class="ps-4">
+                                    <td class="ps-4 pe-3 align-top pt-3">
                                         <?php 
                                             // Get file extension from original_filename
                                             $ext = !empty($document->original_filename) ? strtolower(pathinfo($document->original_filename, PATHINFO_EXTENSION)) : '';
@@ -311,9 +310,28 @@ $this->assign('title', 'Case #' . $case->id);
                                                 'zip', 'rar', '7z' => 'bg-dark',
                                                 default => 'bg-secondary'
                                             };
+                                            
+                                            // Format file size
+                                            $filesize = !empty($document->file_size) ? $document->file_size : 0;
+                                            if ($filesize > 1024 * 1024) {
+                                                $filesize_formatted = number_format($filesize / (1024 * 1024), 2) . ' MB';
+                                            } elseif ($filesize > 1024) {
+                                                $filesize_formatted = number_format($filesize / 1024, 2) . ' KB';
+                                            } else {
+                                                $filesize_formatted = $filesize . ' bytes';
+                                            }
+                                            
+                                            // Get uploader name
+                                            $firstName = $document->user->first_name ?? '';
+                                            $lastName = $document->user->last_name ?? '';
+                                            $uploaderName = trim($firstName . ' ' . $lastName);
+                                            
+                                            // Get exam/procedure names
+                                            $exam_name = $document->cases_exams_procedure->exams_procedure->exam->name ?? '';
+                                            $procedure_name = $document->cases_exams_procedure->exams_procedure->procedure->name ?? '';
                                         ?>
                                         <div class="d-flex align-items-center justify-content-center rounded <?php echo $bgClass; ?>" 
-                                             style="width: 40px; height: 40px;">
+                                             style="width: 42px; height: 42px;">
                                             <i class="<?php 
                                                 echo match($ext) {
                                                     'pdf' => 'fas fa-file-pdf',
@@ -331,64 +349,50 @@ $this->assign('title', 'Case #' . $case->id);
                                             ?> text-white fs-5"></i>
                                         </div>
                                     </td>
-                                    <td style="max-width: 250px;">
-                                        <div class="d-flex flex-column">
-                                            <span class="fw-semibold text-dark text-truncate" 
-                                                  style="cursor: pointer;" 
-                                                  title="<?php echo h($document->original_filename); ?>">
-                                                <?php echo h($document->original_filename); ?>
-                                            </span>
-                                            <span class="text-muted small">
-                                                <?php 
-                                                    $filesize = !empty($document->file_size) ? $document->file_size : 0;
-                                                    if ($filesize > 1024 * 1024) {
-                                                        echo number_format($filesize / (1024 * 1024), 2) . ' MB';
-                                                    } elseif ($filesize > 1024) {
-                                                        echo number_format($filesize / 1024, 2) . ' KB';
-                                                    } else {
-                                                        echo $filesize . ' bytes';
-                                                    }
-                                                ?>
-                                                <span class="mx-1">•</span>
-                                                <?php echo strtoupper($ext ?? 'File'); ?>
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td style="max-width: 200px;">
-                                        <?php if (!empty($document->cases_exams_procedure) && !empty($document->cases_exams_procedure->exams_procedure)): ?>
-                                            <div class="d-flex flex-column gap-1">
-                                                <span class="badge rounded-pill bg-primary" style="width: fit-content;">
-                                                    <i class="fas fa-stethoscope me-1"></i>
-                                                    <?php echo h($document->cases_exams_procedure->exams_procedure->exam->name ?? ''); ?>
+                                    <td class="pe-3 py-3">
+                                        <div class="d-flex flex-column gap-2">
+                                            <!-- Document Name and Size -->
+                                            <div>
+                                                <span class="fw-bold text-dark d-block mb-1" style="font-size: 0.95rem;">
+                                                    <?php echo h($document->original_filename); ?>
                                                 </span>
-                                                <?php if (!empty($document->cases_exams_procedure->exams_procedure->procedure->name)): ?>
-                                                    <span class="badge rounded-pill bg-info text-white" style="width: fit-content;">
-                                                        <i class="fas fa-procedures me-1"></i>
-                                                        <?php echo h($document->cases_exams_procedure->exams_procedure->procedure->name); ?>
+                                                <span class="text-muted" style="font-size: 0.8rem;">
+                                                    <?php echo $filesize_formatted; ?>
+                                                    <span class="mx-1">•</span>
+                                                    <?php echo strtoupper($ext ?? 'File'); ?>
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Exam and Procedure -->
+                                            <div>
+                                                <?php if (!empty($document->cases_exams_procedure) && !empty($document->cases_exams_procedure->exams_procedure)): ?>
+                                                    <span class="badge rounded-pill bg-warning text-dark me-1" style="font-size: 0.75rem;">
+                                                        <i class="fas fa-stethoscope me-1"></i>
+                                                        <?php echo h($exam_name); ?>
+                                                    </span>
+                                                    <?php if (!empty($procedure_name)): ?>
+                                                        <span class="badge rounded-pill bg-info text-white" style="font-size: 0.75rem;">
+                                                            <i class="fas fa-procedures me-1"></i>
+                                                            <?php echo h($procedure_name); ?>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                <?php else: ?>
+                                                    <span class="badge rounded-pill bg-secondary" style="font-size: 0.75rem;">
+                                                        <i class="fas fa-file-medical me-1"></i> General
                                                     </span>
                                                 <?php endif; ?>
                                             </div>
-                                        <?php else: ?>
-                                            <span class="badge rounded-pill bg-secondary">
-                                                <i class="fas fa-file-medical me-1"></i> General
-                                            </span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex flex-column">
-                                            <?php 
-                                                $firstName = $document->user->first_name ?? '';
-                                                $lastName = $document->user->last_name ?? '';
-                                            ?>
-                                            <span class="text-dark small fw-semibold">
-                                                <?php echo h($firstName . ' ' . $lastName); ?>
-                                            </span>
-                                            <span class="text-muted" style="font-size: 0.75rem;">
+                                            
+                                            <!-- Uploaded By and Date -->
+                                            <div class="text-muted" style="font-size: 0.8rem;">
+                                                <i class="fas fa-user me-1"></i>
+                                                <span class="fw-semibold"><?php echo h($uploaderName); ?></span>
+                                                <span class="mx-2">•</span>
                                                 <i class="far fa-calendar-alt me-1"></i><?php echo $document->created->format('M j, Y'); ?>
-                                            </span>
+                                            </div>
                                         </div>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center align-top pt-3">
                                         <div class="btn-group" role="group">
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-primary preview-doc-btn"
@@ -526,9 +530,9 @@ $this->assign('title', 'Case #' . $case->id);
                 <?php 
                 // Organize reports by role hierarchy
                 $reportHierarchy = [
-                    'technician' => null,
-                    'scientist' => null,
-                    'doctor' => null
+                    'technician' => [],
+                    'scientist' => [],
+                    'doctor' => []
                 ];
                 
                 // Categorize reports by creator role
@@ -536,13 +540,13 @@ $this->assign('title', 'Case #' . $case->id);
                     if (!empty($report->user->role->type)) {
                         $roleType = strtolower($report->user->role->type);
                         if (array_key_exists($roleType, $reportHierarchy)) {
-                            $reportHierarchy[$roleType] = $report;
+                            $reportHierarchy[$roleType][] = $report;
                         }
                     }
                 }
                 
                 // Find current user's role for ownership detection
-                $hasAnyReports = array_filter($reportHierarchy) !== [];
+                $hasAnyReports = !empty(array_filter($reportHierarchy, fn($reports) => !empty($reports)));
                 ?>
                 
                 <?php if ($hasAnyReports): ?>
@@ -596,8 +600,8 @@ $this->assign('title', 'Case #' . $case->id);
                             ?>
                             
                             <?php foreach ($hierarchyConfig as $roleType => $config): ?>
-                                <?php $report = $reportHierarchy[$roleType]; ?>
-                                <?php $isCompleted = ($report !== null); ?>
+                                <?php $reports = $reportHierarchy[$roleType]; ?>
+                                <?php $isCompleted = !empty($reports); ?>
                                 
                                 <div class="hierarchy-stage mb-3 <?php echo  $isCompleted ? 'completed' : 'pending' ?>">
                                     <div class="d-flex align-items-center p-3 rounded border <?php echo  $isCompleted ? 'border-' . $config['color'] . ' bg-' . $config['color'] . ' bg-opacity-10' : 'border-light bg-light' ?>">
@@ -630,10 +634,18 @@ $this->assign('title', 'Case #' . $case->id);
                                             <p class="mb-2 small text-muted"><?php echo  $config['description'] ?></p>
                                             
                                             <?php if ($isCompleted): ?>
-                                                <!-- Report Details -->
-                                                <div class="row align-items-center">
-                                                    <div class="col-md-8">
+                                                <!-- Report Details - Loop through multiple reports -->
+                                                <?php foreach ($reports as $report): ?>
+                                                <div class="row align-items-center mb-2 p-2 border-start border-3 border-<?php echo $config['color'] ?> bg-white">
+                                                    <div class="col-md-7">
                                                         <div class="small">
+                                                            <?php 
+                                                            $isPPT = ($report->type === 'PPT');
+                                                            $reportTypeBadge = $isPPT 
+                                                                ? '<span class="badge bg-warning me-1"><i class="fas fa-file-powerpoint me-1"></i>MEG</span>' 
+                                                                : '<span class="badge bg-danger me-1"><i class="fas fa-file-pdf me-1"></i>EEG</span>';
+                                                            echo $reportTypeBadge;
+                                                            ?>
                                                             <strong>Report #<?php echo  h($report->id) ?></strong>
                                                             <?php if (!empty($report->user)): ?>
                                                                 <span class="text-muted">
@@ -647,40 +659,53 @@ $this->assign('title', 'Case #' . $case->id);
                                                             </span>
                                                             <?php 
                                                             $statusClass = match($report->status) {
+                                                                'in_progress' => 'warning',
+                                                                'completed' => 'success',
                                                                 'pending' => 'warning',
-                                                                'reviewed' => 'info', 
+                                                                'reviewed' => 'info',
                                                                 'approved' => 'success',
                                                                 'rejected' => 'danger',
                                                                 default => 'secondary'
                                                             };
+                                                            $statusLabel = ucwords(str_replace('_', ' ', $report->status));
                                                             ?>
-                                                            <span class="badge bg-<?php echo  $statusClass ?> ms-2"><?php echo  h(ucfirst($report->status)) ?></span>
+                                                            <span class="badge bg-<?php echo  $statusClass ?> ms-2"><?php echo  h($statusLabel) ?></span>
                                                         </div>
                                                     </div>
-                                                    <div class="col-md-4 text-end">
+                                                    <div class="col-md-5 text-end">
                                                         <div class="btn-group btn-group-sm">
-                                                            <?php echo  $this->Html->link(
-                                                                '<i class="fas fa-eye"></i>',
-                                                                ['controller' => 'Reports', 'action' => 'view', $report->id],
-                                                                [
-                                                                    'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
-                                                                    'escape' => false,
-                                                                    'title' => 'View Report'
-                                                                ]
-                                                            ); ?>
+                                                            <?php 
+                                                            // Route based on report type
+                                                            $downloadUrl = $isPPT 
+                                                                ? ['controller' => 'MegReports', 'action' => 'downloadPpt', $report->id]
+                                                                : ['controller' => 'Reports', 'action' => 'download', $report->id, 'pdf'];
+                                                            ?>
+                                                            
+                                                            <?php if (!$isPPT): ?>
+                                                                <?php echo  $this->Html->link(
+                                                                    '<i class="fas fa-eye"></i>',
+                                                                    ['controller' => 'Reports', 'action' => 'view', $report->id],
+                                                                    [
+                                                                        'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
+                                                                        'escape' => false,
+                                                                        'title' => 'View Report'
+                                                                    ]
+                                                                ); ?>
+                                                            <?php endif; ?>
                                                             
                                                             <?php echo  $this->Html->link(
                                                                 '<i class="fas fa-download"></i>',
-                                                                ['controller' => 'Reports', 'action' => 'download', $report->id, 'pdf'],
+                                                                $downloadUrl,
                                                                 [
                                                                     'class' => 'btn btn-outline-' . $config['color'] . ' btn-sm',
                                                                     'escape' => false,
-                                                                    'title' => 'Download PDF'
+                                                                    'title' => $isPPT ? 'Download PPT' : 'Download PDF'
                                                                 ]
                                                             ); ?>
                                                         </div>
                                                     </div>
                                                 </div>
+                                                <?php endforeach; ?>
                                             <?php else: ?>
                                                 <!-- No Report Available -->
                                                 <div class="text-center">
@@ -1033,7 +1058,7 @@ $this->assign('title', 'Case #' . $case->id);
             </div>
 
             <!-- Status Flow -->
-            <div class="card border-0 shadow mb-4">
+            <div class="card border-0 shadow">
                 <div class="card-header bg-light border-0 py-3">
                     <h6 class="mb-0 fw-bold text-dark">
                         <i class="fas fa-route me-2 text-warning"></i>Status Flow
@@ -1042,18 +1067,20 @@ $this->assign('title', 'Case #' . $case->id);
                 <div class="card-body bg-white">
                     <div class="small">
                         <?php 
-                        $statuses = ['draft', 'assigned', 'in_progress', 'review', 'completed'];
-                        $currentIndex = array_search($case->status, $statuses);
+                        // Admin view shows global case status flow
+                        $statuses = ['in_progress', 'completed', 'cancelled'];
+                        $currentStatus = $case->status ?? 'in_progress';
+                        $currentIndex = array_search($currentStatus, $statuses);
                         if ($currentIndex === false) $currentIndex = -1;
                         ?>
                         
                         <?php foreach ($statuses as $index => $status): ?>
                             <div class="d-flex align-items-center mb-2">
                                 <div class="me-2">
-                                    <?php if ($index < $currentIndex): ?>
+                                    <?php if ($index < $currentIndex || ($currentStatus === 'completed' && $status === 'completed')): ?>
                                         <i class="fas fa-check-circle text-success"></i>
-                                    <?php elseif ($index === $currentIndex): ?>
-                                        <i class="fas fa-circle text-warning"></i>
+                                    <?php elseif ($index === $currentIndex || ($currentStatus === 'cancelled' && $status === 'cancelled')): ?>
+                                        <i class="fas fa-circle text-danger"></i>
                                     <?php else: ?>
                                         <i class="far fa-circle text-muted"></i>
                                     <?php endif; ?>

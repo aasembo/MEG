@@ -206,7 +206,7 @@ $this->assign('title', 'Administrator Dashboard');
                     <p class="card-text text-muted small mb-3">Generate comprehensive reports and view system analytics</p>
                     <?php echo $this->Html->link(
                         '<i class="fas fa-arrow-right me-2"></i>View Reports',
-                        '#',
+                        ['controller' => 'Reports', 'action' => 'index'],
                         ['class' => 'btn btn-info btn-sm', 'escape' => false]
                     ); ?>
                 </div>
@@ -441,53 +441,7 @@ $this->assign('title', 'Administrator Dashboard');
                     </div>
                 </div>
             </div>
-            
-            <!-- System Status -->
-            <div class="card border-0 shadow">
-                <div class="card-header bg-light py-3">
-                    <h5 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-server text-success me-2"></i>System Status
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="status-item d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
-                        <div>
-                            <i class="fas fa-database text-success me-2"></i>
-                            <span class="fw-semibold">Database</span>
-                        </div>
-                        <span class="badge bg-success rounded-pill">
-                            <i class="fas fa-check-circle me-1"></i>Online
-                        </span>
-                    </div>
-                    <div class="status-item d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
-                        <div>
-                            <i class="fas fa-network-wired text-success me-2"></i>
-                            <span class="fw-semibold">Network</span>
-                        </div>
-                        <span class="badge bg-success rounded-pill">
-                            <i class="fas fa-check-circle me-1"></i>Connected
-                        </span>
-                    </div>
-                    <div class="status-item d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-light">
-                        <div>
-                            <i class="fas fa-shield-alt text-warning me-2"></i>
-                            <span class="fw-semibold">Security</span>
-                        </div>
-                        <span class="badge bg-warning rounded-pill">
-                            <i class="fas fa-lock me-1"></i>Protected
-                        </span>
-                    </div>
-                    <div class="status-item d-flex justify-content-between align-items-center p-2 rounded bg-light">
-                        <div>
-                            <i class="fas fa-chart-line text-info me-2"></i>
-                            <span class="fw-semibold">Performance</span>
-                        </div>
-                        <span class="badge bg-info rounded-pill">
-                            <i class="fas fa-rocket me-1"></i>Optimal
-                        </span>
-                    </div>
-                </div>
-            </div>
+
         </div>
     </div>
 </div>
