@@ -2111,6 +2111,7 @@ class CasesController extends AppController {
         }
 
         // Create the case
+        // Note: scientist_status and doctor_status start as 'draft' until assigned
         $case = $this->Cases->newEntity([
             'user_id' => $user->id,
             'hospital_id' => $currentHospital->id,
@@ -2122,8 +2123,8 @@ class CasesController extends AppController {
             'priority' => $step2Data['priority'],
             'status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
             'technician_status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
-            'scientist_status' => SiteConstants::CASE_STATUS_ASSIGNED,
-            'doctor_status' => SiteConstants::CASE_STATUS_ASSIGNED,
+            'scientist_status' => SiteConstants::CASE_STATUS_DRAFT,
+            'doctor_status' => SiteConstants::CASE_STATUS_DRAFT,
             'notes' => $combinedNotes,
             'symptoms' => $step1Data['symptoms']
         ]);

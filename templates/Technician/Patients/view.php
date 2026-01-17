@@ -321,8 +321,9 @@ $this->assign('title', 'Patient Details');
                                     </td>
                                     <td>
                                         <?php
+                                        // Note: 'draft' is internal status, display as 'Pending' to users
                                         $statusConfig = match($case->status) {
-                                            'draft' => ['class' => 'secondary', 'text' => 'Draft'],
+                                            'draft' => ['class' => 'secondary', 'text' => 'Pending'],
                                             'assigned' => ['class' => 'primary', 'text' => 'Assigned'],
                                             'in_progress' => ['class' => 'warning', 'text' => 'In Progress'],
                                             'review' => ['class' => 'info', 'text' => 'Review'],

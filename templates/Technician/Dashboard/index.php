@@ -93,7 +93,7 @@ $this->assign('title', 'Technician Dashboard');
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
                             <p class="text-muted mb-2 text-uppercase small fw-semibold">Pending Cases</p>
-                            <h2 class="mb-0 fw-bold"><?php echo number_format(($statusCounts['draft'] ?? 0) + ($statusCounts['assigned'] ?? 0)); ?></h2>
+                            <h2 class="mb-0 fw-bold"><?php echo number_format(($statusCounts['in_progress'] ?? 0) + ($statusCounts['assigned'] ?? 0)); ?></h2>
                         </div>
                         <div class="bg-warning text-white rounded d-flex align-items-center justify-content-center" style="width: 60px; height: 60px; font-size: 1.75rem;">
                             <i class="fas fa-clock"></i>
@@ -272,9 +272,16 @@ $this->assign('title', 'Technician Dashboard');
                                         <?php endif; ?>
                                     </td>
                                     <td>
+                                        <?php 
+                                        // Don't display 'draft' status to users - it's for internal use only
+                                        $displayStatus = $case->status;
+                                        if ($displayStatus === 'draft') {
+                                            $displayStatus = 'pending';
+                                        }
+                                        ?>
                                         <span class="badge rounded-pill <?php 
-                                            echo match($case->status) {
-                                                'draft' => 'bg-secondary',
+                                            echo match($displayStatus) {
+                                                'pending' => 'bg-secondary',
                                                 'assigned' => 'bg-info',
                                                 'in_progress' => 'bg-warning',
                                                 'review' => 'bg-primary',
@@ -282,7 +289,7 @@ $this->assign('title', 'Technician Dashboard');
                                                 'cancelled' => 'bg-danger',
                                                 default => 'bg-secondary'
                                             };
-                                        ?>"><?php echo h(ucfirst(str_replace('_', ' ', $case->status))); ?></span>
+                                        ?>"><?php echo h(ucfirst(str_replace('_', ' ', $displayStatus))); ?></span>
                                     </td>
                                     <td>
                                         <small class="text-muted">

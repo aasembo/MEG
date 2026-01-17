@@ -47,6 +47,7 @@ class MedicalCase extends Entity {
 
     /**
      * Get status label for a specific status value or the entity's status
+     * Note: 'draft' is an internal status and should not be displayed to users
      *
      * @param string|null $status Status value (null to use entity's status)
      * @return string
@@ -54,8 +55,9 @@ class MedicalCase extends Entity {
     public function getStatusLabel(?string $status = null): string {
         $status = $status ?? $this->status;
         
+        // Note: 'draft' is for internal/backend use only - display as 'Pending' to users
         $statusLabels = [
-            'draft' => 'Draft',
+            'draft' => 'Pending',
             'assigned' => 'Assigned',
             'in_progress' => 'In Progress',
             'review' => 'Under Review',

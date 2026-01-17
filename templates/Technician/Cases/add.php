@@ -130,8 +130,8 @@ $this->assign('title', 'Create New Case');
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Status</label>
-                                <input type="text" class="form-control" value="Draft" readonly>
-                                <div class="form-text">New cases start as draft status</div>
+                                <input type="text" class="form-control" value="In Progress" readonly>
+                                <div class="form-text">New cases start in progress status</div>
                             </div>
                         </div>
                     </div>

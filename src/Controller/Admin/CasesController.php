@@ -128,9 +128,9 @@ class CasesController extends AppController
         $cases = $this->paginate($query);
 
         // Get filter options
+        // Note: 'Draft' status is internal only and not shown to users
         $statusOptions = array(
             'all' => 'All Status',
-            SiteConstants::CASE_STATUS_DRAFT => 'Draft',
             SiteConstants::CASE_STATUS_ASSIGNED => 'Assigned',
             SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
             'review' => 'Under Review',

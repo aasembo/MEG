@@ -114,6 +114,12 @@ class StatusHelper extends Helper
     public function globalBadge(object $case, array $options = []): string
     {
         $status = $case->status ?? 'draft';
+        
+        // Don't show badge if status is 'draft' (internal status only)
+        if ($status === 'draft') {
+            return '';
+        }
+        
         $colorClass = $this->colorClass($status);
         $statusLabel = ucfirst(str_replace('_', ' ', $status));
         
