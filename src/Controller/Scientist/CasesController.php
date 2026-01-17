@@ -505,7 +505,7 @@ class CasesController extends AppController
 
                 // Mark this as a scientist report by setting scientist_review
                 $scientistReview = [
-                    'reviewed_by' => $user->getIdentifier(),
+                    'reviewed_by' => $user->id,
                     'reviewed_at' => date('Y-m-d H:i:s'),
                     'scientist_notes' => $data['scientist_notes'] ?? '',
                     'confidence_score' => $data['confidence_score'] ?? null,
@@ -610,7 +610,8 @@ class CasesController extends AppController
                         
                         $this->caseStatusService->transitionOnAssignment(
                             $case, 
-                            'doctor', 
+                            'scientist', 
+                            'doctor',
                             $user->id
                         );
                         // Reload case to get updated statuses from transitionOnAssignment
