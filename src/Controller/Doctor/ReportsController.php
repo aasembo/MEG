@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controller\Doctor;
 
 use App\Controller\AppController;
+use App\Constants\SiteConstants;
 use Cake\Http\Exception\NotFoundException;
 
 /**
