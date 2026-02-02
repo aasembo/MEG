@@ -3,50 +3,52 @@
  * @var \App\View\AppView $this
  * @var \App\Model\Entity\ReportSlide $slide
  * @var \App\Model\Entity\Report $report
+ * @var array|null $slideConfig
+ * @var string $slideType
+ * @var array $slideTypes
+ * @var array $examProceduresList
  */
 $this->assign('title', 'Edit Slide');
 
-// Use title and description fields directly, fallback to html_content extraction for backwards compatibility
-$title = $slide->title ?? '';
-$content = $slide->description ?? '';
-
-// Fallback: Extract from html_content if title/description are empty
-if (empty($title) && empty($content) && $slide->html_content) {
-    if (preg_match('/<h3>(.*?)<\/h3>/s', $slide->html_content, $matches)) {
-        $title = html_entity_decode(strip_tags($matches[1]));
-    }
-    if (preg_match('/<p>(.*?)<\/p>/s', $slide->html_content, $matches)) {
-        $content = html_entity_decode(strip_tags(str_replace('<br />', "\n", $matches[1])));
-    }
-}
+// Use slide's stored layout_columns, fallback to config, then default to 1
+$layoutColumns = $slide->layout_columns ?? $slideConfig['columns'] ?? 1;
+$slideTitle = $slideConfig['title'] ?? 'Custom Slide';
 ?>
 
 <style>
-.preview-title {
-    color: #333;
-    font-size: 24px;
-    font-weight: bold;
-    margin-bottom: 20px;
-}
-.preview-content {
-    color: #666;
-    font-size: 16px;
-    line-height: 1.6;
-    margin-bottom: 20px;
-    white-space: pre-wrap;
-}
-.preview-image {
-    max-width: 750px;
-    max-height: 450px;
-    width: 100%;
-    height: auto;
+.slide-type-info {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    padding: 15px 20px;
     border-radius: 8px;
-    margin-top: 20px;
+    margin-bottom: 20px;
+}
+.slide-type-info .type-name {
+    font-size: 18px;
+    font-weight: bold;
+    text-transform: capitalize;
+}
+.slide-type-info .type-layout {
+    font-size: 13px;
+    opacity: 0.9;
+}
+.column-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #e9ecef;
+}
+.column-section h5 {
+    color: #dc3545;
+    border-bottom: 2px solid #dc3545;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
 }
 .upload-zone {
     border: 3px dashed #dc3545;
     border-radius: 10px;
-    padding: 40px 20px;
+    padding: 30px 20px;
     text-align: center;
     background: #fff5f5;
     transition: all 0.3s ease;
@@ -56,10 +58,91 @@ if (empty($title) && empty($content) && $slide->html_content) {
     background: #ffe5e8;
     border-color: #c82333;
 }
-.current-image {
-    max-width: 300px;
+.upload-zone.dragover {
+    background: #ffe5e8;
+    border-color: #c82333;
+    transform: scale(1.02);
+}
+.current-image-preview {
+    max-width: 100%;
+    max-height: 200px;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.preview-panel {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    overflow: hidden;
+    position: sticky;
+    top: 20px;
+}
+.preview-header {
+    background: #333;
+    color: white;
+    padding: 15px 20px;
+    font-weight: bold;
+}
+.preview-slide {
+    aspect-ratio: 16/9;
+    background: white;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+.preview-slide h2 {
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 10px;
+}
+.preview-two-columns {
+    display: flex;
+    gap: 15px;
+    flex: 1;
+}
+.preview-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.preview-column-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+    padding-bottom: 3px;
+    border-bottom: 2px solid #dc3545;
+}
+.preview-column img {
+    max-width: 100%;
+    max-height: 150px;
+    object-fit: contain;
+    margin: auto 0;
+}
+.preview-single img {
+    max-width: 100%;
+    max-height: 200px;
+    object-fit: contain;
+    margin: 10px auto;
+}
+.legend-editor {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+}
+.legend-item-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.legend-color-input {
+    width: 50px;
+    height: 35px;
+    padding: 2px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
 }
 </style>
 
@@ -103,142 +186,328 @@ if (empty($title) && empty($content) && $slide->html_content) {
                     </h5>
                 </div>
                 <div class="card-body p-4">
-                
-                <div class="mb-4">
-                    <label class="form-label fw-bold">Slide Title</label>
-                    <?php echo $this->Form->control('title', [
-                        'class' => 'form-control form-control-lg',
-                        'placeholder' => 'Enter slide title (for internal use)',
-                        'label' => false,
-                        'id' => 'slideTitle',
-                        'value' => $title
-                    ]) ?>
-                    <small class="text-muted"><i class="fas fa-info-circle me-1"></i>For internal use only - not displayed on presentation</small>
-                </div>
-                
-                <div class="mb-4">
-                    <label class="form-label fw-bold">Link to Exam/Procedure <span class="text-muted">(Optional)</span></label>
-                    <?php if ($slide->cases_exams_procedure_id): ?>
-                        <div class="form-control bg-light" style="cursor: not-allowed;">
-                            <?php echo h($examProceduresList[$slide->cases_exams_procedure_id] ?? 'Not Linked') ?>
-                        </div>
-                        <?php echo $this->Form->hidden('cases_exams_procedure_id', [
-                            'value' => $slide->cases_exams_procedure_id
-                        ]) ?>
-                        <small class="text-muted">
-                            <i class="fas fa-lock me-1"></i>Exam/Procedure link cannot be changed after creation.
-                            New images will be saved to this exam's documents.
-                        </small>
-                    <?php else: ?>
-                        <div class="form-control bg-light" style="cursor: not-allowed;">
-                            Not Linked
-                        </div>
-                        <?php echo $this->Form->hidden('cases_exams_procedure_id', [
-                            'value' => null
-                        ]) ?>
-                        <small class="text-muted">
-                            <i class="fas fa-info-circle me-1"></i>This slide is not linked to any exam/procedure.
-                        </small>
-                    <?php endif; ?>
-                </div>
-                
-                <div class="mb-4">
-                    <label class="form-label fw-bold">Slide Content/Description</label>
-                    <?php echo $this->Form->textarea('content', [
-                        'class' => 'form-control',
-                        'rows' => 8,
-                        'placeholder' => 'Enter slide content or description',
-                        'label' => false,
-                        'id' => 'slideContent',
-                        'value' => $content
-                    ]) ?>
-                    <small class="text-muted"><i class="fas fa-file-powerpoint me-1 text-success"></i>This content will be displayed on the PowerPoint presentation</small>
-                </div>
-                
-                <div class="mb-4">
-                    <label class="form-label fw-bold">Slide Image</label>
                     
-                    <?php if ($slide->file_path): ?>
-                        <div class="mb-3 p-3 bg-light rounded">
-                            <label class="fw-semibold mb-2 text-dark"><i class="fas fa-image me-2 text-danger"></i>Current Image:</label>
-                            <div class="mb-3">
-                                <img src="<?php echo h($slide->image_url ?? $slide->file_path) ?>" alt="Current Slide Image" class="current-image img-thumbnail" id="currentImage">
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="keepCurrentImage" checked>
-                                <label class="form-check-label fw-semibold" for="keepCurrentImage">
-                                    <i class="fas fa-check-circle me-1 text-success"></i>Keep current image
-                                </label>
-                            </div>
+                    <!-- Slide Type Info -->
+                    <div class="slide-type-info">
+                        <div class="type-name">
+                            <i class="fas fa-layer-group me-2"></i>
+                            <?php echo h(str_replace('_', ' ', $slideType)) ?>
                         </div>
-                        
-                        <div id="newImageUpload" style="display: none;">
-                    <?php else: ?>
-                        <div id="newImageUpload">
+                        <div class="type-layout">
+                            <i class="fas fa-columns me-1"></i>
+                            <?php echo $layoutColumns === 2 ? 'Two Column Layout' : 'Single Column Layout' ?>
+                            <?php if ($slideConfig): ?>
+                                | <?php echo h(ucfirst(str_replace('_', ' ', $slideConfig['layout'] ?? 'standard'))) ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    
+                    <!-- Slide Title -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Slide Title</label>
+                        <?php echo $this->Form->control('title', [
+                            'class' => 'form-control form-control-lg',
+                            'placeholder' => $slideConfig['title'] ?? 'Enter slide title',
+                            'label' => false,
+                            'id' => 'slideTitle',
+                            'value' => $slide->title ?: ($slideConfig['title'] ?? '')
+                        ]) ?>
+                    </div>
+                    
+                    <?php if ($slideConfig && !empty($slideConfig['subtitle'])): ?>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Subtitle</label>
+                        <?php echo $this->Form->control('subtitle', [
+                            'class' => 'form-control',
+                            'placeholder' => $slideConfig['subtitle'] ?? 'Enter subtitle',
+                            'label' => false,
+                            'id' => 'slideSubtitle',
+                            'value' => $slide->subtitle ?: ($slideConfig['subtitle'] ?? '')
+                        ]) ?>
+                    </div>
                     <?php endif; ?>
                     
-                            <div class="upload-zone" id="uploadZone">
-                                <i class="fas fa-image fa-3x text-danger mb-3"></i>
-                                <h5>Drag & Drop New Image Here</h5>
-                                <p class="text-muted mb-3">or</p>
-                                <button type="button" class="btn btn-danger" id="selectImageBtn">
-                                    <i class="fas fa-folder-open me-2"></i>Select New Image
-                                </button>
-                                <p class="text-muted mt-3 mb-0">
-                                    <small>Image will be resized to max 750×450 pixels</small><br>
-                                    <small>Supported formats: JPG, PNG, GIF</small>
-                                </p>
+                    <?php if ($layoutColumns === 2): ?>
+                        <!-- Two Column Layout -->
+                        <div class="row">
+                            <!-- Column 1 -->
+                            <div class="col-md-6">
+                                <div class="column-section">
+                                    <h5><i class="fas fa-columns me-2"></i>Column 1</h5>
+                                    
+                                    <?php if (!empty($slideConfig['col1']['header'])): ?>
+                                    <div class="mb-3">
+                                        <label class="form-label">Column Header</label>
+                                        <?php echo $this->Form->control('col1_header', [
+                                            'class' => 'form-control',
+                                            'placeholder' => $slideConfig['col1']['header'],
+                                            'label' => false,
+                                            'value' => $slide->col1_header ?? $slideConfig['col1']['header']
+                                        ]) ?>
+                                    </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php 
+                                    $col1Type = $slideConfig['col1']['type'] ?? $slide->col1_type ?? 'image';
+                                    if ($col1Type === 'image' || $col1Type === 'composite_image'): ?>
+                                        <?php if ($slide->col1_image_url ?? $slide->col1_image_path): ?>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-semibold">Current Image:</label>
+                                                <div class="text-center">
+                                                    <img src="<?php echo h($slide->col1_image_url ?? $slide->col1_image_path) ?>" 
+                                                         alt="Column 1 Image" class="current-image-preview" id="col1CurrentImage">
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+                                        <div class="upload-zone" id="col1UploadZone" data-target="col1_image_file">
+                                            <i class="fas fa-image fa-2x text-danger mb-2"></i>
+                                            <div>Upload New Image</div>
+                                            <small class="text-muted">Drag & drop or click</small>
+                                        </div>
+                                        <?php echo $this->Form->file('col1_image_file', [
+                                            'id' => 'col1_image_file',
+                                            'accept' => 'image/*',
+                                            'style' => 'display: none;'
+                                        ]) ?>
+                                        <div id="col1PreviewContainer" class="mt-2 text-center" style="display: none;">
+                                            <img id="col1Preview" src="" class="current-image-preview" alt="Preview">
+                                            <button type="button" class="btn btn-sm btn-danger mt-2 remove-preview" data-target="col1">
+                                                <i class="fas fa-times"></i> Remove
+                                            </button>
+                                        </div>
+                                    <?php elseif ($col1Type === 'text'): ?>
+                                        <?php echo $this->Form->textarea('col1_content', [
+                                            'class' => 'form-control',
+                                            'rows' => 6,
+                                            'placeholder' => 'Enter column 1 content',
+                                            'label' => false,
+                                            'id' => 'col1Content',
+                                            'value' => $slide->col1_content ?? ''
+                                        ]) ?>
+                                    <?php endif; ?>
+                                </div>
                             </div>
-                            <?php echo $this->Form->file('image_file', [
-                                'id' => 'imageInput',
-                                'accept' => 'image/*',
-                                'style' => 'display: none;'
-                            ]) ?>
-                            <div id="imagePreviewContainer" class="mt-3" style="display: none;">
-                                <img id="imagePreview" src="" alt="Preview" class="img-thumbnail" style="max-width: 300px;">
-                                <button type="button" class="btn btn-sm btn-danger mt-2" id="removeImageBtn">
-                                    <i class="fas fa-times me-1"></i>Remove New Image
-                                </button>
+                            
+                            <!-- Column 2 -->
+                            <div class="col-md-6">
+                                <div class="column-section">
+                                    <h5><i class="fas fa-columns me-2"></i>Column 2</h5>
+                                    
+                                    <?php if (!empty($slideConfig['col2']['header'])): ?>
+                                    <div class="mb-3">
+                                        <label class="form-label">Column Header</label>
+                                        <?php echo $this->Form->control('col2_header', [
+                                            'class' => 'form-control',
+                                            'placeholder' => $slideConfig['col2']['header'],
+                                            'label' => false,
+                                            'value' => $slide->col2_header ?? $slideConfig['col2']['header']
+                                        ]) ?>
+                                    </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php 
+                                    $col2Type = $slideConfig['col2']['type'] ?? $slide->col2_type ?? 'image';
+                                    if ($col2Type === 'image' || $col2Type === 'composite_image'): ?>
+                                        <?php if ($slide->col2_image_url ?? $slide->col2_image_path): ?>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-semibold">Current Image:</label>
+                                                <div class="text-center">
+                                                    <img src="<?php echo h($slide->col2_image_url ?? $slide->col2_image_path) ?>" 
+                                                         alt="Column 2 Image" class="current-image-preview" id="col2CurrentImage">
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+                                        <div class="upload-zone" id="col2UploadZone" data-target="col2_image_file">
+                                            <i class="fas fa-image fa-2x text-danger mb-2"></i>
+                                            <div>Upload New Image</div>
+                                            <small class="text-muted">Drag & drop or click</small>
+                                        </div>
+                                        <?php echo $this->Form->file('col2_image_file', [
+                                            'id' => 'col2_image_file',
+                                            'accept' => 'image/*',
+                                            'style' => 'display: none;'
+                                        ]) ?>
+                                        <div id="col2PreviewContainer" class="mt-2 text-center" style="display: none;">
+                                            <img id="col2Preview" src="" class="current-image-preview" alt="Preview">
+                                            <button type="button" class="btn btn-sm btn-danger mt-2 remove-preview" data-target="col2">
+                                                <i class="fas fa-times"></i> Remove
+                                            </button>
+                                        </div>
+                                    <?php elseif ($col2Type === 'text'): ?>
+                                        <?php echo $this->Form->textarea('col2_content', [
+                                            'class' => 'form-control',
+                                            'rows' => 6,
+                                            'placeholder' => 'Enter column 2 content',
+                                            'label' => false,
+                                            'id' => 'col2Content',
+                                            'value' => $slide->col2_content ?? ''
+                                        ]) ?>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
-                </div>
-                
-                <div class="d-grid gap-2 mt-4">
-                    <?php echo $this->Form->button('<i class="fas fa-save me-2"></i>Update Slide', [
-                        'class' => 'btn btn-danger btn-lg fw-bold',
-                        'escapeTitle' => false
-                    ]) ?>
-                    <?php echo $this->Html->link(
-                        '<i class="fas fa-times me-2"></i>Cancel',
-                        ['action' => 'index', $slide->report_id],
-                        ['class' => 'btn btn-outline-danger btn-lg', 'escape' => false]
-                    ) ?>
-                </div>
+                    <?php else: ?>
+                        <!-- Single Column Layout -->
+                        <div class="column-section">
+                            <h5><i class="fas fa-image me-2"></i>Slide Content</h5>
+                            
+                            <?php if (($slideConfig['col1']['type'] ?? 'image') === 'image' || ($slideConfig['layout'] ?? '') !== 'text_only'): ?>
+                                <?php if ($slide->col1_image_url ?? $slide->image_url ?? $slide->file_path): ?>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Current Image:</label>
+                                        <div class="text-center">
+                                            <img src="<?php echo h($slide->col1_image_url ?? $slide->image_url ?? $slide->file_path) ?>" 
+                                                 alt="Slide Image" class="current-image-preview" id="currentImage">
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                                <div class="upload-zone" id="imageUploadZone" data-target="image_file">
+                                    <i class="fas fa-image fa-2x text-danger mb-2"></i>
+                                    <div>Upload New Image</div>
+                                    <small class="text-muted">Drag & drop or click to select</small>
+                                </div>
+                                <?php echo $this->Form->file('image_file', [
+                                    'id' => 'image_file',
+                                    'accept' => 'image/*',
+                                    'style' => 'display: none;'
+                                ]) ?>
+                                <div id="imagePreviewContainer" class="mt-2 text-center" style="display: none;">
+                                    <img id="imagePreview" src="" class="current-image-preview" alt="Preview">
+                                    <button type="button" class="btn btn-sm btn-danger mt-2 remove-preview" data-target="image">
+                                        <i class="fas fa-times"></i> Remove
+                                    </button>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <?php if (($slideConfig['col1']['type'] ?? '') === 'text' || ($slideConfig['layout'] ?? '') === 'text_only'): ?>
+                                <div class="mt-3">
+                                    <label class="form-label fw-bold">Text Content</label>
+                                    <?php echo $this->Form->textarea('col1_content', [
+                                        'class' => 'form-control',
+                                        'rows' => 8,
+                                        'placeholder' => 'Enter slide text content',
+                                        'label' => false,
+                                        'id' => 'col1Content',
+                                        'value' => $slide->col1_content ?? $slide->description ?? ''
+                                    ]) ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if (($slideConfig['layout'] ?? '') === 'image_with_legend'): ?>
+                        <div class="legend-editor">
+                            <h6 class="fw-bold mb-3"><i class="fas fa-palette me-2"></i>Legend Items</h6>
+                            <div id="legendItems">
+                                <?php 
+                                $legendItems = $slide->getLegendItems();
+                                if (empty($legendItems)) {
+                                    $legendItems = [['color' => '#ff0000', 'label' => '']];
+                                }
+                                foreach ($legendItems as $i => $item): 
+                                ?>
+                                <div class="legend-item-row">
+                                    <input type="color" name="legend_items[<?php echo $i ?>][color]" 
+                                           value="<?php echo h($item['color'] ?? '#ff0000') ?>" 
+                                           class="legend-color-input">
+                                    <input type="text" name="legend_items[<?php echo $i ?>][label]" 
+                                           value="<?php echo h($item['label'] ?? '') ?>" 
+                                           class="form-control" placeholder="Legend label">
+                                    <button type="button" class="btn btn-outline-danger btn-sm remove-legend">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addLegendItem">
+                                <i class="fas fa-plus me-1"></i>Add Legend Item
+                            </button>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <?php echo $this->Form->button('<i class="fas fa-save me-2"></i>Update Slide', [
+                            'class' => 'btn btn-danger btn-lg fw-bold',
+                            'escapeTitle' => false
+                        ]) ?>
+                        <?php echo $this->Html->link(
+                            '<i class="fas fa-times me-2"></i>Cancel',
+                            ['action' => 'index', $slide->report_id],
+                            ['class' => 'btn btn-outline-danger btn-lg', 'escape' => false]
+                        ) ?>
+                    </div>
                 </div>
             </div>
         </div>
         
         <!-- Preview Section -->
         <div class="col-lg-6 mb-4">
-            <div class="card border-0 shadow">
-                <div class="card-header bg-white py-3 border-bottom">
-                    <h5 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-eye me-2 text-danger"></i>Live Preview
-                    </h5>
+            <div class="preview-panel">
+                <div class="preview-header">
+                    <i class="fas fa-eye me-2"></i>Live Preview
                 </div>
-                <div class="card-body p-4">
-                <div id="slidePreview">
-                    <div id="previewContent" class="preview-content"><?php echo h($content) ?></div>
-                    <?php if ($slide->file_path): ?>
-                        <div id="previewImageContainer">
-                            <img id="previewImage" src="<?php echo h($slide->image_url ?? $slide->file_path) ?>" alt="Slide Image" class="preview-image">
+                <div class="preview-slide" id="slidePreview">
+                    <h2 id="previewTitle"><?php echo h($slide->title ?: ($slideConfig['title'] ?? 'Slide Title')) ?></h2>
+                    <h4 id="previewSubtitle" class="text-muted" style="font-size: 12px; margin-top: -5px;">• <?php echo h($slide->subtitle ?: ($slideConfig['subtitle'] ?? '')) ?></h4>
+                    
+                    <?php if ($layoutColumns === 2): ?>
+                        <?php 
+                        $pptLayouts = unserialize(PPT_LAYOUTS);
+                        $layout = $slideConfig['layout'] ?? 'two_column_images';
+                        $layoutConfig = $pptLayouts[$layout] ?? [];
+                        $col1WidthPercent = $layoutConfig['col1_width_percent'] ?? 50;
+                        $col2WidthPercent = $layoutConfig['col2_width_percent'] ?? 50;
+                        ?>
+                        <div class="preview-two-columns">
+                            <div class="preview-column" style="flex: <?php echo $col1WidthPercent ?>;">
+                                <div class="preview-column-header" id="previewCol1Header">
+                                    <?php echo h($slide->col1_header ?? $slideConfig['col1']['header'] ?? 'Column 1') ?>
+                                </div>
+                                <div id="previewCol1Content">
+                                    <?php if ($slide->col1_image_url ?? $slide->col1_image_path): ?>
+                                        <img src="<?php echo h($slide->col1_image_url ?? $slide->col1_image_path) ?>" alt="Column 1">
+                                    <?php elseif ($slide->col1_content): ?>
+                                        <p style="font-size: 11px;"><?php echo nl2br(h($slide->col1_content)) ?></p>
+                                    <?php else: ?>
+                                        <div class="text-center text-muted" style="margin-top: 30px;">
+                                            <i class="fas fa-image fa-2x"></i>
+                                            <div style="font-size: 10px;">Column 1</div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="preview-column" style="flex: <?php echo $col2WidthPercent ?>;">
+                                <div class="preview-column-header" id="previewCol2Header">
+                                    <?php echo h($slide->col2_header ?? $slideConfig['col2']['header'] ?? 'Column 2') ?>
+                                </div>
+                                <div id="previewCol2Content">
+                                    <?php if ($slide->col2_image_url ?? $slide->col2_image_path): ?>
+                                        <img src="<?php echo h($slide->col2_image_url ?? $slide->col2_image_path) ?>" alt="Column 2">
+                                    <?php elseif ($slide->col2_content): ?>
+                                        <p style="font-size: 11px;"><?php echo nl2br(h($slide->col2_content)) ?></p>
+                                    <?php else: ?>
+                                        <div class="text-center text-muted" style="margin-top: 30px;">
+                                            <i class="fas fa-image fa-2x"></i>
+                                            <div style="font-size: 10px;">Column 2</div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                         </div>
                     <?php else: ?>
-                        <div id="previewImageContainer" style="display: none;">
-                            <img id="previewImage" src="" alt="Slide Image" class="preview-image">
+                        <div class="preview-single" id="previewContent">
+                            <?php if ($slide->col1_image_url ?? $slide->image_url ?? $slide->file_path): ?>
+                                <img src="<?php echo h($slide->col1_image_url ?? $slide->image_url ?? $slide->file_path) ?>" alt="Slide Image">
+                            <?php elseif ($slide->col1_content): ?>
+                                <p><?php echo nl2br(h($slide->col1_content)) ?></p>
+                            <?php else: ?>
+                                <div class="text-center text-muted" style="margin-top: 50px;">
+                                    <i class="fas fa-image fa-3x"></i>
+                                    <div class="mt-2">No content yet</div>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
-                </div>
                 </div>
             </div>
         </div>
@@ -247,97 +516,63 @@ if (empty($title) && empty($content) && $slide->html_content) {
     <?php echo $this->Form->end() ?>
 </div>
 
-<?php $this->start('script'); ?>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
-    const uploadZone = $('#uploadZone');
-    const imageInput = $('#imageInput');
-    const selectImageBtn = $('#selectImageBtn');
-    const imagePreviewContainer = $('#imagePreviewContainer');
-    const imagePreview = $('#imagePreview');
-    const removeImageBtn = $('#removeImageBtn');
-    const keepCurrentImage = $('#keepCurrentImage');
-    const currentImage = $('#currentImage');
-    const newImageUpload = $('#newImageUpload');
     
-    const slideTitle = $('#slideTitle');
-    const slideContent = $('#slideContent');
+    // Live preview updates for title
+    $('#slideTitle').on('input keyup change paste', function() {
+        var val = $(this).val();
+        $('#previewTitle').text(val || 'Slide Title');
+    });
     
-    const previewContent = $('#previewContent');
-    const previewImageContainer = $('#previewImageContainer');
-    const previewImage = $('#previewImage');
-    
-    // Show/hide new image upload
-    if (keepCurrentImage.length) {
-        keepCurrentImage.change(function() {
-            if (this.checked) {
-                newImageUpload.slideUp();
-                if (currentImage.length) {
-                    previewImage.attr('src', currentImage.attr('src'));
-                    previewImageContainer.show();
-                }
-            } else {
-                newImageUpload.slideDown();
-            }
-        });
-    }
-    
-    // Update preview on input
-    function updatePreview() {
-        const contentText = slideContent.val().trim();
-        
-        if (contentText) {
-            previewContent.text(contentText).show();
+    // Live preview updates for subtitle
+    $('#slideSubtitle').on('input keyup change paste', function() {
+        var val = $(this).val();
+        if (val && val.trim() !== '') {
+            $('#previewSubtitle').text('• ' + val).show();
         } else {
-            previewContent.hide();
-        }
-    }
-    slideContent.on('input', updatePreview);
-    
-    // Image upload handling
-    selectImageBtn.click(function() {
-        imageInput.click();
-    });
-    
-    uploadZone.click(function(e) {
-        if (e.target === this || $(e.target).closest('#selectImageBtn').length === 0) {
-            imageInput.click();
+            $('#previewSubtitle').hide();
         }
     });
     
-    // Drag and drop
-    uploadZone.on('dragover', function(e) {
+    // Column headers
+    $('input[name="col1_header"], textarea[name="col1_header"]').on('input keyup change paste', function() {
+        $('#previewCol1Header').text($(this).val() || 'Column 1');
+    });
+    
+    $('input[name="col2_header"], textarea[name="col2_header"]').on('input keyup change paste', function() {
+        $('#previewCol2Header').text($(this).val() || 'Column 2');
+    });
+    $('.upload-zone').click(function() {
+        const targetId = $(this).data('target');
+        $('#' + targetId).click();
+    });
+    
+    $('.upload-zone').on('dragover', function(e) {
         e.preventDefault();
-        e.stopPropagation();
         $(this).addClass('dragover');
-    });
-    
-    uploadZone.on('dragleave', function(e) {
+    }).on('dragleave', function(e) {
         e.preventDefault();
-        e.stopPropagation();
         $(this).removeClass('dragover');
-    });
-    
-    uploadZone.on('drop', function(e) {
+    }).on('drop', function(e) {
         e.preventDefault();
-        e.stopPropagation();
         $(this).removeClass('dragover');
-        
+        const targetId = $(this).data('target');
         const files = e.originalEvent.dataTransfer.files;
         if (files.length > 0) {
-            imageInput[0].files = files;
-            handleImageSelection(files[0]);
+            $('#' + targetId)[0].files = files;
+            handleFileSelect(targetId, files[0]);
         }
     });
     
-    imageInput.change(function() {
+    $('#col1_image_file, #col2_image_file, #image_file').change(function() {
         if (this.files && this.files[0]) {
-            handleImageSelection(this.files[0]);
+            handleFileSelect(this.id, this.files[0]);
         }
     });
     
-    function handleImageSelection(file) {
+    function handleFileSelect(inputId, file) {
         if (!file.type.match('image.*')) {
             alert('Please select an image file.');
             return;
@@ -345,31 +580,74 @@ $(document).ready(function() {
         
         const reader = new FileReader();
         reader.onload = function(e) {
-            imagePreview.attr('src', e.target.result);
-            imagePreviewContainer.show();
-            previewImage.attr('src', e.target.result);
-            previewImageContainer.show();
-            
-            if (keepCurrentImage.length) {
-                keepCurrentImage.prop('checked', false);
+            if (inputId === 'col1_image_file') {
+                $('#col1Preview').attr('src', e.target.result);
+                $('#col1PreviewContainer').show();
+                updatePreviewImage('col1', e.target.result);
+            } else if (inputId === 'col2_image_file') {
+                $('#col2Preview').attr('src', e.target.result);
+                $('#col2PreviewContainer').show();
+                updatePreviewImage('col2', e.target.result);
+            } else {
+                $('#imagePreview').attr('src', e.target.result);
+                $('#imagePreviewContainer').show();
+                updatePreviewImage('single', e.target.result);
             }
         };
         reader.readAsDataURL(file);
     }
     
-    removeImageBtn.click(function() {
-        imageInput.val('');
-        imagePreview.attr('src', '');
-        imagePreviewContainer.hide();
-        
-        // Restore current image in preview if it exists
-        if (currentImage.length && keepCurrentImage.prop('checked')) {
-            previewImage.attr('src', currentImage.attr('src'));
-            previewImageContainer.show();
+    function updatePreviewImage(column, src) {
+        if (column === 'col1') {
+            $('#previewCol1Content').html('<img src="' + src + '" alt="Column 1">');
+        } else if (column === 'col2') {
+            $('#previewCol2Content').html('<img src="' + src + '" alt="Column 2">');
         } else {
-            previewImageContainer.hide();
+            $('#previewContent').html('<img src="' + src + '" alt="Slide Image">');
         }
+    }
+    
+    $('.remove-preview').click(function() {
+        const target = $(this).data('target');
+        if (target === 'col1') {
+            $('#col1_image_file').val('');
+            $('#col1PreviewContainer').hide();
+        } else if (target === 'col2') {
+            $('#col2_image_file').val('');
+            $('#col2PreviewContainer').hide();
+        } else {
+            $('#image_file').val('');
+            $('#imagePreviewContainer').hide();
+        }
+    });
+    
+    $('#col1Content').on('input', function() {
+        const text = $(this).val();
+        if (text) {
+            $('#previewCol1Content, #previewContent').html('<p style="font-size: 11px;">' + text.replace(/\n/g, '<br>') + '</p>');
+        }
+    });
+    $('#col2Content').on('input', function() {
+        const text = $(this).val();
+        if (text) {
+            $('#previewCol2Content').html('<p style="font-size: 11px;">' + text.replace(/\n/g, '<br>') + '</p>');
+        }
+    });
+    
+    let legendIndex = <?php echo count($legendItems ?? [1]); ?>;
+    
+    $('#addLegendItem').click(function() {
+        const html = '<div class="legend-item-row">' +
+            '<input type="color" name="legend_items[' + legendIndex + '][color]" value="#ff0000" class="legend-color-input">' +
+            '<input type="text" name="legend_items[' + legendIndex + '][label]" class="form-control" placeholder="Legend label">' +
+            '<button type="button" class="btn btn-outline-danger btn-sm remove-legend"><i class="fas fa-times"></i></button>' +
+            '</div>';
+        $('#legendItems').append(html);
+        legendIndex++;
+    });
+    
+    $(document).on('click', '.remove-legend', function() {
+        $(this).closest('.legend-item-row').remove();
     });
 });
 </script>
-<?php $this->end(); ?>

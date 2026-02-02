@@ -52,6 +52,11 @@ use function Cake\Core\env;
 require CAKE . 'functions.php';
 
 /*
+ * Load site-specific constants (PPT layouts, etc.)
+ */
+require __DIR__ . DIRECTORY_SEPARATOR . 'site_constants.php';
+
+/*
  * See https://github.com/josegonzalez/php-dotenv for API details.
  *
  * Uncomment block of code below if you want to use `.env` file during development.

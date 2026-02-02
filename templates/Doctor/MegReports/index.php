@@ -4,6 +4,8 @@
  * @var iterable<\App\Model\Entity\ReportSlide> $slides
  * @var \App\Model\Entity\Report $report
  * @var int $reportId
+ * @var array $slideTypes
+ * @var array $slideCategories
  */
 $this->assign('title', 'MEG Report Slides');
 ?>
@@ -72,8 +74,15 @@ $this->assign('title', 'MEG Report Slides');
 }
 .slide-content h2 {
     font-size: 24px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     font-weight: bold;
+    color: #333;
+}
+.slide-content h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    font-weight: 600;
+    color: #555;
 }
 .slide-content p {
     font-size: 16px;
@@ -84,7 +93,71 @@ $this->assign('title', 'MEG Report Slides');
     max-width: 100%;
     max-height: 350px;
     display: block;
-    margin: 20px auto;
+    margin: 10px auto;
+}
+/* Two-column layout styles */
+.slide-two-columns {
+    display: flex;
+    gap: 30px;
+    height: calc(100% - 60px);
+}
+.slide-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.slide-column-header {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #dc3545;
+}
+.slide-column img {
+    max-width: 100%;
+    max-height: 300px;
+    object-fit: contain;
+    margin: auto 0;
+}
+.slide-column-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+/* Legend styles */
+.slide-legend {
+    margin-top: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 5px;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+.legend-color {
+    width: 20px;
+    height: 12px;
+    margin-right: 8px;
+    border-radius: 2px;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+/* Slide type badge */
+.slide-type-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(220,53,69,0.9);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: capitalize;
 }
 .slide-actions-overlay {
     position: absolute;
@@ -183,6 +256,14 @@ $this->assign('title', 'MEG Report Slides');
     display: block;
     margin: 2px auto;
 }
+.thumbnail-two-cols {
+    display: flex;
+    gap: 3px;
+}
+.thumbnail-two-cols img {
+    max-width: 48%;
+    max-height: 50px;
+}
 .thumbnail-number {
     position: absolute;
     bottom: 3px;
@@ -193,6 +274,20 @@ $this->assign('title', 'MEG Report Slides');
     border-radius: 3px;
     font-size: 10px;
     font-weight: bold;
+}
+.thumbnail-type {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 7px;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .empty-state {
     text-align: center;
@@ -244,12 +339,23 @@ $this->assign('title', 'MEG Report Slides');
         <!-- Slide Viewer -->
         <div class="slide-viewer">
             <?php 
-            // Debug: Check if slides is traversable
             $slideArray = $slides->toArray();
-            // error_log("Total slides in array: " . count($slideArray));
             ?>
             <?php foreach ($slideArray as $index => $slide): ?>
+                <?php 
+                // Get slide config for this slide type
+                $slideConfig = $slide->getSlideConfig();
+                $slideType = $slide->slide_type ?? 'custom';
+                $layoutColumns = $slide->layout_columns ?? 1;
+                ?>
                 <div class="slide-container <?php echo $index === 0 ? 'active' : '' ?>" data-slide-index="<?php echo $index ?>" data-slide-id="<?php echo $slide->id ?>">
+                    <!-- Slide type badge -->
+                    <?php if ($slideConfig): ?>
+                        <div class="slide-type-badge">
+                            <?php echo h(str_replace('_', ' ', $slideType)) ?>
+                        </div>
+                    <?php endif; ?>
+                    
                     <div class="slide-actions-overlay">
                         <?php echo $this->Html->link(
                             '<i class="fas fa-edit"></i>',
@@ -269,13 +375,105 @@ $this->assign('title', 'MEG Report Slides');
                         <?php if ($slide->slide_order === 1): ?>
                             <!-- Cover slide with centered content -->
                             <?php echo $slide->html_content ?>
+                        <?php elseif ($layoutColumns === 2): ?>
+                            <!-- Two-column layout -->
+                            <?php if (!empty($slide->title)): ?>
+                                <h2><?php echo h($slide->title) ?></h2>
+                            <?php elseif (!empty($slide->description)): ?>
+                                <h2><?php echo h($slide->description) ?></h2>
+                            <?php endif; ?>
+                            <?php if (!empty($slide->subtitle)): ?>
+                                <h3><?php echo h($slide->subtitle) ?></h3>
+                            <?php endif; ?>
+                            <?php 
+                            // Get column width percentages from layout config
+                            $pptLayouts = unserialize(PPT_LAYOUTS);
+                            $layout = $slideConfig['layout'] ?? 'two_column_images';
+                            $layoutConfig = $pptLayouts[$layout] ?? [];
+                            $col1WidthPercent = $layoutConfig['col1_width_percent'] ?? 50;
+                            $col2WidthPercent = $layoutConfig['col2_width_percent'] ?? 50;
+                            ?>
+                            <div class="slide-two-columns">
+                                <!-- Column 1 -->
+                                <div class="slide-column" style="flex: <?php echo $col1WidthPercent ?>;">
+                                    <?php if (!empty($slide->col1_header)): ?>
+                                        <div class="slide-column-header"><?php echo h($slide->col1_header) ?></div>
+                                    <?php endif; ?>
+                                    <div class="slide-column-content">
+                                        <?php if (!empty($slide->col1_image_url)): ?>
+                                            <img src="<?php echo h($slide->col1_image_url) ?>" alt="Column 1 Image" />
+                                        <?php elseif (!empty($slide->col1_image_path)): ?>
+                                            <img src="<?php echo h($slide->col1_image_path) ?>" alt="Column 1 Image" />
+                                        <?php elseif (!empty($slide->col1_content)): ?>
+                                            <div class="column-text"><?php echo nl2br(h($slide->col1_content)) ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <!-- Column 2 -->
+                                <div class="slide-column" style="flex: <?php echo $col2WidthPercent ?>;">
+                                    <?php if (!empty($slide->col2_header)): ?>
+                                        <div class="slide-column-header"><?php echo h($slide->col2_header) ?></div>
+                                    <?php endif; ?>
+                                    <div class="slide-column-content">
+                                        <?php if (!empty($slide->col2_image_url)): ?>
+                                            <img src="<?php echo h($slide->col2_image_url) ?>" alt="Column 2 Image" />
+                                        <?php elseif (!empty($slide->col2_image_path)): ?>
+                                            <img src="<?php echo h($slide->col2_image_path) ?>" alt="Column 2 Image" />
+                                        <?php elseif (!empty($slide->col2_content)): ?>
+                                            <div class="column-text"><?php echo nl2br(h($slide->col2_content)) ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php 
+                            // Display legend if present
+                            $legendItems = $slide->getLegendItems();
+                            if (!empty($legendItems)): 
+                            ?>
+                                <div class="slide-legend">
+                                    <?php foreach ($legendItems as $item): ?>
+                                        <div class="legend-item">
+                                            <div class="legend-color" style="background: <?php echo h($item['color'] ?? '#ccc') ?>;"></div>
+                                            <span><?php echo h($item['label'] ?? '') ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         <?php else: ?>
-                            <!-- Regular slide -->
-                            <?php if (!empty($slide->description)): ?>
-                                <p style="font-size: 18px; margin-bottom: 20px;"><?php echo nl2br(h($slide->description)) ?></p>
+                            <!-- Single column layout -->
+                            <?php if (!empty($slide->title)): ?>
+                                <h2><?php echo h($slide->title) ?></h2>
+                            <?php elseif (!empty($slide->description)): ?>
+                                <h2><?php echo h($slide->description) ?></h2>
+                            <?php endif; ?>
+                            <?php if (!empty($slide->subtitle)): ?>
+                                <h3><?php echo h($slide->subtitle) ?></h3>
                             <?php endif; ?>
                             <?php if (!empty($slide->image_url)): ?>
                                 <img src="<?php echo h($slide->image_url) ?>" alt="Slide Image" class="slide-image" />
+                            <?php elseif (!empty($slide->col1_image_url)): ?>
+                                <img src="<?php echo h($slide->col1_image_url) ?>" alt="Slide Image" class="slide-image" />
+                            <?php elseif (!empty($slide->col1_image_path)): ?>
+                                <img src="<?php echo h($slide->col1_image_path) ?>" alt="Slide Image" class="slide-image" />
+                            <?php endif; ?>
+                            <?php if (!empty($slide->col1_content)): ?>
+                                <div class="slide-text-content" style="font-size: 16px; line-height: 1.8;">
+                                    <?php echo nl2br(h($slide->col1_content)) ?>
+                                </div>
+                            <?php endif; ?>
+                            <?php 
+                            // Display legend if present
+                            $legendItems = $slide->getLegendItems();
+                            if (!empty($legendItems)): 
+                            ?>
+                                <div class="slide-legend">
+                                    <?php foreach ($legendItems as $item): ?>
+                                        <div class="legend-item">
+                                            <div class="legend-color" style="background: <?php echo h($item['color'] ?? '#ccc') ?>;"></div>
+                                            <span><?php echo h($item['label'] ?? '') ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
                             <?php endif; ?>
                         <?php endif; ?>
                     </div>
@@ -303,26 +501,66 @@ $this->assign('title', 'MEG Report Slides');
         <!-- Thumbnail Strip -->
         <div class="thumbnail-strip">
             <?php foreach ($slideArray as $index => $slide): ?>
-                <div class="thumbnail <?php echo $index === 0 ? 'active' : '' ?>" onclick="goToSlide(<?php echo $index ?>)" title="Slide <?php echo $index + 1 ?>">
+                <?php 
+                $slideConfig = $slide->getSlideConfig();
+                $slideType = $slide->slide_type ?? 'custom';
+                $layoutColumns = $slide->layout_columns ?? 1;
+                ?>
+                <div class="thumbnail <?php echo $index === 0 ? 'active' : '' ?>" onclick="goToSlide(<?php echo $index ?>)" title="<?php echo h(str_replace('_', ' ', ucfirst($slideType))) ?>">
+                    <?php if ($slideType !== 'custom'): ?>
+                        <div class="thumbnail-type"><?php echo h(str_replace('_', ' ', $slideType)) ?></div>
+                    <?php endif; ?>
                     <div class="thumbnail-content">
                         <?php if ($slide->slide_order === 1): ?>
-                            <?php if (!empty($slide->description)): ?>
-                                <div style="font-size: 7px; text-align: center; margin-bottom: 2px;">
-                                    <?php echo h(substr($slide->description, 0, 30)) ?><?php echo strlen($slide->description) > 30 ? '...' : '' ?>
-                                </div>
-                            <?php endif; ?>
-                            <div style="display: flex; align-items: center; justify-content: center; height: 40px; background: #f8f9fa; border: 1px dashed #dc3545; border-radius: 3px; margin: 2px;">
+                            <!-- Cover slide thumbnail -->
+                            <div style="display: flex; align-items: center; justify-content: center; height: 60px; background: #f8f9fa; border: 1px dashed #dc3545; border-radius: 3px; margin: 2px;">
                                 <div style="text-align: center;">
-                                    <div style="font-size: 8px; font-weight: bold; color: #dc3545;">Patient Info</div>
-                                    <div style="font-size: 6px; color: #6c757d; font-style: italic;">(Auto-generated)</div>
+                                    <div style="font-size: 8px; font-weight: bold; color: #dc3545;">Cover Page</div>
+                                    <div style="font-size: 6px; color: #6c757d; font-style: italic;">(Patient Info)</div>
                                 </div>
                             </div>
+                        <?php elseif ($layoutColumns === 2): ?>
+                            <!-- Two-column thumbnail -->
+                            <div style="font-size: 7px; margin-bottom: 2px; text-align: center; font-weight: bold;">
+                                <?php echo h(substr($slide->title ?? $slide->description ?? '', 0, 25)) ?><?php echo strlen($slide->title ?? $slide->description ?? '') > 25 ? '...' : '' ?>
+                            </div>
+                            <div class="thumbnail-two-cols">
+                                <?php if (!empty($slide->col1_image_url)): ?>
+                                    <img src="<?php echo h($slide->col1_image_url) ?>" alt="Col 1" />
+                                <?php elseif (!empty($slide->col1_image_path)): ?>
+                                    <img src="<?php echo h($slide->col1_image_path) ?>" alt="Col 1" />
+                                <?php else: ?>
+                                    <div style="flex:1; background:#e9ecef; display:flex; align-items:center; justify-content:center; font-size:6px; color:#6c757d;">Col 1</div>
+                                <?php endif; ?>
+                                <?php if (!empty($slide->col2_image_url)): ?>
+                                    <img src="<?php echo h($slide->col2_image_url) ?>" alt="Col 2" />
+                                <?php elseif (!empty($slide->col2_image_path)): ?>
+                                    <img src="<?php echo h($slide->col2_image_path) ?>" alt="Col 2" />
+                                <?php else: ?>
+                                    <div style="flex:1; background:#e9ecef; display:flex; align-items:center; justify-content:center; font-size:6px; color:#6c757d;">Col 2</div>
+                                <?php endif; ?>
+                            </div>
                         <?php else: ?>
-                            <?php if (!empty($slide->description)): ?>
+                            <!-- Single column thumbnail -->
+                            <?php if (!empty($slide->title)): ?>
+                                <div style="font-size: 7px; margin-bottom: 2px;"><?php echo h(substr($slide->title, 0, 40)) ?><?php echo strlen($slide->title) > 40 ? '...' : '' ?></div>
+                            <?php elseif (!empty($slide->description)): ?>
                                 <div style="font-size: 7px; margin-bottom: 2px;"><?php echo h(substr($slide->description, 0, 40)) ?><?php echo strlen($slide->description) > 40 ? '...' : '' ?></div>
                             <?php endif; ?>
                             <?php if (!empty($slide->image_url)): ?>
                                 <img src="<?php echo h($slide->image_url) ?>" alt="Slide preview" />
+                            <?php elseif (!empty($slide->col1_image_url)): ?>
+                                <img src="<?php echo h($slide->col1_image_url) ?>" alt="Slide preview" />
+                            <?php elseif (!empty($slide->col1_image_path)): ?>
+                                <img src="<?php echo h($slide->col1_image_path) ?>" alt="Slide preview" />
+                            <?php elseif (!empty($slide->col1_content)): ?>
+                                <div style="font-size: 6px; line-height: 1.2; color: #666; overflow: hidden; max-height: 50px;">
+                                    <?php echo h(substr($slide->col1_content, 0, 100)) ?><?php echo strlen($slide->col1_content) > 100 ? '...' : '' ?>
+                                </div>
+                            <?php else: ?>
+                                <div style="display:flex; align-items:center; justify-content:center; height:50px; background:#f8f9fa; border-radius:3px;">
+                                    <span style="font-size:7px; color:#6c757d;">No content</span>
+                                </div>
                             <?php endif; ?>
                         <?php endif; ?>
                     </div>

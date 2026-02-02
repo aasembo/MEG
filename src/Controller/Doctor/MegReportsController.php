@@ -121,13 +121,23 @@ class MegReportsController extends AppController
             if ($slide->file_path) {
                 $slide->image_url = $s3Service->getDownloadUrl($slide->file_path);
             }
+            if ($slide->col1_image_path) {
+                $slide->col1_image_url = $s3Service->getDownloadUrl($slide->col1_image_path);
+            }
+            if ($slide->col2_image_path) {
+                $slide->col2_image_url = $s3Service->getDownloadUrl($slide->col2_image_path);
+            }
         }
         
-        $this->set(compact('slides', 'report', 'reportId'));
+        // Get available slide types from configuration
+        $slideTypes = unserialize(PPT_REPORT_PAGES);
+        $slideCategories = unserialize(PPT_SLIDE_CATEGORIES);
+        
+        $this->set(compact('slides', 'report', 'reportId', 'slideTypes', 'slideCategories'));
     }
 
     /**
-     * Add method - Add a new slide
+     * Add method - Add a new slide with slide type selection
      *
      * @param int|null $reportId Report ID
      * @return \Cake\Http\Response|null|void Redirects on successful add, renders view otherwise.
@@ -138,6 +148,7 @@ class MegReportsController extends AppController
         $userId = $user->getIdentifier();
         
         $reportId = $reportId ?? $this->request->getQuery('report_id');
+        $slideType = $this->request->getQuery('slide_type');
         
         if (!$reportId) {
             $this->Flash->error('Please select a report.');
@@ -159,6 +170,14 @@ class MegReportsController extends AppController
             return $this->redirect(['controller' => 'Reports', 'action' => 'index']);
         }
         
+        // Get slide type configuration
+        $slideTypes = unserialize(PPT_REPORT_PAGES);
+        $slideConfig = null;
+        
+        if ($slideType && isset($slideTypes[$slideType])) {
+            $slideConfig = $slideTypes[$slideType];
+        }
+        
         // Get exam procedures for this case
         $CasesExamsProcedures = $this->fetchTable('CasesExamsProcedures');
         $examProcedures = $CasesExamsProcedures->find()
@@ -173,23 +192,15 @@ class MegReportsController extends AppController
                 $ep = $cep->exams_procedure;
                 $label = '';
                 
-                // Exam name
                 if (!empty($ep->exam)) {
                     $label = $ep->exam->name;
-                    
-                    // Add modality
                     if (!empty($ep->exam->modality)) {
                         $label .= ' (' . $ep->exam->modality->name . ')';
                     }
                 }
                 
-                // Add procedure name
                 if (!empty($ep->procedure)) {
-                    if ($label) {
-                        $label .= ' - ' . $ep->procedure->name;
-                    } else {
-                        $label = $ep->procedure->name;
-                    }
+                    $label = $label ? $label . ' - ' . $ep->procedure->name : $ep->procedure->name;
                 }
                 
                 if ($label) {
@@ -203,6 +214,8 @@ class MegReportsController extends AppController
         
         if ($this->request->is('post')) {
             $data = $this->request->getData();
+            $slideType = $data['slide_type'] ?? $slideType;
+            $slideConfig = $slideTypes[$slideType] ?? null;
             
             // Get next slide order
             $maxOrderQuery = $ReportSlides->find()
@@ -213,146 +226,63 @@ class MegReportsController extends AppController
             $maxOrderValue = $maxOrderQuery ? $maxOrderQuery->max_order : null;
             $nextOrder = ($maxOrderValue !== null) ? (int)$maxOrderValue + 1 : 1;
             
-            // Get exam procedure ID (cast to int or null)
-            $examProcedureId = $this->request->getData('cases_exams_procedure_id');
-            $examProcedureId = $examProcedureId ? (int)$examProcedureId : null;
+            $s3Service = new S3DocumentService();
             
-            // Handle image upload
+            // Handle Column 1 Image Upload
+            $col1ImagePath = null;
+            $col1ImageFile = $this->request->getData('col1_image');
+            if ($col1ImageFile && $col1ImageFile->getError() === UPLOAD_ERR_OK) {
+                $col1ImagePath = $this->uploadSlideImage($col1ImageFile, $report, $s3Service);
+            }
+            
+            // Handle Column 2 Image Upload
+            $col2ImagePath = null;
+            $col2ImageFile = $this->request->getData('col2_image');
+            if ($col2ImageFile && $col2ImageFile->getError() === UPLOAD_ERR_OK) {
+                $col2ImagePath = $this->uploadSlideImage($col2ImageFile, $report, $s3Service);
+            }
+            
+            // Handle legacy single image upload (for backward compatibility)
+            $imagePath = null;
             $imageFile = $this->request->getData('image_file');
-            $imagePath = '';
-            $s3Key = '';
-            $documentId = null;
-            
             if ($imageFile && $imageFile->getError() === UPLOAD_ERR_OK) {
-                $filename = $imageFile->getClientFilename();
-                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                
-                if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
-                    $tmpPath = $imageFile->getStream()->getMetadata('uri');
-                    $s3Service = new S3DocumentService();
-                    
-                    // 1. Upload ORIGINAL image to Documents table ONLY if exam procedure is linked
-                    if ($examProcedureId) {
-                        $originalUploadResult = $s3Service->uploadDocument(
-                            $imageFile,
-                            $report->case_id,
-                            $report->case->patient_id ?? 0,
-                            'meg-slide-image',
-                            $examProcedureId
-                        );
-                        
-                        // Save to Documents table
-                        if ($originalUploadResult['success']) {
-                            $Documents = $this->fetchTable('Documents');
-                            $document = $Documents->newEntity([
-                                'case_id' => $report->case_id,
-                                'user_id' => $userId,
-                                'cases_exams_procedure_id' => $examProcedureId,
-                                'document_type' => 'meg-slide-image',
-                                'file_path' => $originalUploadResult['file_path'],
-                                'file_type' => $originalUploadResult['mime_type'],
-                                'file_size' => $originalUploadResult['file_size'],
-                                'original_filename' => $originalUploadResult['original_name'],
-                                'description' => 'MEG Report Slide Image - ' . ($data['title'] ?? 'Untitled'),
-                                'uploaded_at' => new \DateTime()
-                            ]);
-                            
-                            if ($Documents->save($document)) {
-                                $documentId = $document->id;
-                            }
-                        }
-                    }
-                    
-                    // 2. Create resized version for slide display (750x450 max)
-                    $resizedPath = TMP . 'slide_resized_' . uniqid() . '.' . $ext;
-                    if ($this->resizeImage($tmpPath, $resizedPath, 750, 450, $ext)) {
-                        // Create a temporary UploadedFile-like object for the resized image
-                        $newFilename = 'resized_' . uniqid() . '.' . $ext;
-                        
-                        // Upload resized version (we'll use array format for this)
-                        $mimeTypes = [
-                            'jpg' => 'image/jpeg',
-                            'jpeg' => 'image/jpeg',
-                            'png' => 'image/png',
-                            'gif' => 'image/gif'
-                        ];
-                        
-                        $resizedFileArray = [
-                            'tmp_name' => $resizedPath,
-                            'name' => $newFilename,
-                            'size' => filesize($resizedPath),
-                            'type' => $mimeTypes[$ext] ?? 'application/octet-stream'
-                        ];
-                        
-                        $resizedUploadResult = $s3Service->uploadDocument(
-                            $resizedFileArray,
-                            $report->case_id,
-                            $report->case->patient_id ?? 0,
-                            'report-images',
-                            null
-                        );
-                        
-                        if ($resizedUploadResult['success']) {
-                            // Store S3 key in file_path (resized version for slide display)
-                            $s3Key = $resizedUploadResult['file_path'];
-                            $imagePath = $s3Key;
-                        }
-                        
-                        // Clean up temp file
-                        if (file_exists($resizedPath)) {
-                            unlink($resizedPath);
-                        }
-                    }
-                }
+                $imagePath = $this->uploadSlideImage($imageFile, $report, $s3Service);
             }
             
-            // Build HTML content
-            $title = $data['title'] ?? '';
-            $content = $data['content'] ?? '';
-            $htmlContent = '<div class="slide-content">';
-            if (!empty($title)) {
-                $htmlContent .= '<h3>' . h($title) . '</h3>';
-            }
-            if (!empty($content)) {
-                $htmlContent .= '<p>' . nl2br(h($content)) . '</p>';
-            }
-            if (!empty($imagePath)) {
-                $htmlContent .= '<img src="' . h($imagePath) . '" alt="Slide Image" class="slide-image" />';
-            }
-            $htmlContent .= '</div>';
-            
+            // Build slide data
             $slideData = [
                 'report_id' => $reportId,
                 'user_id' => $userId,
                 'slide_order' => $nextOrder,
-                'title' => $title,
-                'description' => $content,
-                'file_path' => $imagePath,
-                's3_key' => $s3Key,
-                'cases_exams_procedure_id' => $this->request->getData('cases_exams_procedure_id'),
-                'document_id' => $documentId,
-                'original_filename' => $imageFile ? $imageFile->getClientFilename() : null,
-                'mime_type' => $imageFile ? $imageFile->getClientMediaType() : null,
-                'file_size' => $imageFile ? $imageFile->getSize() : null,
-                'html_content' => $htmlContent,
+                'slide_type' => $slideType,
+                'layout_columns' => $slideConfig['columns'] ?? 1,
+                'title' => $data['title'] ?? ($slideConfig['title'] ?? ''),
+                'subtitle' => $data['subtitle'] ?? ($slideConfig['subtitle'] ?? null),
+                'col1_type' => $data['col1_type'] ?? ($slideConfig['col1']['type'] ?? 'text'),
+                'col1_content' => $data['col1_content'] ?? null,
+                'col1_image_path' => $col1ImagePath ?? $imagePath,
+                'col1_header' => $data['col1_header'] ?? ($slideConfig['col1']['header'] ?? null),
+                'col2_type' => $data['col2_type'] ?? ($slideConfig['col2']['type'] ?? 'text'),
+                'col2_content' => $data['col2_content'] ?? null,
+                'col2_image_path' => $col2ImagePath,
+                'col2_header' => $data['col2_header'] ?? ($slideConfig['col2']['header'] ?? null),
+                'footer_text' => $data['footer_text'] ?? ($slideConfig['footer_text'] ?? null),
+                'legend_data' => isset($data['legend_items']) ? json_encode($data['legend_items']) : null,
+                'description' => $data['description'] ?? $data['col1_content'] ?? null,
+                'file_path' => $col1ImagePath ?? $imagePath,
+                's3_key' => $col1ImagePath ?? $imagePath,
             ];
+            
+            // Build HTML content for preview
+            $slideData['html_content'] = $this->buildSlideHtml($slideData, $slideConfig);
             
             $slide = $ReportSlides->patchEntity($slide, $slideData);
             
             if ($ReportSlides->save($slide)) {
-                // Update exam procedure status to completed if linked
-                if ($examProcedureId) {
-                    $CasesExamsProcedures = $this->fetchTable('CasesExamsProcedures');
-                    $caseExamProcedure = $CasesExamsProcedures->get($examProcedureId);
-                    $caseExamProcedure->status = 'completed';
-                    $CasesExamsProcedures->save($caseExamProcedure);
-                }
-                
                 $this->Flash->success('Slide has been added.');
                 return $this->redirect(['action' => 'index', $reportId]);
             }
             
-            // Show specific validation errors
             $errors = $slide->getErrors();
             if (!empty($errors)) {
                 foreach ($errors as $field => $error) {
@@ -364,7 +294,146 @@ class MegReportsController extends AppController
             }
         }
         
-        $this->set(compact('slide', 'report', 'reportId', 'examProceduresList'));
+        // Set default values from slide config
+        if ($slideConfig) {
+            $slide->title = $slideConfig['title'] ?? '';
+            $slide->subtitle = $slideConfig['subtitle'] ?? null;
+            $slide->layout_columns = $slideConfig['columns'] ?? 1;
+            $slide->col1_type = $slideConfig['col1']['type'] ?? 'text';
+            $slide->col2_type = $slideConfig['col2']['type'] ?? 'text';
+            $slide->col1_header = $slideConfig['col1']['header'] ?? null;
+            $slide->col2_header = $slideConfig['col2']['header'] ?? null;
+            $slide->footer_text = $slideConfig['footer_text'] ?? null;
+            
+            // Set default content for text_and_image layout
+            if (isset($slideConfig['col1']['default_content'])) {
+                $slide->col1_content = $slideConfig['col1']['default_content'];
+            }
+        }
+        
+        $slideCategories = unserialize(PPT_SLIDE_CATEGORIES);
+        
+        $this->set(compact('slide', 'report', 'reportId', 'examProceduresList', 'slideType', 'slideConfig', 'slideTypes', 'slideCategories'));
+    }
+
+    /**
+     * Upload slide image to S3
+     *
+     * @param \Psr\Http\Message\UploadedFileInterface $imageFile Uploaded file
+     * @param \App\Model\Entity\Report $report Report entity
+     * @param \App\Lib\S3DocumentService $s3Service S3 service
+     * @return string|null S3 path or null on failure
+     */
+    private function uploadSlideImage($imageFile, $report, $s3Service): ?string
+    {
+        $filename = $imageFile->getClientFilename();
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
+            return null;
+        }
+        
+        $tmpPath = $imageFile->getStream()->getMetadata('uri');
+        
+        $mimeTypes = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif'
+        ];
+        
+        // Upload original image without resizing
+        $fileArray = [
+            'tmp_name' => $tmpPath,
+            'name' => 'slide_' . uniqid() . '.' . $ext,
+            'size' => $imageFile->getSize(),
+            'type' => $mimeTypes[$ext] ?? 'application/octet-stream'
+        ];
+        
+        $uploadResult = $s3Service->uploadDocument(
+            $fileArray,
+            $report->case_id,
+            $report->case->patient_id ?? 0,
+            'report-images',
+            null
+        );
+        
+        if ($uploadResult['success']) {
+            return $uploadResult['file_path'];
+        }
+        
+        return null;
+    }
+
+    /**
+     * Build HTML content for slide preview
+     *
+     * @param array $slideData Slide data
+     * @param array|null $slideConfig Slide configuration
+     * @return string HTML content
+     */
+    private function buildSlideHtml(array $slideData, ?array $slideConfig): string
+    {
+        $layout = $slideConfig['layout'] ?? 'single_image';
+        $columns = $slideData['layout_columns'] ?? 1;
+        
+        $html = '<div class="slide-content" data-layout="' . h($layout) . '">';
+        
+        // Title
+        if (!empty($slideData['title'])) {
+            $html .= '<h2 class="slide-title">' . h($slideData['title']) . '</h2>';
+        }
+        
+        // Subtitle
+        if (!empty($slideData['subtitle'])) {
+            $html .= '<p class="slide-subtitle">• ' . h($slideData['subtitle']) . '</p>';
+        }
+        
+        if ($columns === 2) {
+            $html .= '<div class="slide-columns">';
+            
+            // Column 1
+            $html .= '<div class="slide-column">';
+            if (!empty($slideData['col1_header'])) {
+                $html .= '<p class="column-header">' . $slideData['col1_header'] . '</p>';
+            }
+            if ($slideData['col1_type'] === 'image' && !empty($slideData['col1_image_path'])) {
+                $html .= '<img src="' . h($slideData['col1_image_path']) . '" class="slide-image" />';
+            } elseif (!empty($slideData['col1_content'])) {
+                $html .= '<div class="column-text">' . nl2br(h($slideData['col1_content'])) . '</div>';
+            }
+            $html .= '</div>';
+            
+            // Column 2
+            $html .= '<div class="slide-column">';
+            if (!empty($slideData['col2_header'])) {
+                $html .= '<p class="column-header">' . $slideData['col2_header'] . '</p>';
+            }
+            if ($slideData['col2_type'] === 'image' && !empty($slideData['col2_image_path'])) {
+                $html .= '<img src="' . h($slideData['col2_image_path']) . '" class="slide-image" />';
+            } elseif (!empty($slideData['col2_content'])) {
+                $html .= '<div class="column-text">' . nl2br(h($slideData['col2_content'])) . '</div>';
+            }
+            $html .= '</div>';
+            
+            $html .= '</div>';
+        } else {
+            // Single column
+            if ($slideData['col1_type'] === 'image' && !empty($slideData['col1_image_path'])) {
+                $html .= '<img src="' . h($slideData['col1_image_path']) . '" class="slide-image full-width" />';
+            } elseif (!empty($slideData['col1_content'])) {
+                $html .= '<div class="slide-text">' . nl2br(h($slideData['col1_content'])) . '</div>';
+            }
+        }
+        
+        // Footer
+        if (!empty($slideData['footer_text'])) {
+            $html .= '<p class="slide-footer">' . h($slideData['footer_text']) . '</p>';
+        }
+        
+        $html .= '</div>';
+        
+        return $html;
     }
 
     /**
@@ -385,7 +454,7 @@ class MegReportsController extends AppController
         // Verify access through case assignment
         $Reports = $this->fetchTable('Reports');
         $report = $Reports->find()
-            ->contain(['Cases'])
+            ->contain(['Cases' => ['PatientUsers']])
             ->matching('Cases.CaseAssignments', function ($q) use ($userId) {
                 return $q->where(['CaseAssignments.assigned_to' => $userId]);
             })
@@ -396,6 +465,11 @@ class MegReportsController extends AppController
             $this->Flash->error('You do not have access to edit this slide.');
             return $this->redirect(['controller' => 'Reports', 'action' => 'index']);
         }
+        
+        // Get slide type configuration
+        $slideTypes = unserialize(PPT_REPORT_PAGES);
+        $slideType = $slide->slide_type ?? 'custom';
+        $slideConfig = $slideTypes[$slideType] ?? null;
         
         // Get exam procedures for this case
         $CasesExamsProcedures = $this->fetchTable('CasesExamsProcedures');
@@ -438,155 +512,71 @@ class MegReportsController extends AppController
         
         if ($this->request->is(['patch', 'post', 'put'])) {
             $data = $this->request->getData();
+            $s3Service = new S3DocumentService();
+            // Use slide's stored layout_columns, fallback to config, then default to 1
+            $layoutColumns = $slide->layout_columns ?? $slideConfig['columns'] ?? 1;
             
-            // Handle image upload
-            $imageFile = $this->request->getData('image_file');
-            $documentId = $slide->document_id; // Keep track of existing document
-            
-            if ($imageFile && $imageFile->getError() === UPLOAD_ERR_OK) {
-                $filename = $imageFile->getClientFilename();
-                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                
-                if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
-                    $tmpPath = $imageFile->getStream()->getMetadata('uri');
-                    
-                    // Get exam procedure ID (cast to int or null)
-                    $examProcedureId = $this->request->getData('cases_exams_procedure_id');
-                    $examProcedureId = $examProcedureId ? (int)$examProcedureId : null;
-                    $examProcedureId = $examProcedureId ? (int)$examProcedureId : null;
-                    
-                    $s3Service = new S3DocumentService();
-                    
-                    // 1. Upload ORIGINAL image to Documents table ONLY if exam procedure is linked
-                    if ($examProcedureId) {
-                        $originalUploadResult = $s3Service->uploadDocument(
-                            $imageFile,  // Pass UploadedFile object directly
-                            $report->case_id,
-                            $report->case->patient_id ?? 0,
-                            'meg-slide-image',
-                            $examProcedureId
-                        );
-                        
-                        if ($originalUploadResult['success']) {
-                            // Save to Documents table
-                            $Documents = $this->fetchTable('Documents');
-                            $document = $Documents->newEntity([
-                                'case_id' => $report->case_id,
-                                'user_id' => $userId,
-                                'cases_exams_procedure_id' => $examProcedureId,
-                                'document_type' => 'meg-slide-image',
-                                'file_path' => $originalUploadResult['file_path'],
-                                'file_type' => $originalUploadResult['mime_type'],
-                                'file_size' => $originalUploadResult['file_size'],
-                                'original_filename' => $originalUploadResult['original_name'],
-                                'description' => 'MEG Report Slide Image - ' . ($data['title'] ?? 'Untitled'),
-                                'uploaded_at' => new \DateTime()
-                            ]);
-                            
-                            if ($Documents->save($document)) {
-                                $documentId = $document->id;
-                                
-                                // Delete old document if exists
-                                if ($slide->document_id && $slide->document_id != $documentId) {
-                                    $oldDocument = $Documents->get($slide->document_id);
-                                    if ($oldDocument->file_path) {
-                                        $s3Service->deleteDocument($oldDocument->file_path);
-                                    }
-                                    $Documents->delete($oldDocument);
-                                }
-                            }
-                        }
+            // Handle Column 1 Image Upload
+            $col1ImageFile = $this->request->getData('col1_image_file');
+            if ($col1ImageFile && $col1ImageFile->getError() === UPLOAD_ERR_OK) {
+                $col1Path = $this->uploadSlideImage($col1ImageFile, $report, $s3Service);
+                if ($col1Path) {
+                    // Delete old image if exists
+                    if ($slide->col1_image_path) {
+                        $s3Service->deleteDocument($slide->col1_image_path);
                     }
-                    
-                    // 2. Create resized version for slide display (750x450 max)
-                    $resizedPath = TMP . 'slide_resized_' . uniqid() . '.' . $ext;
-                    if ($this->resizeImage($tmpPath, $resizedPath, 750, 450, $ext)) {
-                        // Delete old resized image from S3
-                        if ($slide->file_path) {
-                            $s3Service->deleteDocument($slide->file_path);
-                        }
-                        
-                        // Upload resized version
-                        $mimeTypes = [
-                            'jpg' => 'image/jpeg',
-                            'jpeg' => 'image/jpeg',
-                            'png' => 'image/png',
-                            'gif' => 'image/gif'
-                        ];
-                        
-                        $newFilename = 'resized_' . uniqid() . '.' . $ext;
-                        $resizedFileArray = [
-                            'tmp_name' => $resizedPath,
-                            'name' => $newFilename,
-                            'size' => filesize($resizedPath),
-                            'type' => $mimeTypes[$ext] ?? 'application/octet-stream'
-                        ];
-                        
-                        $resizedUploadResult = $s3Service->uploadDocument(
-                            $resizedFileArray,
-                            $report->case_id,
-                            $report->case->patient_id ?? 0,
-                            'report-images',
-                            null
-                        );
-                        
-                        if ($resizedUploadResult['success']) {
-                            // Store S3 key in file_path (resized version for display)
-                            $data['file_path'] = $resizedUploadResult['file_path'];
-                            $data['s3_key'] = $resizedUploadResult['file_path'];
-                        }
-                        
-                        // Clean up temp file
-                        if (file_exists($resizedPath)) {
-                            unlink($resizedPath);
-                        }
-                    }
-                    
-                    $data['document_id'] = $documentId;
-                    $data['original_filename'] = $imageFile->getClientFilename();
-                    $data['mime_type'] = $imageFile->getClientMediaType();
-                    $data['file_size'] = $imageFile->getSize();
+                    $data['col1_image_path'] = $col1Path;
                 }
             }
             
+            // Handle Column 2 Image Upload (for two-column layouts)
+            $col2ImageFile = $this->request->getData('col2_image_file');
+            if ($col2ImageFile && $col2ImageFile->getError() === UPLOAD_ERR_OK) {
+                $col2Path = $this->uploadSlideImage($col2ImageFile, $report, $s3Service);
+                if ($col2Path) {
+                    // Delete old image if exists
+                    if ($slide->col2_image_path) {
+                        $s3Service->deleteDocument($slide->col2_image_path);
+                    }
+                    $data['col2_image_path'] = $col2Path;
+                }
+            }
+            
+            // Handle legacy single image upload (for backwards compatibility)
+            $imageFile = $this->request->getData('image_file');
+            if ($imageFile && $imageFile->getError() === UPLOAD_ERR_OK) {
+                $imagePath = $this->uploadSlideImage($imageFile, $report, $s3Service);
+                if ($imagePath) {
+                    if ($slide->file_path) {
+                        $s3Service->deleteDocument($slide->file_path);
+                    }
+                    $data['file_path'] = $imagePath;
+                    $data['col1_image_path'] = $imagePath; // Also set for new structure
+                }
+            }
+            
+            // Set layout columns
+            $data['layout_columns'] = $layoutColumns;
+            $data['col1_type'] = $slideConfig['col1']['type'] ?? 'image';
+            if ($layoutColumns === 2) {
+                $data['col2_type'] = $slideConfig['col2']['type'] ?? 'image';
+            }
+            
+            // Handle legend data if present
+            if (isset($data['legend_items']) && is_array($data['legend_items'])) {
+                $data['legend_data'] = json_encode($data['legend_items']);
+            }
+            
             // Build HTML content
-            $title = $data['title'] ?? '';
-            $content = $data['content'] ?? '';
-            $imagePath = $data['file_path'] ?? $slide->file_path;
+            $data['html_content'] = $this->buildSlideHtml($data, $slideConfig);
             
-            $htmlContent = '<div class="slide-content">';
-            if (!empty($title)) {
-                $htmlContent .= '<h3>' . h($title) . '</h3>';
-            }
-            if (!empty($content)) {
-                $htmlContent .= '<p>' . nl2br(h($content)) . '</p>';
-            }
-            if (!empty($imagePath)) {
-                $htmlContent .= '<img src="' . h($imagePath) . '" alt="Slide Image" class="slide-image" />';
-            }
-            $htmlContent .= '</div>';
-            
-            // Store in separate fields
-            $data['title'] = $title;
-            $data['description'] = $content;
-            $data['html_content'] = $htmlContent;
-            
-            // Handle exam procedure link
-            if (isset($data['cases_exams_procedure_id'])) {
-                $examProcedureId = $data['cases_exams_procedure_id'];
-            }
+            // Store title/description
+            $data['title'] = $data['title'] ?? $slideConfig['title'] ?? '';
+            $data['description'] = $data['description'] ?? $data['title'];
             
             $slide = $ReportSlides->patchEntity($slide, $data);
             
             if ($ReportSlides->save($slide)) {
-                // Update exam procedure status to completed if linked
-                if (isset($examProcedureId) && $examProcedureId) {
-                    $CasesExamsProcedures = $this->fetchTable('CasesExamsProcedures');
-                    $caseExamProcedure = $CasesExamsProcedures->get($examProcedureId);
-                    $caseExamProcedure->status = 'completed';
-                    $CasesExamsProcedures->save($caseExamProcedure);
-                }
-                
                 $this->Flash->success('Slide has been updated.');
                 return $this->redirect(['action' => 'index', $slide->report_id]);
             }
@@ -603,13 +593,19 @@ class MegReportsController extends AppController
             }
         }
         
-        // Get existing image URL if exists
+        // Get existing image URLs if exist
+        $s3Service = new S3DocumentService();
         if ($slide->file_path) {
-            $s3Service = new S3DocumentService();
             $slide->image_url = $s3Service->getDownloadUrl($slide->file_path);
         }
+        if ($slide->col1_image_path) {
+            $slide->col1_image_url = $s3Service->getDownloadUrl($slide->col1_image_path);
+        }
+        if ($slide->col2_image_path) {
+            $slide->col2_image_url = $s3Service->getDownloadUrl($slide->col2_image_path);
+        }
         
-        $this->set(compact('slide', 'report', 'examProceduresList'));
+        $this->set(compact('slide', 'report', 'examProceduresList', 'slideConfig', 'slideType', 'slideTypes'));
     }
 
     /**
@@ -739,6 +735,43 @@ class MegReportsController extends AppController
      * @param string $ext File extension
      * @return bool Success
      */
+    /**
+     * Download image from URL to temporary file
+     *
+     * @param string $imageUrl The URL of the image
+     * @return string|null Path to temp file or null on failure
+     */
+    private function downloadTempImage(string $imageUrl): ?string
+    {
+        if (empty($imageUrl)) {
+            return null;
+        }
+        
+        try {
+            if (strpos($imageUrl, 'http') === 0) {
+                // S3 or remote URL - download to temp file
+                $ext = pathinfo(parse_url($imageUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'jpg';
+                $tempImage = TMP . 'ppt_img_' . uniqid() . '.' . $ext;
+                $imageContent = @file_get_contents($imageUrl);
+                if ($imageContent !== false) {
+                    file_put_contents($tempImage, $imageContent);
+                    return $tempImage;
+                }
+            } else {
+                // Local path
+                $localPath = WWW_ROOT . ltrim($imageUrl, '/');
+                if (file_exists($localPath)) {
+                    return $localPath;
+                }
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail
+            \Cake\Log\Log::error('Failed to download image for PPT: ' . $e->getMessage());
+        }
+        
+        return null;
+    }
+
     private function resizeImage(string $sourcePath, string $destPath, int $maxWidth, int $maxHeight, string $ext): bool
     {
         // Get original dimensions
@@ -853,11 +886,26 @@ class MegReportsController extends AppController
             if ($slide->file_path) {
                 $slide->image_url = $s3Service->getDownloadUrl($slide->file_path);
             }
+            if ($slide->col1_image_path) {
+                $slide->col1_image_url = $s3Service->getDownloadUrl($slide->col1_image_path);
+            }
+            if ($slide->col2_image_path) {
+                $slide->col2_image_url = $s3Service->getDownloadUrl($slide->col2_image_path);
+            }
         }
         
         // Create PowerPoint presentation
         $presentation = new \PhpOffice\PhpPresentation\PhpPresentation();
         $presentation->removeSlideByIndex(0); // Remove default slide
+        
+        // Load PPT styles from configuration
+        $pptStyles = unserialize(PPT_STYLES);
+        
+        // Get slide dimensions from config
+        $slideWidth = $pptStyles['slide']['width'] ?? 960;
+        $slideHeight = $pptStyles['slide']['height'] ?? 540;
+        $margin = 20; // Side margins
+        $topMargin = 15;
         
         // Track temp files for cleanup after PowerPoint is generated
         $tempFiles = [];
@@ -871,92 +919,344 @@ class MegReportsController extends AppController
                 $background->setColor(new \PhpOffice\PhpPresentation\Style\Color('FFFFFFFF'));
             }
             
-            // Add description/content if present
-            if (!empty($slide->description)) {
-                // First slide (cover) gets special formatting with heading
-                if ($index === 0) {
-                    // Split description into heading and content
-                    $lines = explode("\n", $slide->description);
-                    $heading = array_shift($lines); // First line is heading
-                    $content = implode("\n", array_slice($lines, 2)); // Skip empty lines after heading
-                    
-                    // Add heading
-                    $headingShape = $pptSlide->createRichTextShape();
-                    $headingShape->setHeight(80);
-                    $headingShape->setWidth(900);
-                    $headingShape->setOffsetX(30);
-                    $headingShape->setOffsetY(50);
-                    $headingShape->getActiveParagraph()->getAlignment()
-                        ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_CENTER);
-                    
-                    $headingRun = $headingShape->createTextRun($heading);
-                    $headingRun->getFont()
-                        ->setSize(24)
-                        ->setBold(true)
-                        ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
-                    
-                    // Add content below heading
+            // Get slide title - use title field, fallback to description
+            $slideTitle = $slide->title ?: $slide->description ?: '';
+            $layoutColumns = $slide->layout_columns ?? 1;
+            
+            // First slide (cover) gets special formatting
+            if ($index === 0) {
+                // Cover slide
+                $lines = explode("\n", $slide->description ?: $slideTitle);
+                $heading = array_shift($lines);
+                $content = implode("\n", array_slice($lines, 2));
+                
+                // Add heading - centered
+                $headingShape = $pptSlide->createRichTextShape();
+                $headingShape->setHeight(60);
+                $headingShape->setWidth($slideWidth - ($margin * 2));
+                $headingShape->setOffsetX($margin);
+                $headingShape->setOffsetY(80);
+                $headingShape->getActiveParagraph()->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_CENTER);
+                
+                $headingRun = $headingShape->createTextRun($heading);
+                $headingRun->getFont()
+                    ->setSize(28)
+                    ->setBold(true)
+                    ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                
+                // Add content below heading
+                if (!empty($content)) {
                     $textShape = $pptSlide->createRichTextShape();
-                    $textShape->setHeight(420);
-                    $textShape->setWidth(900);
-                    $textShape->setOffsetX(30);
-                    $textShape->setOffsetY(150);
+                    $textShape->setHeight($slideHeight - 180);
+                    $textShape->setWidth($slideWidth - ($margin * 2));
+                    $textShape->setOffsetX($margin);
+                    $textShape->setOffsetY(160);
                     $textShape->getActiveParagraph()->getAlignment()
                         ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_CENTER);
                     
                     $textRun = $textShape->createTextRun($content);
                     $textRun->getFont()
-                        ->setSize(16)
-                        ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
-                } else {
-                    // Regular slides - text at top
-                    $textShape = $pptSlide->createRichTextShape();
-                    $textShape->setHeight(100);  // Reduced height for text
-                    $textShape->setWidth(900);
-                    $textShape->setOffsetX(30);
-                    $textShape->setOffsetY(30);
-                    
-                    $textRun = $textShape->createTextRun($slide->description);
-                    $textRun->getFont()
-                        ->setSize(24)
+                        ->setSize(14)
                         ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
                 }
-            }
-            
-            // Add image if present
-            if (!empty($slide->image_url)) {
-                // Use generated URL (presigned for S3 or local path)
-                if (strpos($slide->image_url, 'http') === 0) {
-                    // S3 URL - download to temp file
-                    $tempImage = TMP . 'ppt_img_' . uniqid() . '.jpg';
-                    $imageContent = file_get_contents($slide->image_url);
-                    file_put_contents($tempImage, $imageContent);
-                    $imagePath = $tempImage;
-                    $tempFiles[] = $tempImage; // Track for cleanup
-                } else {
-                    // Local path
-                    $imagePath = WWW_ROOT . ltrim($slide->image_url, '/');
+            } else {
+                // Regular slides - track vertical position
+                $currentY = $topMargin;
+                
+                // Add title at top
+                if (!empty($slideTitle)) {
+                    $titleHeight = $pptStyles['title']['height'] ?? 38;
+                    $titleMarginBottom = $pptStyles['title']['margin_bottom'] ?? 4;
+                    $titleFontFamily = $pptStyles['title']['font_family'] ?? 'Calibri';
+                    
+                    $titleShape = $pptSlide->createRichTextShape();
+                    $titleShape->setHeight($titleHeight);
+                    $titleShape->setWidth($slideWidth - ($margin * 2));
+                    $titleShape->setOffsetX($margin);
+                    $titleShape->setOffsetY($currentY);
+                    
+                    $titleRun = $titleShape->createTextRun($slideTitle);
+                    $titleRun->getFont()
+                        ->setName($titleFontFamily)
+                        ->setSize($pptStyles['title']['font_size'] ?? 29)
+                        ->setBold($pptStyles['title']['font_bold'] ?? true)
+                        ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ($pptStyles['title']['font_color'] ?? '000000')));
+                    
+                    $currentY += $titleHeight + $titleMarginBottom;
                 }
                 
-                if (file_exists($imagePath)) {
-                    $shape = $pptSlide->createDrawingShape();
-                    $shape->setPath($imagePath);
+                // Add subtitle if present (as bullet point)
+                if (!empty($slide->subtitle)) {
+                    $subtitleHeight = $pptStyles['subtitle']['height'] ?? 28;
+                    $subtitleMarginBottom = $pptStyles['subtitle']['margin_bottom'] ?? 10;
+                    $subtitleFontFamily = $pptStyles['subtitle']['font_family'] ?? 'Calibri';
                     
-                    // Get original image dimensions
-                    list($imageWidth, $imageHeight) = getimagesize($imagePath);
+                    $subtitleShape = $pptSlide->createRichTextShape();
+                    $subtitleShape->setHeight($subtitleHeight);
+                    $subtitleShape->setWidth($slideWidth - ($margin * 2));
+                    $subtitleShape->setOffsetX($margin);
+                    $subtitleShape->setOffsetY($currentY);
                     
-                    // Use original image size (no scaling)
-                    $shape->setWidth($imageWidth);
-                    $shape->setHeight($imageHeight);
+                    // Check if slide config has bullet formatting
+                    $bulletPrefix = '• ';
+                    $subtitleRun = $subtitleShape->createTextRun($bulletPrefix . $slide->subtitle);
+                    $subtitleRun->getFont()
+                        ->setName($subtitleFontFamily)
+                        ->setSize($pptStyles['subtitle']['font_size'] ?? 21)
+                        ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ($pptStyles['subtitle']['font_color'] ?? '000000')));
                     
-                    // Center image horizontally
-                    $slideWidth = 960;
-                    $centerX = (int)(($slideWidth - $imageWidth) / 2);
+                    $currentY += $subtitleHeight + $subtitleMarginBottom;
+                }
+                
+                // Calculate available content area
+                $contentStartY = (int)($currentY + 8);
+                $contentEndY = (int)($slideHeight - 25); // Leave space for footer/legend
+                $availableHeight = (int)($contentEndY - $contentStartY);
+                
+                // Handle two-column layout
+                if ($layoutColumns === 2) {
+                    $contentWidth = $slideWidth - ($margin * 2);
+                    $columnGap = 20;
                     
-                    // Position image below text
-                    $offsetY = ($index === 0) ? 150 : 140;  // Below text
-                    $shape->setOffsetY($offsetY);
-                    $shape->setOffsetX($centerX);
+                    // Get slide config to check for custom column widths
+                    $slideTypes = unserialize(PPT_REPORT_PAGES);
+                    $slideType = $slide->slide_type ?? 'custom';
+                    $slideConfig = $slideTypes[$slideType] ?? null;
+                    $layout = $slideConfig['layout'] ?? 'two_column_images';
+                    
+                    // Get layout configuration for column widths
+                    $pptLayouts = unserialize(PPT_LAYOUTS);
+                    $layoutConfig = $pptLayouts[$layout] ?? [];
+                    
+                    // Use custom column widths if defined (e.g., text_and_image layout)
+                    $col1WidthPercent = $layoutConfig['col1_width_percent'] ?? 50;
+                    $col2WidthPercent = $layoutConfig['col2_width_percent'] ?? 50;
+                    
+                    $col1Width = (int)(($contentWidth - $columnGap) * $col1WidthPercent / 100);
+                    $col2Width = (int)(($contentWidth - $columnGap) * $col2WidthPercent / 100);
+                    
+                    $col1X = $margin;
+                    $col2X = $margin + $col1Width + $columnGap;
+                    
+                    // Calculate header height based on text length
+                    $col1HeaderText = strip_tags($slide->col1_header ?? '');
+                    $col2HeaderText = strip_tags($slide->col2_header ?? '');
+                    $columnHeaderMarginBottom = $pptStyles['column_header']['margin_bottom'] ?? 8;
+                    
+                    // Estimate lines needed (roughly 45 chars per line at font size 15)
+                    $col1Lines = (int)max(1, ceil(strlen($col1HeaderText) / 40));
+                    $col2Lines = (int)max(1, ceil(strlen($col2HeaderText) / 40));
+                    $maxHeaderLines = (int)max($col1Lines, $col2Lines);
+                    $headerHeight = (int)min(70, $maxHeaderLines * 18 + 5); // Cap at 70px, larger line height for 15pt
+                    
+                    // Column 1 Header
+                    if (!empty($col1HeaderText)) {
+                        $col1HeaderFontFamily = $pptStyles['column_header']['font_family'] ?? 'Calibri';
+                        $col1HeaderShape = $pptSlide->createRichTextShape();
+                        $col1HeaderShape->setHeight($headerHeight);
+                        $col1HeaderShape->setWidth($col1Width);
+                        $col1HeaderShape->setOffsetX($col1X);
+                        $col1HeaderShape->setOffsetY($contentStartY);
+                        $col1HeaderShape->getActiveParagraph()->getAlignment()
+                            ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_LEFT);
+                        
+                        // Parse for bold text (simple approach)
+                        $col1HeaderRun = $col1HeaderShape->createTextRun($col1HeaderText);
+                        $col1HeaderRun->getFont()
+                            ->setName($col1HeaderFontFamily)
+                            ->setSize($pptStyles['column_header']['font_size'] ?? 15)
+                            ->setBold(strpos($slide->col1_header ?? '', '<b>') !== false)
+                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ($pptStyles['column_header']['font_color'] ?? '000000')));
+                    }
+                    
+                    // Column 2 Header
+                    if (!empty($col2HeaderText)) {
+                        $col2HeaderFontFamily = $pptStyles['column_header']['font_family'] ?? 'Calibri';
+                        $col2HeaderShape = $pptSlide->createRichTextShape();
+                        $col2HeaderShape->setHeight($headerHeight);
+                        $col2HeaderShape->setWidth($col2Width);
+                        $col2HeaderShape->setOffsetX($col2X);
+                        $col2HeaderShape->setOffsetY($contentStartY);
+                        $col2HeaderShape->getActiveParagraph()->getAlignment()
+                            ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_LEFT);
+                        
+                        $col2HeaderRun = $col2HeaderShape->createTextRun($col2HeaderText);
+                        $col2HeaderRun->getFont()
+                            ->setName($col2HeaderFontFamily)
+                            ->setSize($pptStyles['column_header']['font_size'] ?? 15)
+                            ->setBold(strpos($slide->col2_header ?? '', '<b>') !== false)
+                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ($pptStyles['column_header']['font_color'] ?? '000000')));
+                    }
+                    
+                    // Image area starts after headers with proper margin
+                    $imageStartY = (int)($contentStartY + $headerHeight + $columnHeaderMarginBottom);
+                    $imageMaxHeight = (int)($availableHeight - $headerHeight - $columnHeaderMarginBottom - 5);
+                    
+                    // Column 1 Image or Text
+                    if (!empty($slide->col1_image_url)) {
+                        $tempImage = $this->downloadTempImage($slide->col1_image_url);
+                        if ($tempImage && file_exists($tempImage)) {
+                            $tempFiles[] = $tempImage;
+                            list($imgW, $imgH) = getimagesize($tempImage);
+                            
+                            // Scale image to fit column while maintaining aspect ratio
+                            $scale = min($col1Width / $imgW, $imageMaxHeight / $imgH, 1);
+                            $scaledW = (int)($imgW * $scale);
+                            $scaledH = (int)($imgH * $scale);
+                            
+                            // Center image in column
+                            $imgX = $col1X + (int)(($col1Width - $scaledW) / 2);
+                            
+                            $shape = $pptSlide->createDrawingShape();
+                            $shape->setPath($tempImage);
+                            $shape->setWidth($scaledW);
+                            $shape->setHeight($scaledH);
+                            $shape->setOffsetX($imgX);
+                            $shape->setOffsetY($imageStartY);
+                        }
+                    } elseif (!empty($slide->col1_content)) {
+                        // Use text_and_image_content style for text_and_image layout, otherwise default content style
+                        $contentFontSize = ($layout === 'text_and_image') 
+                            ? ($pptStyles['text_and_image_content']['font_size'] ?? 17)
+                            : ($pptStyles['content']['font_size'] ?? 14);
+                        $contentFontColor = ($layout === 'text_and_image')
+                            ? ($pptStyles['text_and_image_content']['font_color'] ?? '000000')
+                            : ($pptStyles['content']['font_color'] ?? '333333');
+                        $contentFontFamily = ($layout === 'text_and_image')
+                            ? ($pptStyles['text_and_image_content']['font_family'] ?? 'Calibri')
+                            : ($pptStyles['content']['font_family'] ?? 'Calibri');
+                        
+                        $textShape = $pptSlide->createRichTextShape();
+                        $textShape->setHeight($imageMaxHeight);
+                        $textShape->setWidth($col1Width);
+                        $textShape->setOffsetX($col1X);
+                        $textShape->setOffsetY($imageStartY);
+                        
+                        $textRun = $textShape->createTextRun($slide->col1_content);
+                        $textRun->getFont()
+                            ->setName($contentFontFamily)
+                            ->setSize($contentFontSize)
+                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . $contentFontColor));
+                    }
+                    
+                    // Column 2 Image or Text
+                    if (!empty($slide->col2_image_url)) {
+                        $tempImage = $this->downloadTempImage($slide->col2_image_url);
+                        if ($tempImage && file_exists($tempImage)) {
+                            $tempFiles[] = $tempImage;
+                            list($imgW, $imgH) = getimagesize($tempImage);
+                            
+                            // Scale image to fit column while maintaining aspect ratio
+                            $scale = min($col2Width / $imgW, $imageMaxHeight / $imgH, 1);
+                            $scaledW = (int)($imgW * $scale);
+                            $scaledH = (int)($imgH * $scale);
+                            
+                            // Center image in column
+                            $imgX = $col2X + (int)(($col2Width - $scaledW) / 2);
+                            
+                            $shape = $pptSlide->createDrawingShape();
+                            $shape->setPath($tempImage);
+                            $shape->setWidth($scaledW);
+                            $shape->setHeight($scaledH);
+                            $shape->setOffsetX($imgX);
+                            $shape->setOffsetY($imageStartY);
+                        }
+                    } elseif (!empty($slide->col2_content)) {
+                        // Use text_and_image_content style for text_and_image layout, otherwise default content style
+                        $contentFontSize = ($layout === 'text_and_image') 
+                            ? ($pptStyles['text_and_image_content']['font_size'] ?? 17)
+                            : ($pptStyles['content']['font_size'] ?? 14);
+                        $contentFontColor = ($layout === 'text_and_image')
+                            ? ($pptStyles['text_and_image_content']['font_color'] ?? '000000')
+                            : ($pptStyles['content']['font_color'] ?? '333333');
+                        $contentFontFamily = ($layout === 'text_and_image')
+                            ? ($pptStyles['text_and_image_content']['font_family'] ?? 'Calibri')
+                            : ($pptStyles['content']['font_family'] ?? 'Calibri');
+                        
+                        $textShape = $pptSlide->createRichTextShape();
+                        $textShape->setHeight($imageMaxHeight);
+                        $textShape->setWidth($col2Width);
+                        $textShape->setOffsetX($col2X);
+                        $textShape->setOffsetY($imageStartY);
+                        
+                        $textRun = $textShape->createTextRun($slide->col2_content);
+                        $textRun->getFont()
+                            ->setName($contentFontFamily)
+                            ->setSize($contentFontSize)
+                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . $contentFontColor));
+                    }
+                } else {
+                    // Single column layout - maximize image space
+                    $contentWidth = $slideWidth - ($margin * 2);
+                    
+                    // Add image if present (use col1_image_url or legacy image_url)
+                    $imageUrl = $slide->col1_image_url ?? $slide->image_url ?? null;
+                    if (!empty($imageUrl)) {
+                        $tempImage = $this->downloadTempImage($imageUrl);
+                        if ($tempImage && file_exists($tempImage)) {
+                            $tempFiles[] = $tempImage;
+                            list($imgW, $imgH) = getimagesize($tempImage);
+                            
+                            // Maximize image size while maintaining aspect ratio
+                            $maxImgHeight = (int)($availableHeight - 10);
+                            $scale = min($contentWidth / $imgW, $maxImgHeight / $imgH, 1);
+                            $scaledW = (int)($imgW * $scale);
+                            $scaledH = (int)($imgH * $scale);
+                            
+                            // Center image horizontally
+                            $imgX = $margin + (int)(($contentWidth - $scaledW) / 2);
+                            
+                            $shape = $pptSlide->createDrawingShape();
+                            $shape->setPath($tempImage);
+                            $shape->setWidth($scaledW);
+                            $shape->setHeight($scaledH);
+                            $shape->setOffsetX($imgX);
+                            $shape->setOffsetY($contentStartY);
+                        }
+                    }
+                    
+                    // Add text content if present (below or instead of image)
+                    if (!empty($slide->col1_content)) {
+                        $textY = (int)(!empty($imageUrl) ? $contentStartY + $availableHeight - 80 : $contentStartY);
+                        $textHeight = (int)(!empty($imageUrl) ? 75 : $availableHeight);
+                        
+                        $textShape = $pptSlide->createRichTextShape();
+                        $textShape->setHeight($textHeight);
+                        $textShape->setWidth($contentWidth);
+                        $textShape->setOffsetX($margin);
+                        $textShape->setOffsetY($textY);
+                        
+                        $textRun = $textShape->createTextRun($slide->col1_content);
+                        $textRun->getFont()
+                            ->setSize(12)
+                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                    }
+                }
+                
+                // Add legend if present (at bottom)
+                $legendItems = $slide->getLegendItems();
+                if (!empty($legendItems)) {
+                    $legendY = $slideHeight - 22;
+                    $legendX = $margin;
+                    $legendItemWidth = 120;
+                    
+                    foreach ($legendItems as $item) {
+                        if (!empty($item['label'])) {
+                            $legendShape = $pptSlide->createRichTextShape();
+                            $legendShape->setHeight(18);
+                            $legendShape->setWidth($legendItemWidth);
+                            $legendShape->setOffsetX($legendX);
+                            $legendShape->setOffsetY($legendY);
+                            
+                            $legendRun = $legendShape->createTextRun('■ ' . $item['label']);
+                            $legendRun->getFont()
+                                ->setSize(9)
+                                ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ltrim($item['color'] ?? '000000', '#')));
+                            
+                            $legendX += $legendItemWidth;
+                        }
+                    }
                 }
             }
         }
