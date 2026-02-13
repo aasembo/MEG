@@ -500,6 +500,9 @@ function formatCoverSlideContent($slide) {
                     ['action' => 'add', '?' => ['report_id' => $reportId]],
                     ['class' => 'btn btn-sm btn-outline-light', 'escape' => false, 'id' => 'addSlideBtn']
                 ) ?>
+                <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#bulkUploadModal">
+                    <i class="fas fa-cloud-upload-alt me-1"></i>Bulk Upload
+                </button>
                 <?php echo $this->Html->link(
                     '<i class="fas fa-download me-1"></i>Download PPT',
                     ['action' => 'downloadPpt', $reportId],
@@ -635,7 +638,31 @@ function formatCoverSlideContent($slide) {
                                         <div class="slide-column-header"><?php echo h($slide->col2_header) ?></div>
                                     <?php endif; ?>
                                     <div class="slide-column-content">
-                                        <?php if (!empty($slide->col2_image_url)): ?>
+                                        <?php 
+                                        $isStackedSlide = !empty($slideConfig['stacked_images']);
+                                        if ($isStackedSlide): ?>
+                                            <!-- Stacked images: col2 on top, col3 on bottom -->
+                                            <div style="display: flex; flex-direction: column; gap: 4px; height: 100%;">
+                                                <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                                                    <?php if (!empty($slide->col2_image_url)): ?>
+                                                        <img src="<?php echo h($slide->col2_image_url) ?>" alt="Top Image" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                                                    <?php elseif (!empty($slide->col2_image_path)): ?>
+                                                        <img src="<?php echo h($slide->col2_image_path) ?>" alt="Top Image" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                                                    <?php else: ?>
+                                                        <div class="text-muted" style="font-size: 9px;"><i class="fas fa-image"></i> Top Image</div>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                                                    <?php if (!empty($slide->col3_image_url)): ?>
+                                                        <img src="<?php echo h($slide->col3_image_url) ?>" alt="Bottom Image" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                                                    <?php elseif (!empty($slide->col3_image_path)): ?>
+                                                        <img src="<?php echo h($slide->col3_image_path) ?>" alt="Bottom Image" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                                                    <?php else: ?>
+                                                        <div class="text-muted" style="font-size: 9px;"><i class="fas fa-image"></i> Bottom Image</div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php elseif (!empty($slide->col2_image_url)): ?>
                                             <img src="<?php echo h($slide->col2_image_url) ?>" alt="Column 2 Image" />
                                         <?php elseif (!empty($slide->col2_image_path)): ?>
                                             <img src="<?php echo h($slide->col2_image_path) ?>" alt="Column 2 Image" />
@@ -809,6 +836,31 @@ function formatCoverSlideContent($slide) {
                             <div style="font-size: 7px; margin-bottom: 2px; text-align: center; font-weight: bold;">
                                 <?php echo h(substr($slide->title ?? $slide->description ?? '', 0, 25)) ?><?php echo strlen($slide->title ?? $slide->description ?? '') > 25 ? '...' : '' ?>
                             </div>
+                            <?php if (!empty($slideConfig['stacked_images'])): ?>
+                            <!-- Text + Stacked images thumbnail -->
+                            <div class="thumbnail-two-cols">
+                                <?php if (!empty($slide->col1_content)): ?>
+                                    <div style="flex:1; background:#f0f0f0; display:flex; align-items:center; justify-content:center; font-size:5px; color:#6c757d; padding:2px; border-radius:2px;">
+                                        <i class="fas fa-align-left" style="font-size:8px;"></i>
+                                    </div>
+                                <?php else: ?>
+                                    <div style="flex:1; background:#e9ecef; display:flex; align-items:center; justify-content:center; font-size:6px; color:#6c757d;">Text</div>
+                                <?php endif; ?>
+                                <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                                    <?php if (!empty($slide->col2_image_url ?? $slide->col2_image_path)): ?>
+                                        <img src="<?php echo h($slide->col2_image_url ?? $slide->col2_image_path) ?>" alt="Top" style="max-width:100%; max-height:24px; object-fit:contain; border-radius:2px;" />
+                                    <?php else: ?>
+                                        <div style="background:#e9ecef; display:flex; align-items:center; justify-content:center; font-size:5px; color:#6c757d; height:24px; border-radius:2px;">Top</div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($slide->col3_image_url ?? $slide->col3_image_path)): ?>
+                                        <img src="<?php echo h($slide->col3_image_url ?? $slide->col3_image_path) ?>" alt="Bottom" style="max-width:100%; max-height:24px; object-fit:contain; border-radius:2px;" />
+                                    <?php else: ?>
+                                        <div style="background:#e9ecef; display:flex; align-items:center; justify-content:center; font-size:5px; color:#6c757d; height:24px; border-radius:2px;">Bottom</div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <?php else: ?>
+                            <!-- Standard two-column thumbnail -->
                             <div class="thumbnail-two-cols">
                                 <?php if (!empty($slide->col1_image_url)): ?>
                                     <img src="<?php echo h($slide->col1_image_url) ?>" alt="Col 1" />
@@ -825,6 +877,7 @@ function formatCoverSlideContent($slide) {
                                     <div style="flex:1; background:#e9ecef; display:flex; align-items:center; justify-content:center; font-size:6px; color:#6c757d;">Col 2</div>
                                 <?php endif; ?>
                             </div>
+                            <?php endif; ?>
                         <?php elseif (($slideConfig['layout'] ?? '') === 'multi_image_with_titles'): ?>
                             <!-- Multi-image thumbnail -->
                             <div style="font-size: 7px; margin-bottom: 2px; text-align: center; font-weight: bold;">
@@ -889,6 +942,121 @@ function formatCoverSlideContent($slide) {
 
 <?php if ($slides->count() > 0): ?>
 <meta name="csrf-token" content="<?php echo $this->request->getAttribute('csrfToken'); ?>">
+
+<!-- Bulk Upload Modal -->
+<div class="modal fade" id="bulkUploadModal" tabindex="-1" aria-labelledby="bulkUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="bulkUploadModalLabel">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>Bulk Upload Slide Images
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Drop Zone -->
+                <div id="bulkDropZone" class="border border-3 border-dashed rounded p-4 text-center mb-3" 
+                     style="border-color: #dee2e6 !important; cursor: pointer; transition: all 0.2s;">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-2"></i>
+                    <h5 class="text-muted">Drag & Drop Images Here</h5>
+                    <p class="text-muted mb-2">or click to select files</p>
+                    <input type="file" id="bulkFileInput" multiple accept=".jpg,.jpeg,.png,.gif" class="d-none">
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="document.getElementById('bulkFileInput').click();">
+                        <i class="fas fa-folder-open me-1"></i>Browse Files
+                    </button>
+                </div>
+
+                <!-- Selected Files Preview -->
+                <div id="bulkFileList" class="mb-3" style="display: none;">
+                    <h6><i class="fas fa-list me-1"></i>Selected Files <span id="bulkFileCount" class="badge bg-danger">0</span></h6>
+                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40px;">#</th>
+                                    <th>Filename</th>
+                                    <th>Mapped Slide</th>
+                                    <th>Column</th>
+                                    <th style="width: 60px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkFileTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Upload Progress -->
+                <div id="bulkUploadProgress" class="mb-3" style="display: none;">
+                    <div class="progress" style="height: 25px;">
+                        <div id="bulkProgressBar" class="progress-bar bg-danger progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%;">0%</div>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="bulkUploadResults" style="display: none;">
+                    <div id="bulkResultsContent"></div>
+                </div>
+
+                <!-- Naming Guide (collapsible) -->
+                <div class="accordion mt-3" id="namingGuideAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="namingGuideHeading">
+                            <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#namingGuideBody" aria-expanded="false" aria-controls="namingGuideBody">
+                                <i class="fas fa-info-circle me-2 text-danger"></i>
+                                <strong>File Naming Guide</strong>
+                            </button>
+                        </h2>
+                        <div id="namingGuideBody" class="accordion-collapse collapse" aria-labelledby="namingGuideHeading" 
+                             data-bs-parent="#namingGuideAccordion">
+                            <div class="accordion-body p-2">
+                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto; font-size: 13px;">
+                                    <table class="table table-sm table-striped mb-0">
+                                        <thead class="table-dark">
+                                            <tr><th>Filename</th><th>Slide</th><th>Position</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                            $bulkNames = unserialize(PPT_BULK_UPLOAD_NAMES);
+                                            $slideTypes = unserialize(PPT_REPORT_PAGES);
+                                            foreach ($bulkNames as $name => $map):
+                                                $slideTitle = $slideTypes[$map['slide_type']]['title'] ?? str_replace('_', ' ', $map['slide_type']);
+                                                $colLabel = $map['column'];
+                                                if ($colLabel === 'col1' && ($slideTypes[$map['slide_type']]['columns'] ?? 1) === 2) {
+                                                    $colLabel = 'Left';
+                                                } elseif ($colLabel === 'col2') {
+                                                    $colLabel = 'Right';
+                                                } elseif ($colLabel === 'col1') {
+                                                    $colLabel = 'Main';
+                                                } else {
+                                                    $colLabel = ucfirst(str_replace('col', 'Image ', $colLabel));
+                                                }
+                                            ?>
+                                                <tr>
+                                                    <td><code><?= h($name) ?>.png</code></td>
+                                                    <td><?= h($slideTitle) ?></td>
+                                                    <td><span class="badge bg-secondary"><?= h($colLabel) ?></span></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" id="bulkUploadBtn" onclick="startBulkUpload();" disabled>
+                    <i class="fas fa-upload me-1"></i>Upload <span id="bulkUploadBtnCount">0</span> Images
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php $this->start('script'); ?>
 <script>
 let currentSlideIndex = 0;
@@ -1135,6 +1303,228 @@ if (typeof Sortable === 'undefined') {
     };
     document.head.appendChild(script);
 }
+
+// ============================================
+// Bulk Upload Functionality
+// ============================================
+const bulkNameMap = <?php echo json_encode(unserialize(PPT_BULK_UPLOAD_NAMES)); ?>;
+const bulkSlideTypes = <?php 
+    $stypes = unserialize(PPT_REPORT_PAGES);
+    $simpleMap = [];
+    foreach ($stypes as $key => $cfg) {
+        $simpleMap[$key] = ['title' => $cfg['title'] ?? $key, 'columns' => $cfg['columns'] ?? 1];
+    }
+    echo json_encode($simpleMap);
+?>;
+let bulkSelectedFiles = [];
+
+// Drag and drop handlers
+const bulkDropZone = document.getElementById('bulkDropZone');
+if (bulkDropZone) {
+    bulkDropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.style.borderColor = '#dc3545';
+        this.style.background = '#fff5f5';
+    });
+    bulkDropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.style.borderColor = '#dee2e6';
+        this.style.background = '';
+    });
+    bulkDropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.style.borderColor = '#dee2e6';
+        this.style.background = '';
+        handleBulkFiles(e.dataTransfer.files);
+    });
+    bulkDropZone.addEventListener('click', function(e) {
+        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+            document.getElementById('bulkFileInput').click();
+        }
+    });
+}
+
+document.getElementById('bulkFileInput')?.addEventListener('change', function() {
+    handleBulkFiles(this.files);
+});
+
+function handleBulkFiles(fileList) {
+    bulkSelectedFiles = Array.from(fileList);
+    const tbody = document.getElementById('bulkFileTableBody');
+    const fileListDiv = document.getElementById('bulkFileList');
+    const countBadge = document.getElementById('bulkFileCount');
+    const uploadBtn = document.getElementById('bulkUploadBtn');
+    const uploadBtnCount = document.getElementById('bulkUploadBtnCount');
+
+    tbody.innerHTML = '';
+    let matchedCount = 0;
+
+    bulkSelectedFiles.forEach((file, index) => {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const nameKey = file.name.replace(/\.[^.]+$/, '').toLowerCase().trim();
+        const mapping = bulkNameMap[nameKey] || null;
+        const validExt = ['jpg', 'jpeg', 'png', 'gif'].includes(ext);
+
+        let slideLabel = '—';
+        let columnLabel = '—';
+        let statusHtml = '';
+
+        if (!validExt) {
+            statusHtml = '<span class="badge bg-warning text-dark">Invalid type</span>';
+        } else if (mapping) {
+            const slideInfo = bulkSlideTypes[mapping.slide_type];
+            slideLabel = slideInfo ? slideInfo.title : mapping.slide_type;
+            const col = mapping.column;
+            if (col === 'col1' && slideInfo && slideInfo.columns === 2) {
+                columnLabel = 'Left';
+            } else if (col === 'col2') {
+                columnLabel = 'Right';
+            } else if (col === 'col1') {
+                columnLabel = 'Main';
+            } else {
+                columnLabel = col.replace('col', 'Image ');
+            }
+            statusHtml = '<span class="badge bg-success"><i class="fas fa-check"></i> Match</span>';
+            matchedCount++;
+        } else {
+            statusHtml = '<span class="badge bg-danger"><i class="fas fa-times"></i> No match</span>';
+        }
+
+        tbody.innerHTML += `<tr>
+            <td>${index + 1}</td>
+            <td><code>${file.name}</code></td>
+            <td>${slideLabel}</td>
+            <td>${columnLabel}</td>
+            <td>${statusHtml}</td>
+        </tr>`;
+    });
+
+    countBadge.textContent = bulkSelectedFiles.length;
+    uploadBtnCount.textContent = matchedCount;
+    uploadBtn.disabled = matchedCount === 0;
+    fileListDiv.style.display = bulkSelectedFiles.length > 0 ? 'block' : 'none';
+
+    // Reset results
+    document.getElementById('bulkUploadResults').style.display = 'none';
+    document.getElementById('bulkUploadProgress').style.display = 'none';
+}
+
+function startBulkUpload() {
+    if (bulkSelectedFiles.length === 0) return;
+
+    const uploadBtn = document.getElementById('bulkUploadBtn');
+    const progressDiv = document.getElementById('bulkUploadProgress');
+    const progressBar = document.getElementById('bulkProgressBar');
+    const resultsDiv = document.getElementById('bulkUploadResults');
+    const resultsContent = document.getElementById('bulkResultsContent');
+
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Uploading...';
+    progressDiv.style.display = 'block';
+    progressBar.style.width = '10%';
+    progressBar.textContent = 'Uploading...';
+
+    const formData = new FormData();
+    bulkSelectedFiles.forEach(file => {
+        formData.append('images[]', file);
+    });
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '<?php echo $this->Url->build(['controller' => 'MegReports', 'action' => 'bulkUploadImages', $reportId, 'prefix' => 'Doctor']) ?>');
+    xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            progressBar.style.width = pct + '%';
+            progressBar.textContent = pct + '%';
+        }
+    };
+
+    xhr.onload = function() {
+        progressBar.classList.remove('progress-bar-animated');
+        uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i>Upload';
+
+        try {
+            const data = JSON.parse(xhr.responseText);
+            let html = '';
+
+            if (data.results.matched.length > 0) {
+                html += '<div class="alert alert-success py-2 mb-2"><strong><i class="fas fa-check-circle me-1"></i>Matched (' + data.results.matched.length + ')</strong><ul class="mb-0 small">';
+                data.results.matched.forEach(function(item) {
+                    html += '<li>' + item.file + ' → ' + item.slide + ' (' + item.column + ')</li>';
+                });
+                html += '</ul></div>';
+            }
+            if (data.results.skipped.length > 0) {
+                html += '<div class="alert alert-warning py-2 mb-2"><strong><i class="fas fa-exclamation-triangle me-1"></i>Skipped (' + data.results.skipped.length + ')</strong><ul class="mb-0 small">';
+                data.results.skipped.forEach(function(item) {
+                    html += '<li>' + item.file + ' — ' + item.reason + '</li>';
+                });
+                html += '</ul></div>';
+            }
+            if (data.results.errors.length > 0) {
+                html += '<div class="alert alert-danger py-2 mb-2"><strong><i class="fas fa-times-circle me-1"></i>Errors (' + data.results.errors.length + ')</strong><ul class="mb-0 small">';
+                data.results.errors.forEach(function(item) {
+                    html += '<li>' + item.file + ' — ' + item.reason + '</li>';
+                });
+                html += '</ul></div>';
+            }
+
+            if (data.results.matched.length > 0) {
+                html += '<div class="text-center mt-2"><button class="btn btn-danger btn-sm" onclick="window.location.reload();"><i class="fas fa-sync me-1"></i>Reload to See Changes</button></div>';
+            }
+
+            resultsContent.innerHTML = html;
+            resultsDiv.style.display = 'block';
+            progressBar.style.width = '100%';
+            progressBar.textContent = data.message;
+        } catch (e) {
+            console.error('Bulk upload parse error:', e, xhr.responseText);
+            let errMsg = 'Unexpected response from server.';
+            if (xhr.status !== 200) {
+                errMsg += ' (HTTP ' + xhr.status + ')';
+            }
+            resultsContent.innerHTML = '<div class="alert alert-danger">' + errMsg + '<br><small class="text-muted">Check browser console for details.</small></div>';
+            resultsDiv.style.display = 'block';
+        }
+
+        uploadBtn.disabled = false;
+    };
+
+    xhr.onerror = function() {
+        progressBar.classList.remove('progress-bar-animated');
+        progressBar.classList.add('bg-danger');
+        progressBar.textContent = 'Upload failed';
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i>Retry';
+    };
+
+    xhr.send(formData);
+}
+
+// Reset modal on close
+document.getElementById('bulkUploadModal')?.addEventListener('hidden.bs.modal', function() {
+    bulkSelectedFiles = [];
+    document.getElementById('bulkFileTableBody').innerHTML = '';
+    document.getElementById('bulkFileList').style.display = 'none';
+    document.getElementById('bulkUploadProgress').style.display = 'none';
+    document.getElementById('bulkUploadResults').style.display = 'none';
+    document.getElementById('bulkFileInput').value = '';
+    document.getElementById('bulkUploadBtn').disabled = true;
+    const pb = document.getElementById('bulkProgressBar');
+    pb.style.width = '0%';
+    pb.textContent = '0%';
+    pb.classList.add('progress-bar-animated');
+    pb.classList.remove('bg-danger');
+});
 </script>
 <?php $this->end(); ?>
 <?php endif; ?>

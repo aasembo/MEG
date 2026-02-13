@@ -447,7 +447,11 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                             <!-- Column 2 -->
                             <div class="col-md-6">
                                 <div class="column-section">
-                                    <h5><i class="fas fa-columns me-2"></i>Column 2</h5>
+                                    <?php 
+                                    $isStackedSlide = !empty($slideConfig['stacked_images']);
+                                    $col2Type = $slideConfig['col2']['type'] ?? $slide->col2_type ?? 'image';
+                                    ?>
+                                    <h5><i class="fas fa-columns me-2"></i><?php echo $isStackedSlide ? 'Images (Stacked)' : 'Column 2' ?></h5>
                                     
                                     <?php if (!empty($slideConfig['col2']['header'])): ?>
                                     <div class="mb-3">
@@ -461,9 +465,62 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                                     </div>
                                     <?php endif; ?>
                                     
-                                    <?php 
-                                    $col2Type = $slideConfig['col2']['type'] ?? $slide->col2_type ?? 'image';
-                                    if ($col2Type === 'image' || $col2Type === 'composite_image'): ?>
+                                    <?php if ($isStackedSlide): ?>
+                                        <!-- Stacked Images: Top (col2) and Bottom (col3) -->
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold"><i class="fas fa-arrow-up me-1"></i>Top Image (<?php echo h($slideConfig['col2']['description'] ?? 'Top') ?>)</label>
+                                            <?php if ($slide->col2_image_url ?? $slide->col2_image_path): ?>
+                                                <div class="mb-2 text-center">
+                                                    <img src="<?php echo h($slide->col2_image_url ?? $slide->col2_image_path) ?>" 
+                                                         alt="Top Image" class="current-image-preview" id="col2CurrentImage">
+                                                </div>
+                                            <?php endif; ?>
+                                            <div class="upload-zone" id="col2UploadZone" data-target="col2_image_file">
+                                                <i class="fas fa-image fa-2x text-danger mb-2"></i>
+                                                <div>Upload Top Image</div>
+                                                <small class="text-muted">Drag & drop or click</small>
+                                            </div>
+                                            <?php echo $this->Form->file('col2_image_file', [
+                                                'id' => 'col2_image_file',
+                                                'accept' => 'image/*',
+                                                'style' => 'display: none;'
+                                            ]) ?>
+                                            <div id="col2PreviewContainer" class="mt-2 text-center" style="display: none;">
+                                                <img id="col2Preview" src="" class="current-image-preview" alt="Preview">
+                                                <button type="button" class="btn btn-sm btn-danger mt-2 remove-preview" data-target="col2">
+                                                    <i class="fas fa-times"></i> Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <hr class="my-3">
+                                        
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold"><i class="fas fa-arrow-down me-1"></i>Bottom Image (<?php echo h($slideConfig['col3']['description'] ?? 'Bottom') ?>)</label>
+                                            <?php if ($slide->col3_image_url ?? $slide->col3_image_path): ?>
+                                                <div class="mb-2 text-center">
+                                                    <img src="<?php echo h($slide->col3_image_url ?? $slide->col3_image_path) ?>" 
+                                                         alt="Bottom Image" class="current-image-preview" id="col3CurrentImage">
+                                                </div>
+                                            <?php endif; ?>
+                                            <div class="upload-zone" id="col3UploadZone" data-target="col3_image_file">
+                                                <i class="fas fa-image fa-2x text-danger mb-2"></i>
+                                                <div>Upload Bottom Image</div>
+                                                <small class="text-muted">Drag & drop or click</small>
+                                            </div>
+                                            <?php echo $this->Form->file('col3_image_file', [
+                                                'id' => 'col3_image_file',
+                                                'accept' => 'image/*',
+                                                'style' => 'display: none;'
+                                            ]) ?>
+                                            <div id="col3PreviewContainer" class="mt-2 text-center" style="display: none;">
+                                                <img id="col3Preview" src="" class="current-image-preview" alt="Preview">
+                                                <button type="button" class="btn btn-sm btn-danger mt-2 remove-preview" data-target="col3">
+                                                    <i class="fas fa-times"></i> Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                    <?php elseif ($col2Type === 'image' || $col2Type === 'composite_image'): ?>
                                         <?php if ($slide->col2_image_url ?? $slide->col2_image_path): ?>
                                             <div class="mb-3">
                                                 <label class="form-label fw-semibold">Current Image:</label>
@@ -842,7 +899,27 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                                     <?php echo h($slide->col2_header ?? $slideConfig['col2']['header'] ?? 'Column 2') ?>
                                 </div>
                                 <div id="previewCol2Content">
-                                    <?php if ($slide->col2_image_url ?? $slide->col2_image_path): ?>
+                                    <?php 
+                                    $isStackedPreview = !empty($slideConfig['stacked_images']);
+                                    if ($isStackedPreview): ?>
+                                        <!-- Stacked images preview -->
+                                        <div style="display: flex; flex-direction: column; gap: 4px; height: 100%;">
+                                            <div style="flex: 1; display: flex; align-items: center; justify-content: center;" data-stacked-top>
+                                                <?php if ($slide->col2_image_url ?? $slide->col2_image_path): ?>
+                                                    <img src="<?php echo h($slide->col2_image_url ?? $slide->col2_image_path) ?>" alt="Top" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                                <?php else: ?>
+                                                    <div class="text-muted" style="font-size: 9px;"><i class="fas fa-image"></i> Top</div>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div style="flex: 1; display: flex; align-items: center; justify-content: center;" data-stacked-bottom>
+                                                <?php if ($slide->col3_image_url ?? $slide->col3_image_path): ?>
+                                                    <img src="<?php echo h($slide->col3_image_url ?? $slide->col3_image_path) ?>" alt="Bottom" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                                <?php else: ?>
+                                                    <div class="text-muted" style="font-size: 9px;"><i class="fas fa-image"></i> Bottom</div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php elseif ($slide->col2_image_url ?? $slide->col2_image_path): ?>
                                         <img src="<?php echo h($slide->col2_image_url ?? $slide->col2_image_path) ?>" alt="Column 2">
                                     <?php elseif ($slide->col2_content): ?>
                                         <p style="font-size: 11px;"><?php echo nl2br(h($slide->col2_content)) ?></p>
@@ -995,7 +1072,19 @@ $(document).ready(function() {
         if (column === 'col1') {
             $('#previewCol1Content').html('<img src="' + src + '" alt="Column 1">');
         } else if (column === 'col2') {
-            $('#previewCol2Content').html('<img src="' + src + '" alt="Column 2">');
+            // Check if stacked layout - update only the top image portion
+            var stackedContainer = $('#previewCol2Content').find('[data-stacked-top]');
+            if (stackedContainer.length) {
+                stackedContainer.html('<img src="' + src + '" alt="Top" style="max-width:100%;max-height:100%;object-fit:contain;">');
+            } else {
+                $('#previewCol2Content').html('<img src="' + src + '" alt="Column 2">');
+            }
+        } else if (column === 'col3') {
+            // Update bottom image in stacked layout
+            var stackedBottom = $('#previewCol2Content').find('[data-stacked-bottom]');
+            if (stackedBottom.length) {
+                stackedBottom.html('<img src="' + src + '" alt="Bottom" style="max-width:100%;max-height:100%;object-fit:contain;">');
+            }
         } else {
             $('#previewContent').html('<img src="' + src + '" alt="Slide Image">');
         }

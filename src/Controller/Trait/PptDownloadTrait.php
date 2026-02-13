@@ -522,12 +522,34 @@ trait PptDownloadTrait
             $this->renderColumnText($pptSlide, $slide->col1_content, $col1X, $col1Width, $imageStartY, $imageMaxHeight, $pptStyles, $layout);
         }
         
-        // Render column 2 content
-        if (!empty($slide->col2_image_url)) {
-            $tempFile = $this->renderColumnImage($pptSlide, $slide->col2_image_url, $col2X, $col2Width, $imageStartY, $imageMaxHeight);
-            if ($tempFile) $tempFiles[] = $tempFile;
-        } elseif (!empty($slide->col2_content)) {
-            $this->renderColumnText($pptSlide, $slide->col2_content, $col2X, $col2Width, $imageStartY, $imageMaxHeight, $pptStyles, $layout);
+        // Check if this slide has stacked images (e.g., functional_mapping_motor)
+        $isStacked = !empty($slideConfig['stacked_images']) && !empty($slideConfig['stacked_columns']);
+        
+        if ($isStacked) {
+            // Render stacked images: col2 on top, col3 on bottom, both in the col2 area
+            $stackGap = 8;
+            $halfHeight = (int)(($imageMaxHeight - $stackGap) / 2);
+            
+            // Top image (col2)
+            if (!empty($slide->col2_image_url)) {
+                $tempFile = $this->renderColumnImage($pptSlide, $slide->col2_image_url, $col2X, $col2Width, $imageStartY, $halfHeight);
+                if ($tempFile) $tempFiles[] = $tempFile;
+            }
+            
+            // Bottom image (col3)
+            $bottomY = $imageStartY + $halfHeight + $stackGap;
+            if (!empty($slide->col3_image_url)) {
+                $tempFile = $this->renderColumnImage($pptSlide, $slide->col3_image_url, $col2X, $col2Width, $bottomY, $halfHeight);
+                if ($tempFile) $tempFiles[] = $tempFile;
+            }
+        } else {
+            // Render column 2 content (standard)
+            if (!empty($slide->col2_image_url)) {
+                $tempFile = $this->renderColumnImage($pptSlide, $slide->col2_image_url, $col2X, $col2Width, $imageStartY, $imageMaxHeight);
+                if ($tempFile) $tempFiles[] = $tempFile;
+            } elseif (!empty($slide->col2_content)) {
+                $this->renderColumnText($pptSlide, $slide->col2_content, $col2X, $col2Width, $imageStartY, $imageMaxHeight, $pptStyles, $layout);
+            }
         }
         
         return $tempFiles;

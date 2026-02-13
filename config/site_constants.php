@@ -239,7 +239,7 @@ define('PPT_REPORT_PAGES', serialize([
     ],
 
     // =====================================================
-    // SLIDE 12: Functional Mapping - Motor Mapping (Text + Image)
+    // SLIDE 12: Functional Mapping - Motor Mapping (Text + 2 Stacked Images)
     // =====================================================
     'functional_mapping_motor' => [
         'order' => 12,
@@ -256,9 +256,17 @@ define('PPT_REPORT_PAGES', serialize([
             'default_content' => "• We instructed the patient to spontaneously raise and lower their palm at a frequency of one movement per second to assess motor function by analyzing <b>theta</b> band power.\n• The top row shows the motor responses for the left hand, while the bottom row depicts responses for the right hand.\n• The motor function can be localized to the primary motor area, leading us to conclude that the patient's motor function is normal.",
         ],
         'col2' => [
-            'type' => 'composite_image',
-            'description' => 'Motor mapping results (2 rows: Left/Right)',
+            'type' => 'image',
+            'description' => 'Motor mapping - Top image (Left hand)',
+            'stacked' => true,
         ],
+        'col3' => [
+            'type' => 'image',
+            'description' => 'Motor mapping - Bottom image (Right hand)',
+            'stacked' => true,
+        ],
+        'stacked_images' => true,
+        'stacked_columns' => ['col2', 'col3'],
     ],
 
     // =====================================================
@@ -643,6 +651,92 @@ define('PPT_STYLES', serialize([
         'font_size' => 14,
         'font_bold' => false,
     ],
+]));
+
+/**
+ * Bulk Upload Filename Mapping
+ * 
+ * Maps clean, easy-to-remember filenames to slide_type keys and column targets.
+ * Doctors name their files using these names and the system auto-matches them to slides.
+ * 
+ * Format: 'filename' => ['slide_type' => '...', 'column' => 'col1'|'col2'|'col3'|'col4'|'col5']
+ * 
+ * Naming rules:
+ *   - Use "-left" / "-right" for two-column slides (col1/col2)
+ *   - Use "-1" through "-5" for multi-image slides (discharge)
+ *   - Use "-3", "-4", "-5" suffix for legend variants
+ *   - Any image format accepted: .png, .jpg, .jpeg, .gif
+ *   - Names are case-insensitive
+ */
+define('PPT_BULK_UPLOAD_NAMES', serialize([
+
+    // === Single Image Slides ===
+    'eeg-image'                 => ['slide_type' => 'original_eeg_signals_image', 'column' => 'col1'],
+    'eeg'                       => ['slide_type' => 'original_eeg_signals_image', 'column' => 'col1'],  // alias
+    'ecd'                       => ['slide_type' => 'meg_source_localization_ecd', 'column' => 'col1'],
+    'source-ecd'                => ['slide_type' => 'meg_source_localization_ecd', 'column' => 'col1'],  // alias
+    'loreta'                    => ['slide_type' => 'meg_source_localization_loreta', 'column' => 'col1'],
+    'sloreta'                   => ['slide_type' => 'meg_source_localization_loreta', 'column' => 'col1'],  // alias
+    'source-loreta'             => ['slide_type' => 'meg_source_localization_loreta', 'column' => 'col1'],  // alias
+
+    // === Discharge Summary - Single Image Slides ===
+    'summary-4view'             => ['slide_type' => 'summary_localization_discharge_4view', 'column' => 'col1'],
+    'discharge-4view'           => ['slide_type' => 'summary_localization_discharge_4view', 'column' => 'col1'],  // alias
+    'summary-axial'             => ['slide_type' => 'summary_localization_discharge_axial', 'column' => 'col1'],
+    'discharge-axial'           => ['slide_type' => 'summary_localization_discharge_axial', 'column' => 'col1'],  // alias
+    'summary-coronal'           => ['slide_type' => 'summary_localization_discharge_coronal', 'column' => 'col1'],
+    'discharge-coronal'         => ['slide_type' => 'summary_localization_discharge_coronal', 'column' => 'col1'],  // alias
+
+    // === Multi-Image Slide (EEG/MEG Discharge) ===
+    'discharge-1'               => ['slide_type' => 'eeg_meg_discharge', 'column' => 'col1'],
+    'discharge-2'               => ['slide_type' => 'eeg_meg_discharge', 'column' => 'col2'],
+    'discharge-3'               => ['slide_type' => 'eeg_meg_discharge', 'column' => 'col3'],
+    'discharge-4'               => ['slide_type' => 'eeg_meg_discharge', 'column' => 'col4'],
+    'discharge-5'               => ['slide_type' => 'eeg_meg_discharge', 'column' => 'col5'],
+
+    // === Functional Mapping - Sensory Median ===
+    'sensory-median-left'       => ['slide_type' => 'functional_mapping_sensory_median', 'column' => 'col1'],
+    'sensory-median-right'      => ['slide_type' => 'functional_mapping_sensory_median', 'column' => 'col2'],
+    'median-left'               => ['slide_type' => 'functional_mapping_sensory_median', 'column' => 'col1'],  // alias
+    'median-right'              => ['slide_type' => 'functional_mapping_sensory_median', 'column' => 'col2'],  // alias
+
+    // === Functional Mapping - Sensory Pneumatic ===
+    'sensory-pneumatic-left'    => ['slide_type' => 'functional_mapping_sensory_pneumatic', 'column' => 'col1'],
+    'sensory-pneumatic-right'   => ['slide_type' => 'functional_mapping_sensory_pneumatic', 'column' => 'col2'],
+    'pneumatic-left'            => ['slide_type' => 'functional_mapping_sensory_pneumatic', 'column' => 'col1'],  // alias
+    'pneumatic-right'           => ['slide_type' => 'functional_mapping_sensory_pneumatic', 'column' => 'col2'],  // alias
+
+    // === Functional Mapping - Motor (col1 is text, col2 has 2 stacked images stored in col2+col3) ===
+    'motor-top'                 => ['slide_type' => 'functional_mapping_motor', 'column' => 'col2'],
+    'motor-bottom'              => ['slide_type' => 'functional_mapping_motor', 'column' => 'col3'],
+    'motor-1'                   => ['slide_type' => 'functional_mapping_motor', 'column' => 'col2'],  // alias
+    'motor-2'                   => ['slide_type' => 'functional_mapping_motor', 'column' => 'col3'],  // alias
+
+    // === Functional Mapping - Motor Finger ===
+    'motor-finger-left'         => ['slide_type' => 'functional_mapping_motor_finger', 'column' => 'col1'],
+    'motor-finger-right'        => ['slide_type' => 'functional_mapping_motor_finger', 'column' => 'col2'],
+    'finger-left'               => ['slide_type' => 'functional_mapping_motor_finger', 'column' => 'col1'],  // alias
+    'finger-right'              => ['slide_type' => 'functional_mapping_motor_finger', 'column' => 'col2'],  // alias
+
+    // === Functional Mapping - Auditory ===
+    'auditory-left'             => ['slide_type' => 'functional_mapping_auditory', 'column' => 'col1'],
+    'auditory-right'            => ['slide_type' => 'functional_mapping_auditory', 'column' => 'col2'],
+
+    // === Functional Mapping - Language ===
+    'language-left'             => ['slide_type' => 'functional_mapping_language', 'column' => 'col1'],
+    'language-right'            => ['slide_type' => 'functional_mapping_language', 'column' => 'col2'],
+
+    // === Functional Mapping - Visual ===
+    'visual-left'               => ['slide_type' => 'functional_mapping_visual', 'column' => 'col1'],
+    'visual-right'              => ['slide_type' => 'functional_mapping_visual', 'column' => 'col2'],
+
+    // === MEG Localization Summary ===
+    'meg-summary-3'             => ['slide_type' => 'meg_localization_summary_3', 'column' => 'col1'],
+    'meg-summary-4'             => ['slide_type' => 'meg_localization_summary_4', 'column' => 'col1'],
+    'meg-summary-5'             => ['slide_type' => 'meg_localization_summary_5', 'column' => 'col1'],
+    'localization-3'            => ['slide_type' => 'meg_localization_summary_3', 'column' => 'col1'],  // alias
+    'localization-4'            => ['slide_type' => 'meg_localization_summary_4', 'column' => 'col1'],  // alias
+    'localization-5'            => ['slide_type' => 'meg_localization_summary_5', 'column' => 'col1'],  // alias
 ]));
 
 /**

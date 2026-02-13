@@ -252,6 +252,15 @@ class MegReportsController extends AppController
                 $col2ImagePath = $this->uploadSlideImage($col2ImageFile, $report, $s3Service);
             }
             
+            // Handle Column 3-5 Image Uploads (for stacked/multi-image layouts)
+            $colImagePaths = [];
+            foreach ([3, 4, 5] as $colNum) {
+                $colImageFile = $this->request->getData("col{$colNum}_image");
+                if ($colImageFile && $colImageFile->getError() === UPLOAD_ERR_OK) {
+                    $colImagePaths[$colNum] = $this->uploadSlideImage($colImageFile, $report, $s3Service);
+                }
+            }
+            
             // Handle legacy single image upload (for backward compatibility)
             $imagePath = null;
             $imageFile = $this->request->getData('image_file');
@@ -276,6 +285,9 @@ class MegReportsController extends AppController
                 'col2_content' => $data['col2_content'] ?? null,
                 'col2_image_path' => $col2ImagePath,
                 'col2_header' => $data['col2_header'] ?? ($slideConfig['col2']['header'] ?? null),
+                'col3_image_path' => $colImagePaths[3] ?? null,
+                'col4_image_path' => $colImagePaths[4] ?? null,
+                'col5_image_path' => $colImagePaths[5] ?? null,
                 'footer_text' => $data['footer_text'] ?? ($slideConfig['footer_text'] ?? null),
                 'legend_data' => isset($data['legend_items']) ? json_encode($data['legend_items']) : null,
                 'description' => $data['description'] ?? $data['col1_content'] ?? null,
@@ -639,6 +651,220 @@ class MegReportsController extends AppController
         }
         
         $this->set(compact('slide', 'report', 'examProceduresList', 'slideConfig', 'slideType', 'slideTypes'));
+    }
+
+    /**
+     * Bulk Upload Images - Upload multiple images at once and auto-match to slides
+     * 
+     * Files are matched using the PPT_BULK_UPLOAD_NAMES configuration in site_constants.php.
+     * Filenames (without extension) are matched case-insensitively to the mapping keys.
+     *
+     * @param int|null $reportId Report ID
+     * @return \Cake\Http\Response JSON response
+     */
+    public function bulkUploadImages($reportId = null)
+    {
+        $this->request->allowMethod(['post']);
+        $this->autoRender = false;
+        set_time_limit(300); // Allow up to 5 minutes for bulk upload
+
+        $user = $this->request->getAttribute('identity');
+        $userId = $user->getIdentifier();
+
+        if (!$reportId) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Report ID is required.',
+                ]));
+        }
+
+        // Verify access
+        $Reports = $this->fetchTable('Reports');
+        $report = $Reports->find()
+            ->contain(['Cases'])
+            ->matching('Cases.CaseAssignments', function ($q) use ($userId) {
+                return $q->where(['CaseAssignments.assigned_to' => $userId]);
+            })
+            ->where(['Reports.id' => $reportId, 'Reports.type' => 'PPT'])
+            ->first();
+
+        if (!$report) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Report not found or access denied.',
+                ]));
+        }
+
+        // Load filename mapping and slide config
+        $nameMap = unserialize(PPT_BULK_UPLOAD_NAMES);
+        $slideConfigs = unserialize(PPT_REPORT_PAGES);
+
+        // Get all slides for this report
+        $ReportSlides = $this->fetchTable('ReportSlides');
+        $slides = $ReportSlides->find()
+            ->where(['report_id' => $reportId])
+            ->all()
+            ->indexBy('slide_type')
+            ->toArray();
+
+        // If no slides exist at all, create all default slides first
+        if (empty($slides)) {
+            // Reload report with associations needed for createDefaultSlides
+            $report = $Reports->get($reportId, contain: ['Cases' => ['PatientUsers' => ['Patient']], 'Users']);
+            $this->createDefaultSlides($report);
+
+            // Re-fetch slides after creation
+            $slides = $ReportSlides->find()
+                ->where(['report_id' => $reportId])
+                ->all()
+                ->indexBy('slide_type')
+                ->toArray();
+        }
+
+        $s3Service = new S3DocumentService();
+        $results = ['matched' => [], 'skipped' => [], 'errors' => []];
+        $uploadedFiles = $this->request->getUploadedFiles();
+
+        // Files come as 'images' array from the form
+        $files = $uploadedFiles['images'] ?? [];
+        if (!is_array($files)) {
+            $files = [$files];
+        }
+
+        foreach ($files as $file) {
+            if ($file->getError() !== UPLOAD_ERR_OK) {
+                continue;
+            }
+
+            $originalName = $file->getClientFilename();
+            $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+            // Validate image extension
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
+                $results['skipped'][] = [
+                    'file' => $originalName,
+                    'reason' => 'Invalid file type. Only JPG, PNG, GIF allowed.',
+                ];
+                continue;
+            }
+
+            // Extract key: remove extension, lowercase, trim
+            $nameKey = strtolower(pathinfo($originalName, PATHINFO_FILENAME));
+            $nameKey = trim($nameKey);
+
+            // Look up in mapping
+            if (!isset($nameMap[$nameKey])) {
+                $results['skipped'][] = [
+                    'file' => $originalName,
+                    'reason' => 'Filename not recognized. Check naming guide.',
+                ];
+                continue;
+            }
+
+            $mapping = $nameMap[$nameKey];
+            $slideType = $mapping['slide_type'];
+            $column = $mapping['column']; // col1, col2, col3, col4, col5
+
+            // Auto-create slide if it doesn't exist yet
+            if (!isset($slides[$slideType])) {
+                if (!isset($slideConfigs[$slideType])) {
+                    $results['skipped'][] = [
+                        'file' => $originalName,
+                        'reason' => "Unknown slide type '{$slideType}'.",
+                    ];
+                    continue;
+                }
+
+                $config = $slideConfigs[$slideType];
+                $maxOrder = $ReportSlides->find()
+                    ->where(['report_id' => $reportId])
+                    ->select(['max_order' => $ReportSlides->find()->func()->max('slide_order')])
+                    ->first();
+                $nextOrder = ($maxOrder->max_order ?? 0) + 1;
+
+                $newSlide = $ReportSlides->newEntity([
+                    'report_id' => $reportId,
+                    'user_id' => $report->user_id,
+                    'slide_order' => $config['order'] ?? $nextOrder,
+                    'slide_type' => $slideType,
+                    'layout_columns' => $config['columns'] ?? 1,
+                    'title' => $config['title'] ?? '',
+                    'subtitle' => $config['subtitle'] ?? null,
+                    'col1_type' => $config['col1']['type'] ?? 'text',
+                    'col1_header' => $config['col1']['header'] ?? null,
+                    'col2_type' => $config['col2']['type'] ?? 'text',
+                    'col2_header' => $config['col2']['header'] ?? null,
+                    'footer_text' => $config['footer_text'] ?? null,
+                    'legend_data' => isset($config['legend']['items']) ? json_encode($config['legend']['items']) : null,
+                ]);
+
+                if ($ReportSlides->save($newSlide)) {
+                    $slides[$slideType] = $newSlide;
+                } else {
+                    $results['errors'][] = [
+                        'file' => $originalName,
+                        'reason' => "Failed to create slide for '{$slideType}'.",
+                    ];
+                    continue;
+                }
+            }
+
+            $slide = $slides[$slideType];
+            $imagePathField = $column . '_image_path';
+
+            // Upload to S3
+            $uploadedPath = $this->uploadSlideImage($file, $report, $s3Service);
+            if (!$uploadedPath) {
+                $results['errors'][] = [
+                    'file' => $originalName,
+                    'reason' => 'S3 upload failed.',
+                ];
+                continue;
+            }
+
+            // Delete old image if exists
+            $oldPath = $slide->{$imagePathField} ?? null;
+            if ($oldPath) {
+                $s3Service->deleteDocument($oldPath);
+            }
+
+            // Update slide
+            $slide->{$imagePathField} = $uploadedPath;
+
+            // Also update legacy file_path/s3_key for col1
+            if ($column === 'col1') {
+                $slide->file_path = $uploadedPath;
+                $slide->s3_key = $uploadedPath;
+            }
+
+            if ($ReportSlides->save($slide)) {
+                $results['matched'][] = [
+                    'file' => $originalName,
+                    'slide' => str_replace('_', ' ', ucwords($slideType, '_')),
+                    'column' => $column,
+                ];
+            } else {
+                $results['errors'][] = [
+                    'file' => $originalName,
+                    'reason' => 'Failed to save slide update.',
+                ];
+            }
+        }
+
+        $totalFiles = count($results['matched']) + count($results['skipped']) + count($results['errors']);
+        $matchedCount = count($results['matched']);
+
+        return $this->response
+            ->withType('application/json')
+            ->withStringBody(json_encode([
+                'success' => true,
+                'message' => "{$matchedCount} of {$totalFiles} images uploaded successfully.",
+                'results' => $results,
+            ]));
     }
 
     /**

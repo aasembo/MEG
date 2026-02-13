@@ -101,6 +101,10 @@ $slideCategories = $slideCategories ?? [];
     grid-template-columns: 1fr 1fr;
     gap: 15px;
 }
+.slide-preview-body.two-col-custom {
+    display: grid;
+    gap: 15px;
+}
 .preview-column {
     border: 2px dashed #dee2e6;
     border-radius: 8px;
@@ -556,9 +560,11 @@ $slideCategories = $slideCategories ?? [];
                             <!-- Column 2 -->
                             <div class="col-md-6">
                                 <div class="column-section">
-                                    <h5><i class="fas fa-columns me-2"></i>Column 2</h5>
-                                    
-                                    <?php $col2Type = $slideConfig['col2']['type'] ?? 'text'; ?>
+                                    <?php 
+                                    $isStackedSlide = !empty($slideConfig['stacked_images']);
+                                    $col2Type = $slideConfig['col2']['type'] ?? 'text';
+                                    ?>
+                                    <h5><i class="fas fa-columns me-2"></i><?= $isStackedSlide ? 'Images (Stacked)' : 'Column 2' ?></h5>
 
                                     <?php if (!empty($slideConfig['col2']['header'])): ?>
                                     <div class="mb-3">
@@ -572,7 +578,58 @@ $slideCategories = $slideCategories ?? [];
                                     </div>
                                     <?php endif; ?>
 
-                                    <?php if ($col2Type === 'image' || $col2Type === 'composite_image'): ?>
+                                    <?php if ($isStackedSlide): ?>
+                                        <!-- Stacked Images: Top (col2) and Bottom (col3) -->
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">
+                                                <i class="fas fa-arrow-up me-1"></i>Top Image
+                                                <small class="text-muted d-block"><?= h($slideConfig['col2']['description'] ?? 'Top image') ?></small>
+                                            </label>
+                                            <?= $this->Form->hidden('col2_type', ['value' => 'image']) ?>
+                                            <div class="upload-dropzone" id="col2Dropzone">
+                                                <i class="fas fa-cloud-upload-alt fa-2x text-danger mb-2"></i>
+                                                <p class="mb-0">Drop top image here or click to upload</p>
+                                            </div>
+                                            <?= $this->Form->file('col2_image', [
+                                                'id' => 'col2ImageInput',
+                                                'accept' => 'image/*',
+                                                'class' => 'd-none'
+                                            ]) ?>
+                                            <div id="col2ImagePreview" class="mt-3 text-center d-none">
+                                                <img id="col2PreviewImg" src="" class="image-preview-thumb">
+                                                <br>
+                                                <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="col2RemoveImg">
+                                                    <i class="fas fa-times me-1"></i>Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <hr class="my-3">
+                                        
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">
+                                                <i class="fas fa-arrow-down me-1"></i>Bottom Image
+                                                <small class="text-muted d-block"><?= h($slideConfig['col3']['description'] ?? 'Bottom image') ?></small>
+                                            </label>
+                                            <?= $this->Form->hidden('col3_type', ['value' => 'image']) ?>
+                                            <div class="upload-dropzone" id="col3Dropzone">
+                                                <i class="fas fa-cloud-upload-alt fa-2x text-danger mb-2"></i>
+                                                <p class="mb-0">Drop bottom image here or click to upload</p>
+                                            </div>
+                                            <?= $this->Form->file('col3_image', [
+                                                'id' => 'col3ImageInput',
+                                                'accept' => 'image/*',
+                                                'class' => 'd-none'
+                                            ]) ?>
+                                            <div id="col3ImagePreview" class="mt-3 text-center d-none">
+                                                <img id="col3PreviewImg" src="" class="image-preview-thumb">
+                                                <br>
+                                                <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="col3RemoveImg">
+                                                    <i class="fas fa-times me-1"></i>Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                    <?php elseif ($col2Type === 'image' || $col2Type === 'composite_image'): ?>
                                         <?= $this->Form->hidden('col2_type', ['value' => 'image']) ?>
                                         <div class="upload-dropzone" id="col2Dropzone">
                                             <i class="fas fa-cloud-upload-alt fa-2x text-danger mb-2"></i>
@@ -772,7 +829,7 @@ $slideCategories = $slideCategories ?? [];
                                     $col2WidthPercent = $layoutConfig['col2_width_percent'] ?? 50;
                                 }
                                 ?>
-                                <div class="slide-preview-body <?= ($slideConfig['columns'] ?? 1) == 2 ? 'two-col' : '' ?>" id="previewBody">
+                                <div class="slide-preview-body <?= ($slideConfig['columns'] ?? 1) == 2 ? 'two-col-custom' : '' ?>" id="previewBody" style="<?= ($slideConfig['columns'] ?? 1) == 2 ? 'grid-template-columns: ' . ($col1WidthPercent ?? 50) . 'fr ' . ($col2WidthPercent ?? 50) . 'fr;' : '' ?>">
                                     <?php if (($slideConfig['layout'] ?? '') === 'text_header_two_images'): ?>
                                     <!-- Two image placeholders side by side -->
                                     <div class="preview-column" id="previewCol1" style="flex: 50;">
@@ -789,10 +846,21 @@ $slideCategories = $slideCategories ?? [];
                                         <span class="text-muted"><?= ($slideConfig['columns'] ?? 1) == 2 ? 'Column 1' : 'Content' ?></span>
                                     </div>
                                     <?php if (($slideConfig['columns'] ?? 1) == 2): ?>
-                                    <div class="preview-column" id="previewCol2" style="flex: <?= $col2WidthPercent ?>;">
-                                        <i class="fas fa-<?= ($slideConfig['col2']['type'] ?? 'text') === 'image' ? 'image' : 'font' ?> fa-2x text-muted mb-2"></i>
-                                        <span class="text-muted">Column 2</span>
-                                    </div>
+                                        <?php if (!empty($slideConfig['stacked_images'])): ?>
+                                        <div class="preview-column" id="previewCol2" style="flex: <?= $col2WidthPercent ?>; display: flex; flex-direction: column; gap: 4px;">
+                                            <div style="flex: 1; display: flex; align-items: center; justify-content: center;" data-stacked-top id="previewCol2Top">
+                                                <div class="text-muted" style="font-size: 9px;"><i class="fas fa-image"></i> Top</div>
+                                            </div>
+                                            <div style="flex: 1; display: flex; align-items: center; justify-content: center;" data-stacked-bottom id="previewCol3Bottom">
+                                                <div class="text-muted" style="font-size: 9px;"><i class="fas fa-image"></i> Bottom</div>
+                                            </div>
+                                        </div>
+                                        <?php else: ?>
+                                        <div class="preview-column" id="previewCol2" style="flex: <?= $col2WidthPercent ?>;">
+                                            <i class="fas fa-<?= ($slideConfig['col2']['type'] ?? 'text') === 'image' ? 'image' : 'font' ?> fa-2x text-muted mb-2"></i>
+                                            <span class="text-muted">Column 2</span>
+                                        </div>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
@@ -945,6 +1013,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 input.value = '';
                 preview.classList.add('d-none');
                 dropzone.style.display = 'block';
+                // Handle stacked preview reset
+                if (col === 'col2') {
+                    const stackedTop = document.getElementById('previewCol2Top');
+                    if (stackedTop) {
+                        stackedTop.innerHTML = '<div class="text-muted" style="font-size: 9px;"><i class="fas fa-image"></i> Top</div>';
+                        return;
+                    }
+                }
+                if (col === 'col3') {
+                    const stackedBottom = document.getElementById('previewCol3Bottom');
+                    if (stackedBottom) {
+                        stackedBottom.innerHTML = '<div class="text-muted" style="font-size: 9px;"><i class="fas fa-image"></i> Bottom</div>';
+                        return;
+                    }
+                }
                 if (previewCol) {
                     previewCol.innerHTML = '<i class="fas fa-image fa-2x text-muted mb-2"></i><span class="text-muted">Upload image</span>';
                     previewCol.classList.remove('has-content');
@@ -959,6 +1042,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 preview.classList.remove('d-none');
                 dropzone.style.display = 'none';
                 
+                // Handle stacked preview updates
+                if (col === 'col2') {
+                    const stackedTop = document.getElementById('previewCol2Top');
+                    if (stackedTop) {
+                        stackedTop.innerHTML = '<img src="' + e.target.result + '" style="max-width: 100%; max-height: 120px; object-fit: contain;">';
+                        return;
+                    }
+                }
+                if (col === 'col3') {
+                    const stackedBottom = document.getElementById('previewCol3Bottom');
+                    if (stackedBottom) {
+                        stackedBottom.innerHTML = '<img src="' + e.target.result + '" style="max-width: 100%; max-height: 120px; object-fit: contain;">';
+                        return;
+                    }
+                }
                 if (previewCol) {
                     previewCol.innerHTML = '<img src="' + e.target.result + '" style="max-width: 100%; max-height: 100px; object-fit: contain;">';
                     previewCol.classList.add('has-content');
