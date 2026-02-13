@@ -132,6 +132,31 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
     object-fit: contain;
     margin: 10px auto;
 }
+.preview-multi-image {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    justify-content: center;
+    flex: 1;
+    align-items: flex-start;
+}
+.preview-multi-image-item {
+    flex: 1;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+.preview-multi-image-item .image-title {
+    font-size: 10px;
+    font-weight: bold;
+    margin-bottom: 3px;
+    color: #333;
+}
+.preview-multi-image-item img {
+    max-width: 100%;
+    max-height: 150px;
+    object-fit: contain;
+}
 .legend-editor {
     background: #f8f9fa;
     border-radius: 8px;
@@ -665,6 +690,55 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                                 </div>
                             </div>
                         </div>
+                    <?php elseif (($slideConfig['layout'] ?? '') === 'multi_image_with_titles'): ?>
+                        <!-- Multi-image preview - matches PPT output -->
+                        <?php 
+                        $maxImages = $slideConfig['max_images'] ?? 5;
+                        $defaultTitles = $slideConfig['default_image_titles'] ?? [];
+                        $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
+                        $imagesToShow = [];
+                        for ($i = 0; $i < $maxImages; $i++) {
+                            $colName = $imageColumns[$i];
+                            $imageUrlField = $colName . '_image_url';
+                            $imagePathField = $colName . '_image_path';
+                            $headerField = $colName . '_header';
+                            $defaultTitle = $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
+                            $imageUrl = $slide->{$imageUrlField} ?? $slide->{$imagePathField} ?? null;
+                            if (!empty($imageUrl)) {
+                                $imagesToShow[] = [
+                                    'url' => $imageUrl,
+                                    'title' => $slide->{$headerField} ?? $defaultTitle,
+                                    'colName' => $colName
+                                ];
+                            }
+                        }
+                        ?>
+                        <div class="preview-multi-image" id="previewMultiImage">
+                            <?php if (!empty($imagesToShow)): ?>
+                                <?php foreach ($imagesToShow as $imgData): ?>
+                                    <div class="preview-multi-image-item" id="preview_<?= $imgData['colName'] ?>_item">
+                                        <div class="image-title" id="preview_<?= $imgData['colName'] ?>_title"><?= h($imgData['title']) ?></div>
+                                        <div class="text-muted" style="padding: 20px 5px; display: none;" id="preview_<?= $imgData['colName'] ?>_placeholder">
+                                            <i class="fas fa-image"></i>
+                                        </div>
+                                        <img id="preview_<?= $imgData['colName'] ?>_img" src="<?= h($imgData['url']) ?>" alt="<?= h($imgData['title']) ?>">
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php for ($i = 0; $i < $maxImages; $i++): 
+                                    $colName = $imageColumns[$i];
+                                    $defaultTitle = $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
+                                ?>
+                                    <div class="preview-multi-image-item" id="preview_<?= $colName ?>_item">
+                                        <div class="image-title" id="preview_<?= $colName ?>_title"><?= h($defaultTitle) ?></div>
+                                        <div class="text-muted" style="padding: 20px 5px;" id="preview_<?= $colName ?>_placeholder">
+                                            <i class="fas fa-image"></i>
+                                        </div>
+                                        <img id="preview_<?= $colName ?>_img" src="" alt="" style="display: none;">
+                                    </div>
+                                <?php endfor; ?>
+                            <?php endif; ?>
+                        </div>
                     <?php else: ?>
                         <div class="preview-single" id="previewContent">
                             <?php if ($slide->col1_image_url ?? $slide->image_url ?? $slide->file_path): ?>
@@ -710,10 +784,25 @@ $(document).ready(function() {
     // Column headers
     $('input[name="col1_header"], textarea[name="col1_header"]').on('input keyup change paste', function() {
         $('#previewCol1Header').text($(this).val() || 'Column 1');
+        // Also update multi-image title
+        $('#preview_col1_title').text($(this).val() || 'Discharge 1');
     });
     
     $('input[name="col2_header"], textarea[name="col2_header"]').on('input keyup change paste', function() {
         $('#previewCol2Header').text($(this).val() || 'Column 2');
+        // Also update multi-image title
+        $('#preview_col2_title').text($(this).val() || 'Discharge 2');
+    });
+    
+    // Multi-image column headers (col3-col5)
+    $('input[name="col3_header"]').on('input keyup change paste', function() {
+        $('#preview_col3_title').text($(this).val() || 'Discharge 3');
+    });
+    $('input[name="col4_header"]').on('input keyup change paste', function() {
+        $('#preview_col4_title').text($(this).val() || 'Discharge 4');
+    });
+    $('input[name="col5_header"]').on('input keyup change paste', function() {
+        $('#preview_col5_title').text($(this).val() || 'Discharge 5');
     });
     $('.upload-zone').click(function() {
         const targetId = $(this).data('target');
@@ -774,8 +863,18 @@ $(document).ready(function() {
     function updatePreviewImage(column, src) {
         if (column === 'col1') {
             $('#previewCol1Content').html('<img src="' + src + '" alt="Column 1">');
+            // Also update multi-image preview
+            $('#preview_col1_img').attr('src', src).show();
+            $('#preview_col1_placeholder').hide();
         } else if (column === 'col2') {
             $('#previewCol2Content').html('<img src="' + src + '" alt="Column 2">');
+            // Also update multi-image preview
+            $('#preview_col2_img').attr('src', src).show();
+            $('#preview_col2_placeholder').hide();
+        } else if (column === 'col3' || column === 'col4' || column === 'col5') {
+            // Multi-image layout columns 3-5
+            $('#preview_' + column + '_img').attr('src', src).show();
+            $('#preview_' + column + '_placeholder').hide();
         } else {
             $('#previewContent').html('<img src="' + src + '" alt="Slide Image">');
         }

@@ -76,6 +76,48 @@ function formatStructuredContent($content, $truncate = false, $maxLength = 100) 
     }
     return nl2br(h($content));
 }
+
+/**
+ * Format cover slide content to match PPT output
+ * Parses the description field the same way PPT does
+ * @param object $slide Slide entity with description field
+ * @return string Formatted HTML
+ */
+function formatCoverSlideContent($slide) {
+    $description = $slide->description ?? '';
+    if (empty($description)) {
+        // Fallback to html_content if description is empty
+        return $slide->html_content ?? '';
+    }
+    
+    // Parse description the same way PPT does
+    $lines = explode("\n", $description);
+    $heading = array_shift($lines);
+    $content = implode("\n", array_slice($lines, 2));
+    
+    $html = '<h2 style="font-size: 24px; font-weight: bold;">' . h($heading) . '</h2>';
+    
+    if (!empty($content)) {
+        $html .= '<div style="font-size: 16px; margin-top: 20px;">';
+        $contentLines = explode("\n", $content);
+        foreach ($contentLines as $line) {
+            if (strpos($line, 'Name:') !== false) {
+                // Make patient name bold like PPT does
+                $parts = explode(':', $line, 2);
+                $html .= '<div>' . h($parts[0]) . ': ';
+                if (isset($parts[1])) {
+                    $html .= '<strong>' . h(trim($parts[1])) . '</strong>';
+                }
+                $html .= '</div>';
+            } else {
+                $html .= '<div>' . h($line) . '</div>';
+            }
+        }
+        $html .= '</div>';
+    }
+    
+    return $html;
+}
 ?>
 
 <style>
@@ -508,8 +550,8 @@ function formatStructuredContent($content, $truncate = false, $maxLength = 100) 
                     
                     <div class="slide-content <?php echo $slide->slide_order === 1 ? 'text-center' : '' ?>">
                         <?php if ($slide->slide_order === 1): ?>
-                            <!-- Cover slide with centered content -->
-                            <?php echo $slide->html_content ?>
+                            <!-- Cover slide with centered content - matches PPT output -->
+                            <?php echo formatCoverSlideContent($slide) ?>
                         <?php elseif ($layoutColumns === 2): ?>
                             <!-- Two-column layout -->
                             <?php if (!empty($slide->title)): ?>
@@ -527,7 +569,22 @@ function formatStructuredContent($content, $truncate = false, $maxLength = 100) 
                             $layoutConfig = $pptLayouts[$layout] ?? [];
                             $col1WidthPercent = $layoutConfig['col1_width_percent'] ?? 50;
                             $col2WidthPercent = $layoutConfig['col2_width_percent'] ?? 50;
+                            
+                            // For text_header_two_images layout, show col1_content as header text above both columns
+                            $isTextHeaderLayout = ($layout === 'text_header_two_images');
+                            $showHeaderText = $isTextHeaderLayout && !empty($slide->col1_content) && (
+                                !empty($slide->col1_image_url) || !empty($slide->col1_image_path) || 
+                                !empty($slide->col2_image_url) || !empty($slide->col2_image_path)
+                            );
                             ?>
+                            
+                            <?php if ($showHeaderText): ?>
+                                <!-- Header text for text_header_two_images layout -->
+                                <div class="slide-header-text" style="margin-bottom: 15px; font-size: 14px; line-height: 1.6;">
+                                    <?php echo formatStructuredContent($slide->col1_content) ?>
+                                </div>
+                            <?php endif; ?>
+                            
                             <div class="slide-two-columns">
                                 <!-- Column 1 -->
                                 <div class="slide-column" style="flex: <?php echo $col1WidthPercent ?>;">
@@ -539,7 +596,7 @@ function formatStructuredContent($content, $truncate = false, $maxLength = 100) 
                                             <img src="<?php echo h($slide->col1_image_url) ?>" alt="Column 1 Image" />
                                         <?php elseif (!empty($slide->col1_image_path)): ?>
                                             <img src="<?php echo h($slide->col1_image_path) ?>" alt="Column 1 Image" />
-                                        <?php elseif (!empty($slide->col1_content)): ?>
+                                        <?php elseif (!empty($slide->col1_content) && !$showHeaderText): ?>
                                             <div class="column-text"><?php echo formatStructuredContent($slide->col1_content) ?></div>
                                         <?php endif; ?>
                                     </div>
@@ -555,7 +612,7 @@ function formatStructuredContent($content, $truncate = false, $maxLength = 100) 
                                         <?php elseif (!empty($slide->col2_image_path)): ?>
                                             <img src="<?php echo h($slide->col2_image_path) ?>" alt="Column 2 Image" />
                                         <?php elseif (!empty($slide->col2_content)): ?>
-                                            <div class="column-text"><?php echo nl2br(h($slide->col2_content)) ?></div>
+                                            <div class="column-text"><?php echo formatStructuredContent($slide->col2_content) ?></div>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -575,7 +632,7 @@ function formatStructuredContent($content, $truncate = false, $maxLength = 100) 
                                 </div>
                             <?php endif; ?>
                         <?php elseif (($slideConfig['layout'] ?? '') === 'multi_image_with_titles'): ?>
-                            <!-- Multi-image layout -->
+                            <!-- Multi-image layout - matches PPT output -->
                             <?php if (!empty($slide->title)): ?>
                                 <h2><?php echo h($slide->title) ?></h2>
                             <?php endif; ?>
@@ -584,28 +641,42 @@ function formatStructuredContent($content, $truncate = false, $maxLength = 100) 
                             $maxImages = $slideConfig['max_images'] ?? 5;
                             $defaultTitles = $slideConfig['default_image_titles'] ?? [];
                             $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
-                            $hasImages = false;
+                            
+                            // First count how many images we have
+                            $imageCount = 0;
+                            $imagesToShow = [];
+                            for ($i = 0; $i < $maxImages; $i++) {
+                                $colName = $imageColumns[$i];
+                                $imagePathField = $colName . '_image_path';
+                                $imageUrlField = $colName . '_image_url';
+                                $headerField = $colName . '_header';
+                                $defaultTitle = $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
+                                $imageUrl = $slide->{$imageUrlField} ?? null;
+                                if (!empty($imageUrl) || !empty($slide->{$imagePathField})) {
+                                    $imagesToShow[] = [
+                                        'url' => $imageUrl ?? $slide->{$imagePathField},
+                                        'title' => $slide->{$headerField} ?? $defaultTitle
+                                    ];
+                                    $imageCount++;
+                                }
+                            }
+                            $hasImages = $imageCount > 0;
+                            // Calculate width per image (like PPT does)
+                            $imageWidthPercent = $imageCount > 0 ? (100 / $imageCount) : 100;
                             ?>
-                            <div class="multi-image-grid" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
-                                <?php for ($i = 0; $i < $maxImages; $i++): 
-                                    $colName = $imageColumns[$i];
-                                    $imagePathField = $colName . '_image_path';
-                                    $imageUrlField = $colName . '_image_url';
-                                    $headerField = $colName . '_header';
-                                    $defaultTitle = $defaultTitles[$i] ?? 'Image ' . ($i + 1);
-                                    $imageUrl = $slide->{$imageUrlField} ?? null;
-                                    if (!empty($imageUrl) || !empty($slide->{$imagePathField})):
-                                        $hasImages = true;
-                                ?>
-                                    <div class="multi-image-item" style="text-align: center; max-width: 30%; flex: 0 0 30%;">
-                                        <div class="image-title" style="font-weight: bold; font-size: 11px; margin-bottom: 3px;">
-                                            <?= h($slide->{$headerField} ?? $defaultTitle) ?>
+                            <div class="multi-image-grid" style="display: flex; flex-wrap: nowrap; justify-content: center; gap: 5px; height: calc(100% - 50px);">
+                                <?php foreach ($imagesToShow as $imgData): ?>
+                                    <div class="multi-image-item" style="text-align: center; flex: 1; max-width: <?= $imageWidthPercent ?>%; display: flex; flex-direction: column;">
+                                        <div class="image-title" style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">
+                                            <?= h($imgData['title']) ?>
                                         </div>
-                                        <img src="<?= h($imageUrl ?? $slide->{$imagePathField}) ?>" 
-                                             alt="<?= h($slide->{$headerField} ?? $defaultTitle) ?>" 
-                                             style="max-width: 100%; max-height: 100px; border: 1px solid #ddd; border-radius: 4px;" />
+                                        <div style="flex: 1; display: flex; align-items: flex-start; justify-content: center;">
+                                            <img src="<?= h($imgData['url']) ?>" 
+                                                 alt="<?= h($imgData['title']) ?>" 
+                                                 style="max-width: 100%; max-height: 350px; object-fit: contain;" />
+                                        </div>
                                     </div>
-                                <?php endif; endfor; ?>
+                                <?php endforeach; ?>
                                 
                                 <?php if (!$hasImages): ?>
                                     <div class="text-muted text-center py-3" style="width: 100%;">

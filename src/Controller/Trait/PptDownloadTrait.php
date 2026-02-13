@@ -402,6 +402,28 @@ trait PptDownloadTrait
         $col1X = $margin;
         $col2X = $margin + $col1Width + $columnGap;
         
+        // For text_header_two_images layout, render col1_content as full-width header text
+        $isTextHeaderLayout = ($layout === 'text_header_two_images');
+        $hasImages = !empty($slide->col1_image_url) || !empty($slide->col2_image_url);
+        $textHeaderHeight = 0;
+        
+        if ($isTextHeaderLayout && !empty($slide->col1_content) && $hasImages) {
+            // Render header text spanning full width
+            $textFontSize = $pptStyles['content']['font_size'] ?? 14;
+            $textHeaderHeight = 60; // Approximate height for header text
+            
+            $headerTextShape = $pptSlide->createRichTextShape();
+            $headerTextShape->setHeight($textHeaderHeight);
+            $headerTextShape->setWidth($contentWidth);
+            $headerTextShape->setOffsetX($margin);
+            $headerTextShape->setOffsetY($contentStartY);
+            
+            $this->addStructuredContentToShapeForPpt($headerTextShape, $slide->col1_content, $textFontSize);
+            
+            $contentStartY += $textHeaderHeight + 10;
+            $availableHeight -= $textHeaderHeight + 10;
+        }
+        
         // Calculate header height
         $col1HeaderText = strip_tags($slide->col1_header ?? '');
         $col2HeaderText = strip_tags($slide->col2_header ?? '');
@@ -441,7 +463,8 @@ trait PptDownloadTrait
         if (!empty($slide->col1_image_url)) {
             $tempFile = $this->renderColumnImage($pptSlide, $slide->col1_image_url, $col1X, $col1Width, $imageStartY, $imageMaxHeight);
             if ($tempFile) $tempFiles[] = $tempFile;
-        } elseif (!empty($slide->col1_content)) {
+        } elseif (!empty($slide->col1_content) && !($isTextHeaderLayout && $hasImages)) {
+            // Only render col1_content here if not already shown as header text
             $this->renderColumnText($pptSlide, $slide->col1_content, $col1X, $col1Width, $imageStartY, $imageMaxHeight, $pptStyles, $layout);
         }
         

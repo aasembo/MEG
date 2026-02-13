@@ -103,6 +103,41 @@ $slideCategories = $slideCategories ?? [];
     border-style: solid;
     border-color: #28a745;
 }
+.slide-preview-body.multi-image {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    padding: 10px;
+    height: calc(100% - 80px);
+}
+.slide-preview-body.multi-image .preview-multi-item {
+    flex: 1;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    border: 1px dashed #dee2e6;
+    border-radius: 4px;
+    padding: 5px;
+}
+.slide-preview-body.multi-image .preview-multi-item .image-title {
+    font-size: 9px;
+    font-weight: bold;
+    margin-bottom: 3px;
+    color: #333;
+}
+.slide-preview-body.multi-image .preview-multi-item img {
+    max-width: 100%;
+    max-height: 100px;
+    object-fit: contain;
+    margin: auto;
+}
+.slide-preview-body.multi-image .preview-multi-item .placeholder-icon {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+}
 .upload-dropzone {
     border: 3px dashed #dc3545;
     border-radius: 10px;
@@ -491,8 +526,34 @@ $slideCategories = $slideCategories ?? [];
                                     $col1WidthPercent = $layoutConfig['col1_width_percent'] ?? 50;
                                     $col2WidthPercent = $layoutConfig['col2_width_percent'] ?? 50;
                                 }
+                                $isMultiImageLayout = ($slideConfig['layout'] ?? '') === 'multi_image_with_titles';
+                                $previewBodyClass = 'slide-preview-body';
+                                if (($slideConfig['columns'] ?? 1) == 2) {
+                                    $previewBodyClass .= ' two-col';
+                                } elseif ($isMultiImageLayout) {
+                                    $previewBodyClass .= ' multi-image';
+                                }
                                 ?>
-                                <div class="slide-preview-body <?= ($slideConfig['columns'] ?? 1) == 2 ? 'two-col' : '' ?>" id="previewBody">
+                                <div class="<?= $previewBodyClass ?>" id="previewBody">
+                                    <?php if ($isMultiImageLayout): ?>
+                                        <?php 
+                                        $maxImages = $slideConfig['max_images'] ?? 5;
+                                        $defaultTitles = $slideConfig['default_image_titles'] ?? [];
+                                        $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
+                                        ?>
+                                        <?php for ($i = 0; $i < $maxImages; $i++): 
+                                            $colName = $imageColumns[$i];
+                                            $defaultTitle = $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
+                                        ?>
+                                        <div class="preview-multi-item" id="preview_<?= $colName ?>_item">
+                                            <div class="image-title" id="preview_<?= $colName ?>_title"><?= h($defaultTitle) ?></div>
+                                            <div class="placeholder-icon" id="preview_<?= $colName ?>_placeholder">
+                                                <i class="fas fa-image"></i>
+                                            </div>
+                                            <img id="preview_<?= $colName ?>_img" src="" alt="" style="display: none;">
+                                        </div>
+                                        <?php endfor; ?>
+                                    <?php else: ?>
                                     <div class="preview-column" id="previewCol1" style="flex: <?= $col1WidthPercent ?>;">
                                         <i class="fas fa-<?= ($slideConfig['col1']['type'] ?? 'text') === 'image' ? 'image' : 'font' ?> fa-2x text-muted mb-2"></i>
                                         <span class="text-muted"><?= ($slideConfig['columns'] ?? 1) == 2 ? 'Column 1' : 'Content' ?></span>
@@ -502,6 +563,7 @@ $slideCategories = $slideCategories ?? [];
                                         <i class="fas fa-<?= ($slideConfig['col2']['type'] ?? 'text') === 'image' ? 'image' : 'font' ?> fa-2x text-muted mb-2"></i>
                                         <span class="text-muted">Column 2</span>
                                     </div>
+                                    <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -563,6 +625,17 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Multi-image column headers (col1-col5) for multi-image layouts
+    ['col1', 'col2', 'col3', 'col4', 'col5'].forEach(function(col, index) {
+        const headerInput = document.querySelector('input[name="' + col + '_header"]');
+        const previewTitle = document.getElementById('preview_' + col + '_title');
+        if (headerInput && previewTitle) {
+            headerInput.addEventListener('input', function() {
+                previewTitle.textContent = this.value || 'Discharge ' + (index + 1);
+            });
+        }
+    });
+    
     // Column 1 Content live preview
     const col1Content = document.getElementById('col1Content');
     const previewCol1 = document.getElementById('previewCol1');
@@ -581,6 +654,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     setupImageUpload('col1');
     setupImageUpload('col2');
+    setupImageUpload('col3');
+    setupImageUpload('col4');
+    setupImageUpload('col5');
     
     function setupImageUpload(col) {
         const dropzone = document.getElementById(col + 'Dropzone');
@@ -589,6 +665,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const previewImg = document.getElementById(col + 'PreviewImg');
         const removeBtn = document.getElementById(col + 'RemoveImg');
         const previewCol = document.getElementById('preview' + col.charAt(0).toUpperCase() + col.slice(1));
+        
+        // Multi-image preview elements
+        const multiPreviewImg = document.getElementById('preview_' + col + '_img');
+        const multiPreviewPlaceholder = document.getElementById('preview_' + col + '_placeholder');
         
         if (!dropzone || !input) return;
         
@@ -627,19 +707,38 @@ document.addEventListener('DOMContentLoaded', function() {
                     previewCol.innerHTML = '<i class="fas fa-image fa-2x text-muted mb-2"></i><span class="text-muted">Upload image</span>';
                     previewCol.classList.remove('has-content');
                 }
+                // Reset multi-image preview
+                if (multiPreviewImg) {
+                    multiPreviewImg.style.display = 'none';
+                    multiPreviewImg.src = '';
+                }
+                if (multiPreviewPlaceholder) {
+                    multiPreviewPlaceholder.style.display = 'block';
+                }
             });
         }
         
         function handleImageUpload(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                previewImg.src = e.target.result;
-                preview.classList.remove('d-none');
-                dropzone.style.display = 'none';
+                if (previewImg) {
+                    previewImg.src = e.target.result;
+                    preview.classList.remove('d-none');
+                    dropzone.style.display = 'none';
+                }
                 
                 if (previewCol) {
                     previewCol.innerHTML = '<img src="' + e.target.result + '" style="max-width: 100%; max-height: 100px; object-fit: contain;">';
                     previewCol.classList.add('has-content');
+                }
+                
+                // Update multi-image preview
+                if (multiPreviewImg) {
+                    multiPreviewImg.src = e.target.result;
+                    multiPreviewImg.style.display = 'block';
+                }
+                if (multiPreviewPlaceholder) {
+                    multiPreviewPlaceholder.style.display = 'none';
                 }
             };
             reader.readAsDataURL(file);
