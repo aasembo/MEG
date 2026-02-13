@@ -63,6 +63,13 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
     border-color: #c82333;
     transform: scale(1.02);
 }
+.upload-zone-sm {
+    padding: 15px 10px;
+    border-width: 2px;
+}
+.upload-zone-sm i {
+    font-size: 1rem;
+}
 .current-image-preview {
     max-width: 100%;
     max-height: 200px;
@@ -143,6 +150,28 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
     padding: 2px;
     border: 1px solid #ced4da;
     border-radius: 4px;
+}
+/* Structured Bullets Editor Styles */
+.structured-bullets-editor {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    background: #fafafa;
+    max-height: 500px;
+    overflow-y: auto;
+}
+.summary-section {
+    border-left: 3px solid #dc3545;
+    padding-left: 15px;
+    background: white;
+    border-radius: 0 8px 8px 0;
+    padding: 15px;
+}
+.section-item {
+    border-left: 2px solid #6c757d;
+}
+.section-items .btn-outline-secondary {
+    border-style: dashed;
 }
 </style>
 
@@ -346,6 +375,73 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                                 </div>
                             </div>
                         </div>
+                    <?php elseif (($slideConfig['layout'] ?? '') === 'multi_image_with_titles'): ?>
+                        <!-- Multi-Image Layout (up to 5 images with titles) -->
+                        <div class="column-section">
+                            <h5><i class="fas fa-images me-2"></i>Multiple Images</h5>
+                            <p class="text-muted mb-3"><?= h($slideConfig['col1']['description'] ?? 'Upload up to 5 images') ?></p>
+                            
+                            <?php 
+                            $maxImages = $slideConfig['max_images'] ?? 5;
+                            $defaultTitles = $slideConfig['default_image_titles'] ?? [];
+                            $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
+                            ?>
+                            
+                            <div class="row g-3">
+                                <?php for ($i = 0; $i < $maxImages; $i++): 
+                                    $colName = $imageColumns[$i];
+                                    $imagePathField = $colName . '_image_path';
+                                    $imageUrlField = $colName . '_image_url';
+                                    $headerField = $colName . '_header';
+                                    $fileInputId = $colName . '_image_file';
+                                    $defaultTitle = $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
+                                ?>
+                                <div class="col-md-4 col-lg-4">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light py-2">
+                                            <span class="badge bg-danger me-2"><?= $i + 1 ?></span>
+                                            <small class="text-muted">Image <?= $i + 1 ?></small>
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <div class="mb-2">
+                                                <input type="text" 
+                                                       name="<?= $headerField ?>" 
+                                                       class="form-control form-control-sm"
+                                                       value="<?= h($slide->{$headerField} ?? $defaultTitle) ?>"
+                                                       placeholder="Image title">
+                                            </div>
+                                            
+                                            <?php if ($slide->{$imageUrlField} ?? $slide->{$imagePathField}): ?>
+                                                <div class="mb-2 text-center">
+                                                    <img src="<?= h($slide->{$imageUrlField} ?? $slide->{$imagePathField}) ?>" 
+                                                         alt="Image <?= $i + 1 ?>" 
+                                                         class="img-fluid rounded" 
+                                                         style="max-height: 120px;"
+                                                         id="<?= $colName ?>CurrentImage">
+                                                </div>
+                                            <?php endif; ?>
+                                            
+                                            <div class="upload-zone upload-zone-sm" id="<?= $colName ?>UploadZone" data-target="<?= $fileInputId ?>">
+                                                <i class="fas fa-image text-danger mb-1"></i>
+                                                <div><small><?= ($slide->{$imagePathField}) ? 'Replace' : 'Upload' ?></small></div>
+                                            </div>
+                                            <?= $this->Form->file($fileInputId, [
+                                                'id' => $fileInputId,
+                                                'accept' => 'image/*',
+                                                'style' => 'display: none;'
+                                            ]) ?>
+                                            <div id="<?= $colName ?>PreviewContainer" class="mt-2 text-center" style="display: none;">
+                                                <img id="<?= $colName ?>Preview" src="" class="img-fluid rounded" style="max-height: 100px;" alt="Preview">
+                                                <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-preview" data-target="<?= $colName ?>">
+                                                    <i class="fas fa-times"></i> Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endfor; ?>
+                            </div>
+                        </div>
                     <?php else: ?>
                         <!-- Single Column Layout -->
                         <div class="column-section">
@@ -382,14 +478,89 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                             <?php if (($slideConfig['col1']['type'] ?? '') === 'text' || ($slideConfig['layout'] ?? '') === 'text_only'): ?>
                                 <div class="mt-3">
                                     <label class="form-label fw-bold">Text Content</label>
-                                    <?php echo $this->Form->textarea('col1_content', [
-                                        'class' => 'form-control',
-                                        'rows' => 8,
-                                        'placeholder' => 'Enter slide text content',
-                                        'label' => false,
-                                        'id' => 'col1Content',
-                                        'value' => $slide->col1_content ?? $slide->description ?? ''
-                                    ]) ?>
+                                    
+                                    <?php if (($slideConfig['col1']['format'] ?? '') === 'structured_bullets' && !empty($slideConfig['default_sections'])): ?>
+                                        <?php 
+                                        // Parse existing content or use defaults
+                                        $existingSections = [];
+                                        if (!empty($slide->col1_content)) {
+                                            $decoded = json_decode($slide->col1_content, true);
+                                            if (is_array($decoded)) {
+                                                $existingSections = $decoded;
+                                            }
+                                        }
+                                        // If no existing data, use defaults
+                                        if (empty($existingSections)) {
+                                            $existingSections = $slideConfig['default_sections'];
+                                        }
+                                        ?>
+                                        <!-- Structured Bullets Editor for Summary Slide -->
+                                        <div class="structured-bullets-editor" id="structuredBulletsEditor">
+                                            <?php foreach ($existingSections as $sectionIndex => $section): ?>
+                                            <div class="summary-section mb-4" data-section="<?= $sectionIndex ?>">
+                                                <div class="section-heading mb-3">
+                                                    <label class="form-label small text-muted">Section Heading</label>
+                                                    <div class="input-group">
+                                                        <input type="text" 
+                                                               name="structured_sections[<?= $sectionIndex ?>][heading]" 
+                                                               class="form-control form-control-sm fw-bold"
+                                                               value="<?= h($section['heading'] ?? '') ?>"
+                                                               placeholder="Section heading">
+                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-section-btn">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="section-items ms-3">
+                                                    <?php foreach ($section['items'] ?? [] as $itemIndex => $item): ?>
+                                                    <div class="section-item mb-3 p-2 bg-light rounded" data-item="<?= $itemIndex ?>">
+                                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                                            <label class="form-label small text-muted mb-0">Item Title</label>
+                                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-item-btn">
+                                                                <i class="fas fa-times"></i>
+                                                            </button>
+                                                        </div>
+                                                        <input type="text" 
+                                                               name="structured_sections[<?= $sectionIndex ?>][items][<?= $itemIndex ?>][title]" 
+                                                               class="form-control form-control-sm mb-2"
+                                                               value="<?= h($item['title'] ?? '') ?>"
+                                                               placeholder="Item title">
+                                                        
+                                                        <label class="form-label small text-muted">Sub-items (one per line)</label>
+                                                        <textarea name="structured_sections[<?= $sectionIndex ?>][items][<?= $itemIndex ?>][subitems_text]" 
+                                                                  class="form-control form-control-sm" 
+                                                                  rows="3"
+                                                                  placeholder="Enter sub-items, one per line"><?= h(implode("\n", $item['subitems'] ?? [])) ?></textarea>
+                                                    </div>
+                                                    <?php endforeach; ?>
+                                                    
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary add-item-btn" data-section="<?= $sectionIndex ?>">
+                                                        <i class="fas fa-plus me-1"></i>Add Item
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <?php endforeach; ?>
+                                            
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="addSectionBtn">
+                                                <i class="fas fa-plus me-1"></i>Add Section
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Hidden field to store JSON data -->
+                                        <?= $this->Form->hidden('col1_content', ['id' => 'col1ContentJson']) ?>
+                                        <?= $this->Form->hidden('content_format', ['value' => 'structured_bullets']) ?>
+                                        
+                                    <?php else: ?>
+                                        <?php echo $this->Form->textarea('col1_content', [
+                                            'class' => 'form-control',
+                                            'rows' => 8,
+                                            'placeholder' => 'Enter slide text content',
+                                            'label' => false,
+                                            'id' => 'col1Content',
+                                            'value' => $slide->col1_content ?? $slide->description ?? ''
+                                        ]) ?>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -566,7 +737,7 @@ $(document).ready(function() {
         }
     });
     
-    $('#col1_image_file, #col2_image_file, #image_file').change(function() {
+    $('#col1_image_file, #col2_image_file, #col3_image_file, #col4_image_file, #col5_image_file, #image_file').change(function() {
         if (this.files && this.files[0]) {
             handleFileSelect(this.id, this.files[0]);
         }
@@ -580,15 +751,18 @@ $(document).ready(function() {
         
         const reader = new FileReader();
         reader.onload = function(e) {
-            if (inputId === 'col1_image_file') {
-                $('#col1Preview').attr('src', e.target.result);
-                $('#col1PreviewContainer').show();
-                updatePreviewImage('col1', e.target.result);
-            } else if (inputId === 'col2_image_file') {
-                $('#col2Preview').attr('src', e.target.result);
-                $('#col2PreviewContainer').show();
-                updatePreviewImage('col2', e.target.result);
-            } else {
+            // Handle col1-col5 image files
+            const colMatch = inputId.match(/^(col[1-5])_image_file$/);
+            if (colMatch) {
+                const colName = colMatch[1];
+                $('#' + colName + 'Preview').attr('src', e.target.result);
+                $('#' + colName + 'PreviewContainer').show();
+                // Update current image if it exists
+                if ($('#' + colName + 'CurrentImage').length) {
+                    $('#' + colName + 'CurrentImage').attr('src', e.target.result);
+                }
+                updatePreviewImage(colName, e.target.result);
+            } else if (inputId === 'image_file') {
                 $('#imagePreview').attr('src', e.target.result);
                 $('#imagePreviewContainer').show();
                 updatePreviewImage('single', e.target.result);
@@ -609,13 +783,11 @@ $(document).ready(function() {
     
     $('.remove-preview').click(function() {
         const target = $(this).data('target');
-        if (target === 'col1') {
-            $('#col1_image_file').val('');
-            $('#col1PreviewContainer').hide();
-        } else if (target === 'col2') {
-            $('#col2_image_file').val('');
-            $('#col2PreviewContainer').hide();
-        } else {
+        // Handle col1-col5 
+        if (target.match(/^col[1-5]$/)) {
+            $('#' + target + '_image_file').val('');
+            $('#' + target + 'PreviewContainer').hide();
+        } else if (target === 'image') {
             $('#image_file').val('');
             $('#imagePreviewContainer').hide();
         }
@@ -649,5 +821,172 @@ $(document).ready(function() {
     $(document).on('click', '.remove-legend', function() {
         $(this).closest('.legend-item-row').remove();
     });
+    
+    // Structured Bullets Editor for Summary Slide
+    const structuredEditor = document.getElementById('structuredBulletsEditor');
+    if (structuredEditor) {
+        let sectionCounter = structuredEditor.querySelectorAll('.summary-section').length;
+        let itemCounters = {};
+        
+        // Initialize item counters
+        structuredEditor.querySelectorAll('.summary-section').forEach((section, sIndex) => {
+            itemCounters[sIndex] = section.querySelectorAll('.section-item').length;
+        });
+        
+        // Add new section
+        document.getElementById('addSectionBtn')?.addEventListener('click', function() {
+            const sectionHtml = `
+                <div class="summary-section mb-4" data-section="${sectionCounter}">
+                    <div class="section-heading mb-3">
+                        <label class="form-label small text-muted">Section Heading</label>
+                        <div class="input-group">
+                            <input type="text" 
+                                   name="structured_sections[${sectionCounter}][heading]" 
+                                   class="form-control form-control-sm fw-bold"
+                                   placeholder="Section heading">
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-section-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="section-items ms-3">
+                        <button type="button" class="btn btn-sm btn-outline-secondary add-item-btn" data-section="${sectionCounter}">
+                            <i class="fas fa-plus me-1"></i>Add Item
+                        </button>
+                    </div>
+                </div>
+            `;
+            this.insertAdjacentHTML('beforebegin', sectionHtml);
+            itemCounters[sectionCounter] = 0;
+            sectionCounter++;
+        });
+        
+        // Add new item to section
+        structuredEditor.addEventListener('click', function(e) {
+            if (e.target.closest('.add-item-btn')) {
+                const btn = e.target.closest('.add-item-btn');
+                const sectionIndex = btn.dataset.section;
+                const itemIndex = itemCounters[sectionIndex] || 0;
+                
+                const itemHtml = `
+                    <div class="section-item mb-3 p-2 bg-light rounded" data-item="${itemIndex}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <label class="form-label small text-muted mb-0">Item Title</label>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-item-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <input type="text" 
+                               name="structured_sections[${sectionIndex}][items][${itemIndex}][title]" 
+                               class="form-control form-control-sm mb-2"
+                               placeholder="Item title">
+                        <label class="form-label small text-muted">Sub-items (one per line)</label>
+                        <textarea name="structured_sections[${sectionIndex}][items][${itemIndex}][subitems_text]" 
+                                  class="form-control form-control-sm" 
+                                  rows="3"
+                                  placeholder="Enter sub-items, one per line"></textarea>
+                    </div>
+                `;
+                btn.insertAdjacentHTML('beforebegin', itemHtml);
+                itemCounters[sectionIndex] = itemIndex + 1;
+            }
+            
+            // Remove section
+            if (e.target.closest('.remove-section-btn')) {
+                e.target.closest('.summary-section').remove();
+            }
+            
+            // Remove item
+            if (e.target.closest('.remove-item-btn')) {
+                e.target.closest('.section-item').remove();
+            }
+        });
+        
+        // Before form submit, convert structured data to JSON
+        document.querySelector('.slide-form')?.addEventListener('submit', function(e) {
+            const jsonField = document.getElementById('col1ContentJson');
+            if (jsonField && structuredEditor) {
+                const sections = [];
+                structuredEditor.querySelectorAll('.summary-section').forEach(section => {
+                    const headingInput = section.querySelector('input[name*="[heading]"]');
+                    const sectionData = {
+                        heading: headingInput ? headingInput.value : '',
+                        items: []
+                    };
+                    
+                    section.querySelectorAll('.section-item').forEach(item => {
+                        const titleInput = item.querySelector('input[name*="[title]"]');
+                        const subitemsTextarea = item.querySelector('textarea[name*="[subitems_text]"]');
+                        
+                        const subitems = subitemsTextarea ? 
+                            subitemsTextarea.value.split('\n').filter(line => line.trim() !== '') : [];
+                        
+                        sectionData.items.push({
+                            title: titleInput ? titleInput.value : '',
+                            subitems: subitems
+                        });
+                    });
+                    
+                    sections.push(sectionData);
+                });
+                
+                jsonField.value = JSON.stringify(sections);
+            }
+        });
+        
+        // Live preview update function for structured bullets (matches PPT output)
+        function updateStructuredPreview() {
+            const previewContent = document.getElementById('previewContent');
+            if (!previewContent || !structuredEditor) return;
+            
+            let html = '<div style="text-align: left; font-size: 10px; overflow: auto; max-height: 100%; padding: 10px;">';
+            let isFirst = true;
+            
+            structuredEditor.querySelectorAll('.summary-section').forEach(section => {
+                const headingInput = section.querySelector('input[name*="[heading]"]');
+                const heading = headingInput ? headingInput.value : '';
+                
+                // Section heading - bold, 1.5 line height (matches PPT)
+                if (heading) {
+                    const marginTop = isFirst ? '0' : '10px';
+                    html += '<div style="font-weight: bold; line-height: 1.5; margin-top: ' + marginTop + '; margin-bottom: 4px;">' + $('<div>').text(heading).html() + '</div>';
+                    isFirst = false;
+                }
+                
+                section.querySelectorAll('.section-item').forEach(item => {
+                    const titleInput = item.querySelector('input[name*="[title]"]');
+                    const subitemsTextarea = item.querySelector('textarea[name*="[subitems_text]"]');
+                    
+                    const title = titleInput ? titleInput.value : '';
+                    const subitems = subitemsTextarea ? 
+                        subitemsTextarea.value.split('\n').filter(line => line.trim() !== '') : [];
+                    
+                    // Item - 1.4 line height, indented with bullet (matches PPT)
+                    if (title) {
+                        html += '<div style="line-height: 1.4; margin-left: 15px; margin-bottom: 2px;">• ' + $('<div>').text(title).html() + '</div>';
+                    }
+                    
+                    // Subitems - 1.3 line height, more indented, smaller (matches PPT)
+                    subitems.forEach(subitem => {
+                        const truncated = subitem.length > 60 ? subitem.substring(0, 60) + '...' : subitem;
+                        html += '<div style="line-height: 1.3; margin-left: 30px; font-size: 0.95em; color: #333; margin-bottom: 1px;">○ ' + $('<div>').text(truncated).html() + '</div>';
+                    });
+                });
+            });
+            
+            html += '</div>';
+            previewContent.innerHTML = html;
+        }
+        
+        // Attach live preview listeners to structured editor
+        structuredEditor.addEventListener('input', updateStructuredPreview);
+        structuredEditor.addEventListener('click', function(e) {
+            // Delay to allow DOM changes from add/remove operations
+            setTimeout(updateStructuredPreview, 100);
+        });
+        
+        // Initial preview update
+        updateStructuredPreview();
+    }
 });
 </script>

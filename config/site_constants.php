@@ -56,10 +56,15 @@ define('PPT_REPORT_PAGES', serialize([
         'required' => true,
         'col1' => [
             'type' => 'text',
-            'format' => 'bullets',
-            'subheading' => 'Interictal',
-            'subheading_underline' => true,
-            'placeholder' => '• Description of EEG findings...',
+            'format' => 'structured_bullets',
+        ],
+        'default_sections' => [
+            [
+                'heading' => 'Interictal',
+                'items' => [
+                    ['title' => '', 'subitems' => ['Description of EEG findings...']],
+                ],
+            ],
         ],
     ],
 
@@ -80,18 +85,26 @@ define('PPT_REPORT_PAGES', serialize([
     ],
 
     // =====================================================
-    // SLIDE 4: EEG/MEG Discharge
+    // SLIDE 4: EEG/MEG Discharge (supports up to 5 images)
     // =====================================================
     'eeg_meg_discharge' => [
         'order' => 4,
         'columns' => 1,
-        'layout' => 'single_image',
+        'layout' => 'multi_image_with_titles',
         'title' => 'EEG/MEG discharge',
         'editable' => true,
         'required' => true,
+        'max_images' => 5,
         'col1' => [
-            'type' => 'composite_image',
-            'description' => 'Composite image showing EEG, MEG Magnetometer, Gradiometers, and Sensor Contour Maps',
+            'type' => 'multi_image',
+            'description' => 'Upload up to 5 images showing EEG, MEG Magnetometer, Gradiometers, and Sensor Contour Maps',
+        ],
+        'default_image_titles' => [
+            'Discharge 1',
+            'Discharge 2',
+            'Discharge 3',
+            'Discharge 4',
+            'Discharge 5',
         ],
         'footer_text' => '[1-70Hz, 0.2 sec/div]',
         'footer_editable' => true,
@@ -524,6 +537,13 @@ define('PPT_LAYOUTS', serialize([
         'legend_position' => 'bottom',
         'legend_horizontal' => true,
     ],
+    'multi_image_with_titles' => [
+        'name' => 'Multiple Images with Titles',
+        'has_title' => true,
+        'title_centered' => true,
+        'max_images' => 5,
+        'image_title_position' => 'top',
+    ],
     'text_only' => [
         'name' => 'Text Only',
         'has_title' => true,
@@ -535,6 +555,14 @@ define('PPT_LAYOUTS', serialize([
 
 /**
  * PPT Styling Configuration
+ * 
+ * Font Sizes (in points - larger values for better readability):
+ * - Page heading: 36pt (was 24pt)
+ * - Content/body: 24pt (was 22pt) 
+ * - Cover footer: 18pt
+ * - Legends/column headers: 18pt
+ * 
+ * Note: PowerPoint slides need larger fonts than documents
  */
 define('PPT_STYLES', serialize([
     'slide' => [
@@ -546,53 +574,73 @@ define('PPT_STYLES', serialize([
     ],
     'title' => [
         'font_family' => 'Calibri',
-        'font_size' => 29,
+        'font_size' => 36,
         'font_color' => '000000',
         'font_bold' => true,
-        'height' => 40,
-        'margin_bottom' => 8,
+        'height' => 45,
+        'margin_bottom' => 2,
     ],
     'subtitle' => [
         'font_family' => 'Calibri',
-        'font_size' => 21,
+        'font_size' => 28,
         'font_color' => '000000',
         'font_bold' => false,
         'bullet' => true,
-        'height' => 32,
-        'margin_bottom' => 15,
+        'height' => 35,
+        'margin_bottom' => 2,
     ],
     'column_header' => [
         'font_family' => 'Calibri',
-        'font_size' => 15,
+        'font_size' => 18,
         'font_color' => '000000',
         'alignment' => 'left',
         'margin_bottom' => 10,
     ],
     'content' => [
         'font_family' => 'Calibri',
-        'font_size' => 14,
+        'font_size' => 24,
         'font_color' => '333333',
         'line_height' => 1.4,
     ],
+    // Structured bullets content (for Summary slide and similar text-heavy slides)
+    'structured_bullets' => [
+        'font_family' => 'Calibri',
+        'font_size' => 14,
+        'heading_font_size' => 16,
+        'font_color' => '000000',
+        'line_spacing' => 100,
+    ],
     'text_and_image_content' => [
         'font_family' => 'Calibri',
-        'font_size' => 17,
+        'font_size' => 24,
         'font_color' => '000000',
         'line_height' => 1.4,
     ],
     'bullet' => [
-        'font_size' => 14,
+        'font_size' => 24,
         'indent' => 20,
         'sub_indent' => 40,
     ],
     'legend' => [
-        'font_size' => 12,
+        'font_size' => 18,
         'box_size' => 15,
         'spacing' => 30,
     ],
     'footer' => [
-        'font_size' => 10,
+        'font_size' => 18,
         'font_color' => '666666',
+    ],
+    // Cover page specific styles
+    'cover' => [
+        'heading_font_size' => 36,
+        'content_font_size' => 24,
+        'footer_font_size' => 18,
+        'patient_name_bold' => true,
+    ],
+    // Multi-image slide titles (eeg_meg_discharge)
+    'multi_image_title' => [
+        'font_size' => 18,
+        'font_bold' => true,
     ],
 ]));
 

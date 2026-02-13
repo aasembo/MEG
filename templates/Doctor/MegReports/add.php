@@ -134,6 +134,28 @@ $slideCategories = $slideCategories ?? [];
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
+/* Structured Bullets Editor Styles */
+.structured-bullets-editor {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    background: #fafafa;
+    max-height: 500px;
+    overflow-y: auto;
+}
+.summary-section {
+    border-left: 3px solid #dc3545;
+    padding-left: 15px;
+    background: white;
+    border-radius: 0 8px 8px 0;
+    padding: 15px;
+}
+.section-item {
+    border-left: 2px solid #6c757d;
+}
+.section-items .btn-outline-secondary {
+    border-style: dashed;
+}
 </style>
 
 <div class="container-fluid px-4 py-4">
@@ -298,13 +320,64 @@ $slideCategories = $slideCategories ?? [];
                                 </div>
                             <?php else: ?>
                                 <?= $this->Form->hidden('col1_type', ['value' => 'text']) ?>
-                                <?= $this->Form->textarea('col1_content', [
-                                    'class' => 'form-control',
-                                    'rows' => 6,
-                                    'placeholder' => $slideConfig['col1']['placeholder'] ?? 'Enter text content',
-                                    'id' => 'col1Content',
-                                    'value' => $slide->col1_content ?? ($slideConfig['col1']['default_content'] ?? '')
-                                ]) ?>
+                                
+                                <?php if (($slideConfig['col1']['format'] ?? '') === 'structured_bullets' && !empty($slideConfig['default_sections'])): ?>
+                                    <!-- Structured Bullets Editor for Summary Slide -->
+                                    <div class="structured-bullets-editor" id="structuredBulletsEditor">
+                                        <?php foreach ($slideConfig['default_sections'] as $sectionIndex => $section): ?>
+                                        <div class="summary-section mb-4" data-section="<?= $sectionIndex ?>">
+                                            <div class="section-heading mb-3">
+                                                <label class="form-label small text-muted">Section Heading</label>
+                                                <input type="text" 
+                                                       name="structured_sections[<?= $sectionIndex ?>][heading]" 
+                                                       class="form-control form-control-sm fw-bold"
+                                                       value="<?= h($section['heading'] ?? '') ?>"
+                                                       placeholder="Section heading (e.g., (I) Epileptiform discharges)">
+                                            </div>
+                                            
+                                            <div class="section-items ms-3">
+                                                <?php foreach ($section['items'] ?? [] as $itemIndex => $item): ?>
+                                                <div class="section-item mb-3 p-2 bg-light rounded" data-item="<?= $itemIndex ?>">
+                                                    <label class="form-label small text-muted">Item Title</label>
+                                                    <input type="text" 
+                                                           name="structured_sections[<?= $sectionIndex ?>][items][<?= $itemIndex ?>][title]" 
+                                                           class="form-control form-control-sm mb-2"
+                                                           value="<?= h($item['title'] ?? '') ?>"
+                                                           placeholder="Item title">
+                                                    
+                                                    <label class="form-label small text-muted">Sub-items (one per line)</label>
+                                                    <textarea name="structured_sections[<?= $sectionIndex ?>][items][<?= $itemIndex ?>][subitems_text]" 
+                                                              class="form-control form-control-sm" 
+                                                              rows="3"
+                                                              placeholder="Enter sub-items, one per line"><?= h(implode("\n", $item['subitems'] ?? [])) ?></textarea>
+                                                </div>
+                                                <?php endforeach; ?>
+                                                
+                                                <button type="button" class="btn btn-sm btn-outline-secondary add-item-btn" data-section="<?= $sectionIndex ?>">
+                                                    <i class="fas fa-plus me-1"></i>Add Item
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <?php endforeach; ?>
+                                        
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="addSectionBtn">
+                                            <i class="fas fa-plus me-1"></i>Add Section
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Hidden field to store JSON data -->
+                                    <?= $this->Form->hidden('col1_content', ['id' => 'col1ContentJson']) ?>
+                                    <?= $this->Form->hidden('content_format', ['value' => 'structured_bullets']) ?>
+                                    
+                                <?php else: ?>
+                                    <?= $this->Form->textarea('col1_content', [
+                                        'class' => 'form-control',
+                                        'rows' => 6,
+                                        'placeholder' => $slideConfig['col1']['placeholder'] ?? 'Enter text content',
+                                        'id' => 'col1Content',
+                                        'value' => $slide->col1_content ?? ($slideConfig['col1']['default_content'] ?? '')
+                                    ]) ?>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </div>
 
@@ -577,6 +650,173 @@ document.addEventListener('DOMContentLoaded', function() {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    // Structured Bullets Editor for Summary Slide
+    const structuredEditor = document.getElementById('structuredBulletsEditor');
+    if (structuredEditor) {
+        let sectionCounter = structuredEditor.querySelectorAll('.summary-section').length;
+        let itemCounters = {};
+        
+        // Initialize item counters
+        structuredEditor.querySelectorAll('.summary-section').forEach((section, sIndex) => {
+            itemCounters[sIndex] = section.querySelectorAll('.section-item').length;
+        });
+        
+        // Add new section
+        document.getElementById('addSectionBtn')?.addEventListener('click', function() {
+            const sectionHtml = `
+                <div class="summary-section mb-4" data-section="${sectionCounter}">
+                    <div class="section-heading mb-3">
+                        <label class="form-label small text-muted">Section Heading</label>
+                        <div class="input-group">
+                            <input type="text" 
+                                   name="structured_sections[${sectionCounter}][heading]" 
+                                   class="form-control form-control-sm fw-bold"
+                                   placeholder="Section heading">
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-section-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="section-items ms-3">
+                        <button type="button" class="btn btn-sm btn-outline-secondary add-item-btn" data-section="${sectionCounter}">
+                            <i class="fas fa-plus me-1"></i>Add Item
+                        </button>
+                    </div>
+                </div>
+            `;
+            this.insertAdjacentHTML('beforebegin', sectionHtml);
+            itemCounters[sectionCounter] = 0;
+            sectionCounter++;
+        });
+        
+        // Add new item to section
+        structuredEditor.addEventListener('click', function(e) {
+            if (e.target.closest('.add-item-btn')) {
+                const btn = e.target.closest('.add-item-btn');
+                const sectionIndex = btn.dataset.section;
+                const itemIndex = itemCounters[sectionIndex] || 0;
+                
+                const itemHtml = `
+                    <div class="section-item mb-3 p-2 bg-light rounded" data-item="${itemIndex}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <label class="form-label small text-muted mb-0">Item Title</label>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-item-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <input type="text" 
+                               name="structured_sections[${sectionIndex}][items][${itemIndex}][title]" 
+                               class="form-control form-control-sm mb-2"
+                               placeholder="Item title">
+                        <label class="form-label small text-muted">Sub-items (one per line)</label>
+                        <textarea name="structured_sections[${sectionIndex}][items][${itemIndex}][subitems_text]" 
+                                  class="form-control form-control-sm" 
+                                  rows="3"
+                                  placeholder="Enter sub-items, one per line"></textarea>
+                    </div>
+                `;
+                btn.insertAdjacentHTML('beforebegin', itemHtml);
+                itemCounters[sectionIndex] = itemIndex + 1;
+            }
+            
+            // Remove section
+            if (e.target.closest('.remove-section-btn')) {
+                e.target.closest('.summary-section').remove();
+            }
+            
+            // Remove item
+            if (e.target.closest('.remove-item-btn')) {
+                e.target.closest('.section-item').remove();
+            }
+        });
+        
+        // Before form submit, convert structured data to JSON
+        document.getElementById('slideForm')?.addEventListener('submit', function(e) {
+            const jsonField = document.getElementById('col1ContentJson');
+            if (jsonField && structuredEditor) {
+                const sections = [];
+                structuredEditor.querySelectorAll('.summary-section').forEach(section => {
+                    const headingInput = section.querySelector('input[name*="[heading]"]');
+                    const sectionData = {
+                        heading: headingInput ? headingInput.value : '',
+                        items: []
+                    };
+                    
+                    section.querySelectorAll('.section-item').forEach(item => {
+                        const titleInput = item.querySelector('input[name*="[title]"]');
+                        const subitemsTextarea = item.querySelector('textarea[name*="[subitems_text]"]');
+                        
+                        const subitems = subitemsTextarea ? 
+                            subitemsTextarea.value.split('\n').filter(line => line.trim() !== '') : [];
+                        
+                        sectionData.items.push({
+                            title: titleInput ? titleInput.value : '',
+                            subitems: subitems
+                        });
+                    });
+                    
+                    sections.push(sectionData);
+                });
+                
+                jsonField.value = JSON.stringify(sections);
+            }
+        });
+        
+        // Live preview update function for structured bullets (matches PPT output)
+        function updateStructuredPreview() {
+            const previewCol1 = document.getElementById('previewCol1');
+            if (!previewCol1 || !structuredEditor) return;
+            
+            let html = '<div style="text-align: left; font-size: 9px; overflow: auto; max-height: 100%; padding: 5px;">';
+            let isFirst = true;
+            
+            structuredEditor.querySelectorAll('.summary-section').forEach(section => {
+                const headingInput = section.querySelector('input[name*="[heading]"]');
+                const heading = headingInput ? headingInput.value : '';
+                
+                // Section heading - bold, 1.5 line height (matches PPT)
+                if (heading) {
+                    const marginTop = isFirst ? '0' : '8px';
+                    html += '<div style="font-weight: bold; line-height: 1.5; margin-top: ' + marginTop + '; margin-bottom: 3px;">' + escapeHtml(heading) + '</div>';
+                    isFirst = false;
+                }
+                
+                section.querySelectorAll('.section-item').forEach(item => {
+                    const titleInput = item.querySelector('input[name*="[title]"]');
+                    const subitemsTextarea = item.querySelector('textarea[name*="[subitems_text]"]');
+                    
+                    const title = titleInput ? titleInput.value : '';
+                    const subitems = subitemsTextarea ? 
+                        subitemsTextarea.value.split('\n').filter(line => line.trim() !== '') : [];
+                    
+                    // Item - 1.4 line height, indented with bullet (matches PPT)
+                    if (title) {
+                        html += '<div style="line-height: 1.4; margin-left: 12px; margin-bottom: 2px;">• ' + escapeHtml(title) + '</div>';
+                    }
+                    
+                    // Subitems - 1.3 line height, more indented, smaller (matches PPT)
+                    subitems.forEach(subitem => {
+                        html += '<div style="line-height: 1.3; margin-left: 24px; font-size: 0.95em; color: #333; margin-bottom: 1px;">○ ' + escapeHtml(subitem.substring(0, 50)) + (subitem.length > 50 ? '...' : '') + '</div>';
+                    });
+                });
+            });
+            
+            html += '</div>';
+            previewCol1.innerHTML = html;
+            previewCol1.classList.add('has-content');
+        }
+        
+        // Attach live preview listeners to structured editor
+        structuredEditor.addEventListener('input', updateStructuredPreview);
+        structuredEditor.addEventListener('click', function(e) {
+            // Delay to allow DOM changes from add/remove operations
+            setTimeout(updateStructuredPreview, 100);
+        });
+        
+        // Initial preview update
+        updateStructuredPreview();
     }
 });
 </script>

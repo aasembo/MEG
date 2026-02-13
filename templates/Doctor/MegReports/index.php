@@ -8,6 +8,74 @@
  * @var array $slideCategories
  */
 $this->assign('title', 'MEG Report Slides');
+
+/**
+ * Helper function to format structured bullets content
+ * Matches PPT output styling with proper line heights and indentation
+ * @param string $content JSON string or plain text
+ * @param bool $truncate Whether to truncate the output
+ * @param int $maxLength Max length for truncated output
+ * @return string Formatted HTML
+ */
+function formatStructuredContent($content, $truncate = false, $maxLength = 100) {
+    if (empty($content)) return '';
+    
+    // Check if it's JSON (structured bullets)
+    $decoded = json_decode($content, true);
+    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        $html = '<div class="structured-bullets-content">';
+        $isFirst = true;
+        
+        foreach ($decoded as $section) {
+            $heading = h($section['heading'] ?? '');
+            
+            // Section heading - bold, 1.5 line height, flush left (matches PPT)
+            if ($heading) {
+                $marginTop = $isFirst ? '0' : '12px';
+                $html .= '<div style="font-weight: bold; line-height: 1.5; margin-top: ' . $marginTop . '; margin-bottom: 4px;">' . $heading . '</div>';
+                $isFirst = false;
+            }
+            
+            // Items with bullet points
+            foreach ($section['items'] ?? [] as $item) {
+                $title = h($item['title'] ?? '');
+                
+                // Item - normal weight, 1.4 line height, indented (matches PPT)
+                if ($title) {
+                    $html .= '<div style="line-height: 1.4; margin-left: 20px; margin-bottom: 2px;">• ' . $title . '</div>';
+                }
+                
+                // Subitems - slightly smaller, lighter color, more indented (matches PPT)
+                foreach ($item['subitems'] ?? [] as $subitem) {
+                    $html .= '<div style="line-height: 1.3; margin-left: 40px; margin-bottom: 2px; font-size: 0.95em; color: #333;">○ ' . h($subitem) . '</div>';
+                }
+            }
+        }
+        $html .= '</div>';
+        
+        if ($truncate && strlen(strip_tags($html)) > $maxLength) {
+            // Return truncated plain text version
+            $plainText = '';
+            foreach ($decoded as $section) {
+                $plainText .= ($section['heading'] ?? '') . ' ';
+                foreach ($section['items'] ?? [] as $item) {
+                    $plainText .= '• ' . ($item['title'] ?? '') . ' ';
+                    foreach ($item['subitems'] ?? [] as $subitem) {
+                        $plainText .= '○ ' . $subitem . ' ';
+                    }
+                }
+            }
+            return h(substr($plainText, 0, $maxLength)) . '...';
+        }
+        return $html;
+    }
+    
+    // Not JSON, return as plain text
+    if ($truncate) {
+        return h(substr($content, 0, $maxLength)) . (strlen($content) > $maxLength ? '...' : '');
+    }
+    return nl2br(h($content));
+}
 ?>
 
 <style>
@@ -297,6 +365,64 @@ $this->assign('title', 'MEG Report Slides');
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     margin: 40px;
 }
+/* Reorder Mode Styles */
+.reorder-mode .thumbnail-strip {
+    background: #fff3cd;
+    border: 2px dashed #ffc107;
+}
+.reorder-mode .thumbnail {
+    cursor: grab;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.reorder-mode .thumbnail:active {
+    cursor: grabbing;
+}
+.reorder-mode .thumbnail.sortable-ghost {
+    opacity: 0.4;
+    background: #ffeeba;
+}
+.reorder-mode .thumbnail.sortable-drag {
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    transform: scale(1.05);
+}
+.reorder-mode .thumbnail.cover-slide {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.reorder-mode .thumbnail:not(.cover-slide):hover {
+    transform: scale(1.03);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+}
+.reorder-mode .reorder-handle {
+    display: flex !important;
+}
+.reorder-handle {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(220, 53, 69, 0.9);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    z-index: 10;
+}
+.reorder-mode .thumbnail .thumbnail-content {
+    opacity: 0.7;
+}
+.reorder-info-banner {
+    display: none;
+    background: #fff3cd;
+    color: #856404;
+    padding: 10px 20px;
+    text-align: center;
+    font-size: 14px;
+}
+.reorder-mode .reorder-info-banner {
+    display: block;
+}
 </style>
 
 <?php if ($slides->count() > 0): ?>
@@ -318,15 +444,24 @@ $this->assign('title', 'MEG Report Slides');
                 </h2>
             </div>
             <div class="d-flex gap-2">
+                <button type="button" id="reorderBtn" class="btn btn-sm btn-outline-light" onclick="toggleReorderMode()">
+                    <i class="fas fa-sort me-1"></i>Reorder
+                </button>
+                <button type="button" id="saveOrderBtn" class="btn btn-sm btn-success" style="display: none;" onclick="saveSlideOrder()">
+                    <i class="fas fa-check me-1"></i>Save Order
+                </button>
+                <button type="button" id="cancelOrderBtn" class="btn btn-sm btn-secondary" style="display: none;" onclick="cancelReorder()">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
                 <?php echo $this->Html->link(
                     '<i class="fas fa-plus-circle me-1"></i>Add Slide',
                     ['action' => 'add', '?' => ['report_id' => $reportId]],
-                    ['class' => 'btn btn-sm btn-outline-light', 'escape' => false]
+                    ['class' => 'btn btn-sm btn-outline-light', 'escape' => false, 'id' => 'addSlideBtn']
                 ) ?>
                 <?php echo $this->Html->link(
                     '<i class="fas fa-download me-1"></i>Download PPT',
                     ['action' => 'downloadPpt', $reportId],
-                    ['class' => 'btn btn-sm btn-outline-light', 'escape' => false]
+                    ['class' => 'btn btn-sm btn-outline-light', 'escape' => false, 'id' => 'downloadPptBtn']
                 ) ?>
                 <?php echo $this->Html->link(
                     '<i class="fas fa-times me-1"></i>Close',
@@ -405,7 +540,7 @@ $this->assign('title', 'MEG Report Slides');
                                         <?php elseif (!empty($slide->col1_image_path)): ?>
                                             <img src="<?php echo h($slide->col1_image_path) ?>" alt="Column 1 Image" />
                                         <?php elseif (!empty($slide->col1_content)): ?>
-                                            <div class="column-text"><?php echo nl2br(h($slide->col1_content)) ?></div>
+                                            <div class="column-text"><?php echo formatStructuredContent($slide->col1_content) ?></div>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -439,6 +574,46 @@ $this->assign('title', 'MEG Report Slides');
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>
+                        <?php elseif (($slideConfig['layout'] ?? '') === 'multi_image_with_titles'): ?>
+                            <!-- Multi-image layout -->
+                            <?php if (!empty($slide->title)): ?>
+                                <h2><?php echo h($slide->title) ?></h2>
+                            <?php endif; ?>
+                            
+                            <?php 
+                            $maxImages = $slideConfig['max_images'] ?? 5;
+                            $defaultTitles = $slideConfig['default_image_titles'] ?? [];
+                            $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
+                            $hasImages = false;
+                            ?>
+                            <div class="multi-image-grid" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+                                <?php for ($i = 0; $i < $maxImages; $i++): 
+                                    $colName = $imageColumns[$i];
+                                    $imagePathField = $colName . '_image_path';
+                                    $imageUrlField = $colName . '_image_url';
+                                    $headerField = $colName . '_header';
+                                    $defaultTitle = $defaultTitles[$i] ?? 'Image ' . ($i + 1);
+                                    $imageUrl = $slide->{$imageUrlField} ?? null;
+                                    if (!empty($imageUrl) || !empty($slide->{$imagePathField})):
+                                        $hasImages = true;
+                                ?>
+                                    <div class="multi-image-item" style="text-align: center; max-width: 30%; flex: 0 0 30%;">
+                                        <div class="image-title" style="font-weight: bold; font-size: 11px; margin-bottom: 3px;">
+                                            <?= h($slide->{$headerField} ?? $defaultTitle) ?>
+                                        </div>
+                                        <img src="<?= h($imageUrl ?? $slide->{$imagePathField}) ?>" 
+                                             alt="<?= h($slide->{$headerField} ?? $defaultTitle) ?>" 
+                                             style="max-width: 100%; max-height: 100px; border: 1px solid #ddd; border-radius: 4px;" />
+                                    </div>
+                                <?php endif; endfor; ?>
+                                
+                                <?php if (!$hasImages): ?>
+                                    <div class="text-muted text-center py-3" style="width: 100%;">
+                                        <i class="fas fa-images fa-2x mb-2"></i>
+                                        <div>No images uploaded yet</div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
                         <?php else: ?>
                             <!-- Single column layout -->
                             <?php if (!empty($slide->title)): ?>
@@ -458,7 +633,7 @@ $this->assign('title', 'MEG Report Slides');
                             <?php endif; ?>
                             <?php if (!empty($slide->col1_content)): ?>
                                 <div class="slide-text-content" style="font-size: 16px; line-height: 1.8;">
-                                    <?php echo nl2br(h($slide->col1_content)) ?>
+                                    <?php echo formatStructuredContent($slide->col1_content) ?>
                                 </div>
                             <?php endif; ?>
                             <?php 
@@ -498,15 +673,26 @@ $this->assign('title', 'MEG Report Slides');
             </button>
         </div>
 
+        <!-- Reorder Info Banner -->
+        <div class="reorder-info-banner">
+            <i class="fas fa-info-circle me-2"></i>Drag and drop thumbnails to reorder slides. The cover page cannot be moved.
+        </div>
+
         <!-- Thumbnail Strip -->
-        <div class="thumbnail-strip">
+        <div class="thumbnail-strip" id="thumbnailStrip">
             <?php foreach ($slideArray as $index => $slide): ?>
                 <?php 
                 $slideConfig = $slide->getSlideConfig();
                 $slideType = $slide->slide_type ?? 'custom';
                 $layoutColumns = $slide->layout_columns ?? 1;
+                $isCoverSlide = ($slide->slide_order === 1);
                 ?>
-                <div class="thumbnail <?php echo $index === 0 ? 'active' : '' ?>" onclick="goToSlide(<?php echo $index ?>)" title="<?php echo h(str_replace('_', ' ', ucfirst($slideType))) ?>">
+                <div class="thumbnail <?php echo $index === 0 ? 'active' : '' ?> <?php echo $isCoverSlide ? 'cover-slide' : '' ?>" 
+                     onclick="goToSlide(<?php echo $index ?>)" 
+                     title="<?php echo h(str_replace('_', ' ', ucfirst($slideType))) ?>"
+                     data-slide-id="<?php echo $slide->id ?>"
+                     data-is-cover="<?php echo $isCoverSlide ? '1' : '0' ?>">
+                    <div class="reorder-handle"><i class="fas fa-grip-vertical me-1"></i>Drag</div>
                     <?php if ($slideType !== 'custom'): ?>
                         <div class="thumbnail-type"><?php echo h(str_replace('_', ' ', $slideType)) ?></div>
                     <?php endif; ?>
@@ -540,6 +726,26 @@ $this->assign('title', 'MEG Report Slides');
                                     <div style="flex:1; background:#e9ecef; display:flex; align-items:center; justify-content:center; font-size:6px; color:#6c757d;">Col 2</div>
                                 <?php endif; ?>
                             </div>
+                        <?php elseif (($slideConfig['layout'] ?? '') === 'multi_image_with_titles'): ?>
+                            <!-- Multi-image thumbnail -->
+                            <div style="font-size: 7px; margin-bottom: 2px; text-align: center; font-weight: bold;">
+                                <?php echo h(substr($slide->title ?? '', 0, 25)) ?><?php echo strlen($slide->title ?? '') > 25 ? '...' : '' ?>
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 2px; justify-content: center;">
+                                <?php 
+                                $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
+                                $imageCount = 0;
+                                foreach ($imageColumns as $colName):
+                                    $imageUrl = $slide->{$colName . '_image_url'} ?? $slide->{$colName . '_image_path'} ?? null;
+                                    if (!empty($imageUrl)): 
+                                        $imageCount++;
+                                ?>
+                                    <img src="<?= h($imageUrl) ?>" alt="<?= $colName ?>" style="max-width: 25px; max-height: 20px; object-fit: cover; border-radius: 2px;" />
+                                <?php endif; endforeach; ?>
+                                <?php if ($imageCount === 0): ?>
+                                    <div style="font-size: 6px; color: #6c757d;"><i class="fas fa-images"></i> No images</div>
+                                <?php endif; ?>
+                            </div>
                         <?php else: ?>
                             <!-- Single column thumbnail -->
                             <?php if (!empty($slide->title)): ?>
@@ -555,7 +761,7 @@ $this->assign('title', 'MEG Report Slides');
                                 <img src="<?php echo h($slide->col1_image_path) ?>" alt="Slide preview" />
                             <?php elseif (!empty($slide->col1_content)): ?>
                                 <div style="font-size: 6px; line-height: 1.2; color: #666; overflow: hidden; max-height: 50px;">
-                                    <?php echo h(substr($slide->col1_content, 0, 100)) ?><?php echo strlen($slide->col1_content) > 100 ? '...' : '' ?>
+                                    <?php echo formatStructuredContent($slide->col1_content, true, 100) ?>
                                 </div>
                             <?php else: ?>
                                 <div style="display:flex; align-items:center; justify-content:center; height:50px; background:#f8f9fa; border-radius:3px;">
@@ -583,6 +789,7 @@ $this->assign('title', 'MEG Report Slides');
 <?php endif; ?>
 
 <?php if ($slides->count() > 0): ?>
+<meta name="csrf-token" content="<?php echo $this->request->getAttribute('csrfToken'); ?>">
 <?php $this->start('script'); ?>
 <script>
 let currentSlideIndex = 0;
@@ -688,8 +895,147 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
         showSlide(0);
     }, 100);
 }
+
+// ============================================
+// Slide Reorder Functionality
+// ============================================
+let sortableInstance = null;
+let originalOrder = [];
+
+function toggleReorderMode() {
+    const container = document.querySelector('.presentation-container');
+    const thumbnailStrip = document.getElementById('thumbnailStrip');
+    const reorderBtn = document.getElementById('reorderBtn');
+    const saveOrderBtn = document.getElementById('saveOrderBtn');
+    const cancelOrderBtn = document.getElementById('cancelOrderBtn');
+    const infoBanner = document.querySelector('.reorder-info-banner');
+    
+    container.classList.add('reorder-mode');
+    reorderBtn.style.display = 'none';
+    saveOrderBtn.style.display = 'inline-block';
+    cancelOrderBtn.style.display = 'inline-block';
+    if (infoBanner) infoBanner.style.display = 'block';
+    
+    // Save original order
+    originalOrder = [];
+    thumbnailStrip.querySelectorAll('.thumbnail').forEach(thumb => {
+        originalOrder.push(thumb.dataset.slideId);
+    });
+    
+    // Initialize Sortable
+    if (!sortableInstance) {
+        sortableInstance = new Sortable(thumbnailStrip, {
+            animation: 150,
+            handle: '.thumbnail:not(.cover-slide)',
+            draggable: '.thumbnail:not(.cover-slide)',
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+            filter: '.cover-slide',
+            onStart: function(evt) {
+                document.body.style.cursor = 'grabbing';
+            },
+            onEnd: function(evt) {
+                document.body.style.cursor = '';
+            }
+        });
+    }
+    sortableInstance.option('disabled', false);
+}
+
+function cancelReorder() {
+    const container = document.querySelector('.presentation-container');
+    const thumbnailStrip = document.getElementById('thumbnailStrip');
+    const reorderBtn = document.getElementById('reorderBtn');
+    const saveOrderBtn = document.getElementById('saveOrderBtn');
+    const cancelOrderBtn = document.getElementById('cancelOrderBtn');
+    const infoBanner = document.querySelector('.reorder-info-banner');
+    
+    // Restore original order
+    if (originalOrder.length > 0) {
+        const thumbnails = Array.from(thumbnailStrip.querySelectorAll('.thumbnail'));
+        originalOrder.forEach((slideId, index) => {
+            const thumb = thumbnails.find(t => t.dataset.slideId === slideId);
+            if (thumb && index < thumbnails.length) {
+                thumbnailStrip.appendChild(thumb);
+            }
+        });
+    }
+    
+    exitReorderMode();
+}
+
+function exitReorderMode() {
+    const container = document.querySelector('.presentation-container');
+    const reorderBtn = document.getElementById('reorderBtn');
+    const saveOrderBtn = document.getElementById('saveOrderBtn');
+    const cancelOrderBtn = document.getElementById('cancelOrderBtn');
+    const infoBanner = document.querySelector('.reorder-info-banner');
+    
+    container.classList.remove('reorder-mode');
+    reorderBtn.style.display = 'inline-block';
+    saveOrderBtn.style.display = 'none';
+    cancelOrderBtn.style.display = 'none';
+    if (infoBanner) infoBanner.style.display = 'none';
+    
+    if (sortableInstance) {
+        sortableInstance.option('disabled', true);
+    }
+}
+
+function saveSlideOrder() {
+    const thumbnailStrip = document.getElementById('thumbnailStrip');
+    const thumbnails = thumbnailStrip.querySelectorAll('.thumbnail');
+    const slideOrder = [];
+    
+    thumbnails.forEach((thumb, index) => {
+        slideOrder.push({
+            id: thumb.dataset.slideId,
+            order: index + 1  // slide_order is 1-based
+        });
+    });
+    
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    
+    // Send AJAX request to save order
+    fetch('<?php echo $this->Url->build(['controller' => 'MegReports', 'action' => 'reorder', 'prefix' => 'Doctor']) ?>', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken
+        },
+        body: JSON.stringify({
+            case_id: <?php echo $report->case_id ?>,
+            slides: slideOrder
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message and reload
+            alert('Slide order saved successfully!');
+            window.location.reload();
+        } else {
+            alert('Error saving slide order: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving slide order. Please try again.');
+    });
+    
+    exitReorderMode();
+}
+
+// Load Sortable.js dynamically if not already loaded
+if (typeof Sortable === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js';
+    script.onload = function() {
+        console.log('Sortable.js loaded');
+    };
+    document.head.appendChild(script);
+}
 </script>
 <?php $this->end(); ?>
 <?php endif; ?>
-
-<meta name="csrf-token" content="<?php echo $this->request->getAttribute('csrfToken'); ?>">

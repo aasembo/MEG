@@ -27,6 +27,12 @@ use Cake\ORM\Entity;
  * @property string|null $col2_content
  * @property string|null $col2_image_path
  * @property string|null $col2_header
+ * @property string|null $col3_image_path
+ * @property string|null $col3_header
+ * @property string|null $col4_image_path
+ * @property string|null $col4_header
+ * @property string|null $col5_image_path
+ * @property string|null $col5_header
  * @property string|null $subtitle
  * @property string|null $footer_text
  * @property string|null $legend_data
@@ -65,6 +71,12 @@ class ReportSlide extends Entity
         'col2_content' => true,
         'col2_image_path' => true,
         'col2_header' => true,
+        'col3_image_path' => true,
+        'col3_header' => true,
+        'col4_image_path' => true,
+        'col4_header' => true,
+        'col5_image_path' => true,
+        'col5_header' => true,
         'subtitle' => true,
         'footer_text' => true,
         'legend_data' => true,

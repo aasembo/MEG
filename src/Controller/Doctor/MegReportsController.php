@@ -74,10 +74,10 @@ class MegReportsController extends AppController
                         'contain' => ['Cases' => ['PatientUsers' => ['Patient']], 'Users']
                     ]);
                     
-                    // Create first slide with cover page information
-                    $this->createCoverSlide($report);
+                    // Create all default slides from configuration
+                    $this->createDefaultSlides($report);
                     
-                    $this->Flash->success('MEG Report created successfully with cover page. You can now add more slides.');
+                    $this->Flash->success('MEG Report created with all default slides. You can now edit each slide to add images and customize content.');
                 } else {
                     $this->Flash->error('Unable to create MEG report. Please try again.');
                     return $this->redirect(['controller' => 'Cases', 'action' => 'view', $caseId]);
@@ -126,6 +126,13 @@ class MegReportsController extends AppController
             }
             if ($slide->col2_image_path) {
                 $slide->col2_image_url = $s3Service->getDownloadUrl($slide->col2_image_path);
+            }
+            // Handle col3-col5 for multi-image slides (index method)
+            foreach ([3, 4, 5] as $colNum) {
+                $pathField = "col{$colNum}_image_path";
+                if ($slide->{$pathField}) {
+                    $slide->{"col{$colNum}_image_url"} = $s3Service->getDownloadUrl($slide->{$pathField});
+                }
             }
         }
         
@@ -542,6 +549,22 @@ class MegReportsController extends AppController
                 }
             }
             
+            // Handle Column 3-5 Image Uploads (for multi-image layouts like eeg_meg_discharge)
+            foreach ([3, 4, 5] as $colNum) {
+                $colImageFile = $this->request->getData("col{$colNum}_image_file");
+                if ($colImageFile && $colImageFile->getError() === UPLOAD_ERR_OK) {
+                    $colPath = $this->uploadSlideImage($colImageFile, $report, $s3Service);
+                    if ($colPath) {
+                        // Delete old image if exists
+                        $oldPath = $slide->{"col{$colNum}_image_path"};
+                        if ($oldPath) {
+                            $s3Service->deleteDocument($oldPath);
+                        }
+                        $data["col{$colNum}_image_path"] = $colPath;
+                    }
+                }
+            }
+            
             // Handle legacy single image upload (for backwards compatibility)
             $imageFile = $this->request->getData('image_file');
             if ($imageFile && $imageFile->getError() === UPLOAD_ERR_OK) {
@@ -603,6 +626,13 @@ class MegReportsController extends AppController
         }
         if ($slide->col2_image_path) {
             $slide->col2_image_url = $s3Service->getDownloadUrl($slide->col2_image_path);
+        }
+        // Handle col3-col5 for multi-image slides
+        foreach ([3, 4, 5] as $colNum) {
+            $pathField = "col{$colNum}_image_path";
+            if ($slide->{$pathField}) {
+                $slide->{"col{$colNum}_image_url"} = $s3Service->getDownloadUrl($slide->{$pathField});
+            }
         }
         
         $this->set(compact('slide', 'report', 'examProceduresList', 'slideConfig', 'slideType', 'slideTypes'));
@@ -675,9 +705,22 @@ class MegReportsController extends AppController
         $user = $this->request->getAttribute('identity');
         $userId = $user->getIdentifier();
         
-        $slideIds = $this->request->getData('slide_ids');
+        // Get JSON input
+        $input = json_decode(file_get_contents('php://input'), true);
+        $caseId = $input['case_id'] ?? null;
+        $slides = $input['slides'] ?? null;
         
-        if (empty($slideIds) || !is_array($slideIds)) {
+        // Fallback to form data for backward compatibility
+        if (empty($slides)) {
+            $slideIds = $this->request->getData('slide_ids');
+            if (!empty($slideIds) && is_array($slideIds)) {
+                $slides = array_map(function($id, $index) {
+                    return ['id' => $id, 'order' => $index + 1];
+                }, $slideIds, array_keys($slideIds));
+            }
+        }
+        
+        if (empty($slides) || !is_array($slides)) {
             return $this->response->withStringBody(json_encode([
                 'success' => false,
                 'message' => 'Invalid slide order data.'
@@ -686,17 +729,17 @@ class MegReportsController extends AppController
         
         $ReportSlides = $this->fetchTable('ReportSlides');
         
-        // Get the first slide to check if it's being reordered
-        $firstSlideCheck = $ReportSlides->get($slideIds[0]);
-        if ($firstSlideCheck->slide_order === 1) {
+        // Get the first slide to verify access
+        $firstSlideId = $slides[0]['id'] ?? null;
+        if (!$firstSlideId) {
             return $this->response->withStringBody(json_encode([
                 'success' => false,
-                'message' => 'Cannot reorder the cover page (first slide).'
+                'message' => 'No slides provided.'
             ]));
         }
         
-        // Verify access to first slide's report
-        $firstSlide = $ReportSlides->get($slideIds[0]);
+        // Get first slide and verify report access
+        $firstSlide = $ReportSlides->get($firstSlideId);
         $Reports = $this->fetchTable('Reports');
         $report = $Reports->find()
             ->matching('Cases.CaseAssignments', function ($q) use ($userId) {
@@ -712,10 +755,19 @@ class MegReportsController extends AppController
             ]));
         }
         
-        // Update slide orders
-        foreach ($slideIds as $index => $slideId) {
+        // Update slide orders - but don't allow moving the cover page (order 1)
+        foreach ($slides as $slideData) {
+            $slideId = $slideData['id'];
+            $newOrder = (int)$slideData['order'];
+            
             $slide = $ReportSlides->get($slideId);
-            $slide->slide_order = $index + 1;
+            
+            // Skip if trying to change cover page order or assign order 1 to non-cover
+            if ($slide->slide_order === 1 && $newOrder !== 1) {
+                continue; // Don't move cover page
+            }
+            
+            $slide->slide_order = $newOrder;
             $ReportSlides->save($slide);
         }
         
@@ -735,6 +787,130 @@ class MegReportsController extends AppController
      * @param string $ext File extension
      * @return bool Success
      */
+    
+    /**
+     * Format structured bullets content for PPT (plain text with indentation)
+     *
+     * @param string $content JSON string or plain text
+     * @return string Formatted plain text
+     */
+    private function formatStructuredContentForPpt(string $content): string
+    {
+        if (empty($content)) {
+            return '';
+        }
+        
+        // Check if it's JSON (structured bullets)
+        $decoded = json_decode($content, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $lines = [];
+            foreach ($decoded as $section) {
+                $heading = $section['heading'] ?? '';
+                if ($heading) {
+                    $lines[] = $heading;
+                    $lines[] = ''; // Add blank line after heading
+                }
+                foreach ($section['items'] ?? [] as $item) {
+                    $title = $item['title'] ?? '';
+                    if ($title) {
+                        $lines[] = '    • ' . $title;
+                    }
+                    foreach ($item['subitems'] ?? [] as $subitem) {
+                        $lines[] = '        ○ ' . $subitem;
+                    }
+                }
+                $lines[] = ''; // Add blank line after each section
+            }
+            return implode("\n", $lines);
+        }
+        
+        // Not JSON, return as-is
+        return $content;
+    }
+    
+    /**
+     * Add structured bullets content to PPT shape with proper formatting
+     *
+     * @param \PhpOffice\PhpPresentation\Shape\RichText $textShape The rich text shape
+     * @param string $content JSON string or plain text
+     * @param int $fontSize Base font size
+     * @return void
+     */
+    private function addStructuredContentToShape($textShape, string $content, int $fontSize = 14): void
+    {
+        if (empty($content)) {
+            return;
+        }
+        
+        // Load styles from config
+        $pptStyles = unserialize(PPT_STYLES);
+        $bulletStyles = $pptStyles['structured_bullets'] ?? [];
+        $lineSpacing = $bulletStyles['line_spacing'] ?? 100;
+        $headingFontSize = $bulletStyles['heading_font_size'] ?? ($fontSize + 2);
+        
+        // Check if it's JSON (structured bullets)
+        $decoded = json_decode($content, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $isFirst = true;
+            
+            foreach ($decoded as $section) {
+                $heading = $section['heading'] ?? '';
+                
+                // Add section heading (bold)
+                if ($heading) {
+                    if (!$isFirst) {
+                        // Add minimal spacing before new section
+                        $textShape->createBreak();
+                    }
+                    $paragraph = $textShape->createParagraph();
+                    $paragraph->setLineSpacing($lineSpacing);
+                    $paragraph->getAlignment()->setMarginLeft(0); // Ensure headings are flush left
+                    $headingRun = $paragraph->createTextRun($heading);
+                    $headingRun->getFont()
+                        ->setSize($headingFontSize)
+                        ->setBold(true)
+                        ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                    $isFirst = false;
+                }
+                
+                // Add items
+                foreach ($section['items'] ?? [] as $item) {
+                    $title = $item['title'] ?? '';
+                    
+                    // Add item title with bullet
+                    if ($title) {
+                        $paragraph = $textShape->createParagraph();
+                        $paragraph->setLineSpacing($lineSpacing);
+                        $paragraph->getAlignment()->setMarginLeft(20);
+                        $titleRun = $paragraph->createTextRun('• ' . $title);
+                        $titleRun->getFont()
+                            ->setSize($fontSize)
+                            ->setBold(false)
+                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                    }
+                    
+                    // Add subitems
+                    foreach ($item['subitems'] ?? [] as $subitem) {
+                        $paragraph = $textShape->createParagraph();
+                        $paragraph->setLineSpacing($lineSpacing);
+                        $paragraph->getAlignment()->setMarginLeft(40);
+                        $subitemRun = $paragraph->createTextRun('○ ' . $subitem);
+                        $subitemRun->getFont()
+                            ->setSize($fontSize - 1)
+                            ->setBold(false)
+                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF333333'));
+                    }
+                }
+            }
+        } else {
+            // Not JSON, add as plain text
+            $textRun = $textShape->createTextRun($content);
+            $textRun->getFont()
+                ->setSize($fontSize)
+                ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+        }
+    }
+    
     /**
      * Download image from URL to temporary file
      *
@@ -749,10 +925,16 @@ class MegReportsController extends AppController
         
         try {
             if (strpos($imageUrl, 'http') === 0) {
-                // S3 or remote URL - download to temp file
+                // S3 or remote URL - download to temp file with timeout
                 $ext = pathinfo(parse_url($imageUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'jpg';
                 $tempImage = TMP . 'ppt_img_' . uniqid() . '.' . $ext;
-                $imageContent = @file_get_contents($imageUrl);
+                
+                // Set stream context with timeout
+                $context = stream_context_create([
+                    'http' => ['timeout' => 60],
+                    'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
+                ]);
+                $imageContent = @file_get_contents($imageUrl, false, $context);
                 if ($imageContent !== false) {
                     file_put_contents($tempImage, $imageContent);
                     return $tempImage;
@@ -857,6 +1039,9 @@ class MegReportsController extends AppController
      */
     public function downloadPpt($reportId = null)
     {
+        // Increase execution time for large reports with many S3 images
+        set_time_limit(300);
+        
         $user = $this->request->getAttribute('identity');
         $userId = $user->getIdentifier();
         
@@ -892,20 +1077,33 @@ class MegReportsController extends AppController
             if ($slide->col2_image_path) {
                 $slide->col2_image_url = $s3Service->getDownloadUrl($slide->col2_image_path);
             }
+            // Handle col3-col5 for multi-image slides (downloadPpt method)
+            foreach ([3, 4, 5] as $colNum) {
+                $pathField = "col{$colNum}_image_path";
+                if ($slide->{$pathField}) {
+                    $slide->{"col{$colNum}_image_url"} = $s3Service->getDownloadUrl($slide->{$pathField});
+                }
+            }
         }
         
         // Create PowerPoint presentation
         $presentation = new \PhpOffice\PhpPresentation\PhpPresentation();
         $presentation->removeSlideByIndex(0); // Remove default slide
         
+        // Set slide layout to 16:9 widescreen for proper sizing
+        $presentation->getLayout()->setDocumentLayout(
+            \PhpOffice\PhpPresentation\DocumentLayout::LAYOUT_SCREEN_16X9,
+            true
+        );
+        
         // Load PPT styles from configuration
         $pptStyles = unserialize(PPT_STYLES);
         
-        // Get slide dimensions from config
+        // Get slide dimensions from config (in points - standard 16:9 is 960x540)
         $slideWidth = $pptStyles['slide']['width'] ?? 960;
         $slideHeight = $pptStyles['slide']['height'] ?? 540;
-        $margin = 20; // Side margins
-        $topMargin = 15;
+        $margin = 15; // Reduced side margins to maximize content space
+        $topMargin = 10; // Top margin for title - keep minimal to maximize image space
         
         // Track temp files for cleanup after PowerPoint is generated
         $tempFiles = [];
@@ -925,7 +1123,13 @@ class MegReportsController extends AppController
             
             // First slide (cover) gets special formatting
             if ($index === 0) {
-                // Cover slide
+                // Cover slide - use styles from site_constants
+                $coverStyles = $pptStyles['cover'] ?? [];
+                $coverHeadingSize = $coverStyles['heading_font_size'] ?? 24;
+                $coverContentSize = $coverStyles['content_font_size'] ?? 22;
+                $coverFooterSize = $coverStyles['footer_font_size'] ?? 16;
+                $patientNameBold = $coverStyles['patient_name_bold'] ?? true;
+                
                 $lines = explode("\n", $slide->description ?: $slideTitle);
                 $heading = array_shift($lines);
                 $content = implode("\n", array_slice($lines, 2));
@@ -941,11 +1145,12 @@ class MegReportsController extends AppController
                 
                 $headingRun = $headingShape->createTextRun($heading);
                 $headingRun->getFont()
-                    ->setSize(28)
+                    ->setName('Calibri')
+                    ->setSize($coverHeadingSize)
                     ->setBold(true)
                     ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
                 
-                // Add content below heading
+                // Add content below heading - parse for patient name to make bold
                 if (!empty($content)) {
                     $textShape = $pptSlide->createRichTextShape();
                     $textShape->setHeight($slideHeight - 180);
@@ -955,10 +1160,38 @@ class MegReportsController extends AppController
                     $textShape->getActiveParagraph()->getAlignment()
                         ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_CENTER);
                     
-                    $textRun = $textShape->createTextRun($content);
-                    $textRun->getFont()
-                        ->setSize(14)
-                        ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                    // Parse content line by line for patient name
+                    $contentLines = explode("\n", $content);
+                    foreach ($contentLines as $lineIdx => $line) {
+                        if ($lineIdx > 0) {
+                            $textShape->createBreak();
+                        }
+                        
+                        // Check if line contains "Name:" - make the value bold
+                        if (strpos($line, 'Name:') !== false && $patientNameBold) {
+                            $parts = explode(':', $line, 2);
+                            $labelRun = $textShape->createTextRun($parts[0] . ': ');
+                            $labelRun->getFont()
+                                ->setName('Calibri')
+                                ->setSize($coverContentSize)
+                                ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                            
+                            if (isset($parts[1])) {
+                                $valueRun = $textShape->createTextRun(trim($parts[1]));
+                                $valueRun->getFont()
+                                    ->setName('Calibri')
+                                    ->setSize($coverContentSize)
+                                    ->setBold(true)
+                                    ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                            }
+                        } else {
+                            $textRun = $textShape->createTextRun($line);
+                            $textRun->getFont()
+                                ->setName('Calibri')
+                                ->setSize($coverContentSize)
+                                ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                        }
+                    }
                 }
             } else {
                 // Regular slides - track vertical position
@@ -966,20 +1199,25 @@ class MegReportsController extends AppController
                 
                 // Add title at top
                 if (!empty($slideTitle)) {
-                    $titleHeight = $pptStyles['title']['height'] ?? 38;
+                    $titleFontSize = $pptStyles['title']['font_size'] ?? 36;
                     $titleMarginBottom = $pptStyles['title']['margin_bottom'] ?? 4;
                     $titleFontFamily = $pptStyles['title']['font_family'] ?? 'Calibri';
+                    
+                    // Calculate title height - keep compact
+                    // For larger fonts, use tighter spacing
+                    $titleHeight = (int)($titleFontSize * 1.2); // Just enough for single line
                     
                     $titleShape = $pptSlide->createRichTextShape();
                     $titleShape->setHeight($titleHeight);
                     $titleShape->setWidth($slideWidth - ($margin * 2));
                     $titleShape->setOffsetX($margin);
                     $titleShape->setOffsetY($currentY);
+                    $titleShape->setAutoFit(\PhpOffice\PhpPresentation\Shape\RichText::AUTOFIT_NORMAL);
                     
                     $titleRun = $titleShape->createTextRun($slideTitle);
                     $titleRun->getFont()
                         ->setName($titleFontFamily)
-                        ->setSize($pptStyles['title']['font_size'] ?? 29)
+                        ->setSize($titleFontSize)
                         ->setBold($pptStyles['title']['font_bold'] ?? true)
                         ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ($pptStyles['title']['font_color'] ?? '000000')));
                     
@@ -988,36 +1226,44 @@ class MegReportsController extends AppController
                 
                 // Add subtitle if present (as bullet point)
                 if (!empty($slide->subtitle)) {
-                    $subtitleHeight = $pptStyles['subtitle']['height'] ?? 28;
-                    $subtitleMarginBottom = $pptStyles['subtitle']['margin_bottom'] ?? 10;
+                    $subtitleFontSize = $pptStyles['subtitle']['font_size'] ?? 21;
+                    $subtitleMarginBottom = $pptStyles['subtitle']['margin_bottom'] ?? 8;
                     $subtitleFontFamily = $pptStyles['subtitle']['font_family'] ?? 'Calibri';
+                    
+                    // Calculate subtitle height based on text length - keep compact
+                    $subtitleCharsPerLine = 60;
+                    $subtitleText = '• ' . $slide->subtitle;
+                    $subtitleLines = max(1, ceil(strlen($subtitleText) / $subtitleCharsPerLine));
+                    $subtitleLineHeight = $subtitleFontSize + 4;
+                    $subtitleHeight = (int)min($subtitleLines * $subtitleLineHeight, 60); // Cap max height
                     
                     $subtitleShape = $pptSlide->createRichTextShape();
                     $subtitleShape->setHeight($subtitleHeight);
                     $subtitleShape->setWidth($slideWidth - ($margin * 2));
                     $subtitleShape->setOffsetX($margin);
                     $subtitleShape->setOffsetY($currentY);
+                    $subtitleShape->setAutoFit(\PhpOffice\PhpPresentation\Shape\RichText::AUTOFIT_NORMAL);
                     
                     // Check if slide config has bullet formatting
                     $bulletPrefix = '• ';
                     $subtitleRun = $subtitleShape->createTextRun($bulletPrefix . $slide->subtitle);
                     $subtitleRun->getFont()
                         ->setName($subtitleFontFamily)
-                        ->setSize($pptStyles['subtitle']['font_size'] ?? 21)
+                        ->setSize($subtitleFontSize)
                         ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ($pptStyles['subtitle']['font_color'] ?? '000000')));
                     
                     $currentY += $subtitleHeight + $subtitleMarginBottom;
                 }
                 
-                // Calculate available content area
-                $contentStartY = (int)($currentY + 8);
-                $contentEndY = (int)($slideHeight - 25); // Leave space for footer/legend
+                // Calculate available content area - minimize gap to maximize content space
+                $contentStartY = (int)$currentY; // No extra gap after title/subtitle
+                $contentEndY = (int)($slideHeight - 10); // Minimal bottom margin
                 $availableHeight = (int)($contentEndY - $contentStartY);
                 
                 // Handle two-column layout
                 if ($layoutColumns === 2) {
                     $contentWidth = $slideWidth - ($margin * 2);
-                    $columnGap = 20;
+                    $columnGap = 15; // Reduced gap to maximize image space
                     
                     // Get slide config to check for custom column widths
                     $slideTypes = unserialize(PPT_REPORT_PAGES);
@@ -1044,11 +1290,17 @@ class MegReportsController extends AppController
                     $col2HeaderText = strip_tags($slide->col2_header ?? '');
                     $columnHeaderMarginBottom = $pptStyles['column_header']['margin_bottom'] ?? 8;
                     
-                    // Estimate lines needed (roughly 45 chars per line at font size 15)
-                    $col1Lines = (int)max(1, ceil(strlen($col1HeaderText) / 40));
-                    $col2Lines = (int)max(1, ceil(strlen($col2HeaderText) / 40));
-                    $maxHeaderLines = (int)max($col1Lines, $col2Lines);
-                    $headerHeight = (int)min(70, $maxHeaderLines * 18 + 5); // Cap at 70px, larger line height for 15pt
+                    // Only reserve header space if there are actual headers
+                    $hasHeaders = !empty($col1HeaderText) || !empty($col2HeaderText);
+                    $headerHeight = 0;
+                    
+                    if ($hasHeaders) {
+                        // Estimate lines needed (roughly 40 chars per line at font size 15)
+                        $col1Lines = !empty($col1HeaderText) ? (int)max(1, ceil(strlen($col1HeaderText) / 40)) : 0;
+                        $col2Lines = !empty($col2HeaderText) ? (int)max(1, ceil(strlen($col2HeaderText) / 40)) : 0;
+                        $maxHeaderLines = (int)max($col1Lines, $col2Lines);
+                        $headerHeight = (int)min(70, $maxHeaderLines * 18 + 5); // Cap at 70px
+                    }
                     
                     // Column 1 Header
                     if (!empty($col1HeaderText)) {
@@ -1089,9 +1341,14 @@ class MegReportsController extends AppController
                             ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ($pptStyles['column_header']['font_color'] ?? '000000')));
                     }
                     
-                    // Image area starts after headers with proper margin
-                    $imageStartY = (int)($contentStartY + $headerHeight + $columnHeaderMarginBottom);
-                    $imageMaxHeight = (int)($availableHeight - $headerHeight - $columnHeaderMarginBottom - 5);
+                    // Image area starts after headers (only if headers exist)
+                    if ($hasHeaders) {
+                        $imageStartY = (int)($contentStartY + $headerHeight + $columnHeaderMarginBottom);
+                        $imageMaxHeight = (int)($availableHeight - $headerHeight - $columnHeaderMarginBottom);
+                    } else {
+                        $imageStartY = (int)$contentStartY;
+                        $imageMaxHeight = (int)$availableHeight;
+                    }
                     
                     // Column 1 Image or Text
                     if (!empty($slide->col1_image_url)) {
@@ -1100,20 +1357,22 @@ class MegReportsController extends AppController
                             $tempFiles[] = $tempImage;
                             list($imgW, $imgH) = getimagesize($tempImage);
                             
-                            // Scale image to fit column while maintaining aspect ratio
-                            $scale = min($col1Width / $imgW, $imageMaxHeight / $imgH, 1);
+                            // Scale image to fill column while maintaining aspect ratio
+                            // Allow scaling up to fit the space (no cap at 1)
+                            $scale = min($col1Width / $imgW, $imageMaxHeight / $imgH);
                             $scaledW = (int)($imgW * $scale);
                             $scaledH = (int)($imgH * $scale);
                             
-                            // Center image in column
+                            // Center image horizontally and vertically in column
                             $imgX = $col1X + (int)(($col1Width - $scaledW) / 2);
+                            $imgY = $imageStartY + (int)(($imageMaxHeight - $scaledH) / 2);
                             
                             $shape = $pptSlide->createDrawingShape();
                             $shape->setPath($tempImage);
                             $shape->setWidth($scaledW);
                             $shape->setHeight($scaledH);
                             $shape->setOffsetX($imgX);
-                            $shape->setOffsetY($imageStartY);
+                            $shape->setOffsetY($imgY);
                         }
                     } elseif (!empty($slide->col1_content)) {
                         // Use text_and_image_content style for text_and_image layout, otherwise default content style
@@ -1133,11 +1392,8 @@ class MegReportsController extends AppController
                         $textShape->setOffsetX($col1X);
                         $textShape->setOffsetY($imageStartY);
                         
-                        $textRun = $textShape->createTextRun($slide->col1_content);
-                        $textRun->getFont()
-                            ->setName($contentFontFamily)
-                            ->setSize($contentFontSize)
-                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . $contentFontColor));
+                        // Use structured content method for better formatting
+                        $this->addStructuredContentToShape($textShape, $slide->col1_content, $contentFontSize);
                     }
                     
                     // Column 2 Image or Text
@@ -1147,20 +1403,22 @@ class MegReportsController extends AppController
                             $tempFiles[] = $tempImage;
                             list($imgW, $imgH) = getimagesize($tempImage);
                             
-                            // Scale image to fit column while maintaining aspect ratio
-                            $scale = min($col2Width / $imgW, $imageMaxHeight / $imgH, 1);
+                            // Scale image to fill column while maintaining aspect ratio
+                            // Allow scaling up to fit the space (no cap at 1)
+                            $scale = min($col2Width / $imgW, $imageMaxHeight / $imgH);
                             $scaledW = (int)($imgW * $scale);
                             $scaledH = (int)($imgH * $scale);
                             
-                            // Center image in column
+                            // Center image horizontally and vertically in column
                             $imgX = $col2X + (int)(($col2Width - $scaledW) / 2);
+                            $imgY = $imageStartY + (int)(($imageMaxHeight - $scaledH) / 2);
                             
                             $shape = $pptSlide->createDrawingShape();
                             $shape->setPath($tempImage);
                             $shape->setWidth($scaledW);
                             $shape->setHeight($scaledH);
                             $shape->setOffsetX($imgX);
-                            $shape->setOffsetY($imageStartY);
+                            $shape->setOffsetY($imgY);
                         }
                     } elseif (!empty($slide->col2_content)) {
                         // Use text_and_image_content style for text_and_image layout, otherwise default content style
@@ -1180,11 +1438,94 @@ class MegReportsController extends AppController
                         $textShape->setOffsetX($col2X);
                         $textShape->setOffsetY($imageStartY);
                         
-                        $textRun = $textShape->createTextRun($slide->col2_content);
-                        $textRun->getFont()
-                            ->setName($contentFontFamily)
-                            ->setSize($contentFontSize)
-                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . $contentFontColor));
+                        // Use structured content method for better formatting
+                        $this->addStructuredContentToShape($textShape, $slide->col2_content, $contentFontSize);
+                    }
+                } elseif ($slide->slide_type === 'eeg_meg_discharge' || ($slideConfig['layout'] ?? '') === 'multi_image_with_titles') {
+                    // Multi-image layout - ALL images in a single row on one slide
+                    $maxImages = $slideConfig['max_images'] ?? 5;
+                    $defaultTitles = $slideConfig['default_image_titles'] ?? [];
+                    $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
+                    
+                    // Collect all images to render
+                    $imagesToRender = [];
+                    foreach (range(0, $maxImages - 1) as $i) {
+                        $colName = $imageColumns[$i];
+                        $imagePathField = "{$colName}_image_path";
+                        $headerField = "{$colName}_header";
+                        
+                        if (!empty($slide->{$imagePathField})) {
+                            $imageUrl = $s3Service->getDownloadUrl($slide->{$imagePathField});
+                            $title = $slide->{$headerField} ?? $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
+                            $imagesToRender[] = [
+                                'url' => $imageUrl,
+                                'title' => $title,
+                            ];
+                        }
+                    }
+                    
+                    // Render all images in a single row
+                    if (!empty($imagesToRender)) {
+                        $imageCount = count($imagesToRender);
+                        
+                        // Calculate column width - fill entire slide width with no gaps
+                        $totalWidth = $slideWidth; // Use full slide width (no margins between images)
+                        $columnWidth = (int)($totalWidth / $imageCount);
+                        
+                        // Title styles from site_constants
+                        $multiImageTitleStyles = $pptStyles['multi_image_title'] ?? [];
+                        $titleHeight = 20;
+                        $titleFontSize = $multiImageTitleStyles['font_size'] ?? 16;
+                        $titleFontBold = $multiImageTitleStyles['font_bold'] ?? true;
+                        
+                        // Calculate image area (below title row)
+                        $imageAreaStartY = $contentStartY + $titleHeight + 3;
+                        $imageAreaHeight = $slideHeight - $imageAreaStartY; // Fill to bottom
+                        
+                        foreach ($imagesToRender as $index => $imageData) {
+                            $columnX = (int)($index * $columnWidth);
+                            
+                            // Add title above image (centered in column)
+                            if (!empty($imageData['title'])) {
+                                $titleShape = $pptSlide->createRichTextShape();
+                                $titleShape->setHeight($titleHeight);
+                                $titleShape->setWidth($columnWidth);
+                                $titleShape->setOffsetX($columnX);
+                                $titleShape->setOffsetY($contentStartY);
+                                $titleShape->getActiveParagraph()->getAlignment()
+                                    ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_CENTER);
+                                
+                                $titleRun = $titleShape->createTextRun($imageData['title']);
+                                $titleRun->getFont()
+                                    ->setName('Calibri')
+                                    ->setSize($titleFontSize)
+                                    ->setBold($titleFontBold)
+                                    ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                            }
+                            
+                            // Download and render image
+                            $tempImage = $this->downloadTempImage($imageData['url']);
+                            if ($tempImage && file_exists($tempImage)) {
+                                $tempFiles[] = $tempImage;
+                                list($imgW, $imgH) = getimagesize($tempImage);
+                                
+                                // Scale to fill column width and available height
+                                $scale = min($columnWidth / $imgW, $imageAreaHeight / $imgH);
+                                $scaledW = (int)($imgW * $scale);
+                                $scaledH = (int)($imgH * $scale);
+                                
+                                // Center image within column (horizontally only, align to top)
+                                $imgX = $columnX + (int)(($columnWidth - $scaledW) / 2);
+                                $imgY = $imageAreaStartY;
+                                
+                                $shape = $pptSlide->createDrawingShape();
+                                $shape->setPath($tempImage);
+                                $shape->setWidth($scaledW);
+                                $shape->setHeight($scaledH);
+                                $shape->setOffsetX($imgX);
+                                $shape->setOffsetY($imgY);
+                            }
+                        }
                     }
                 } else {
                     // Single column layout - maximize image space
@@ -1199,20 +1540,22 @@ class MegReportsController extends AppController
                             list($imgW, $imgH) = getimagesize($tempImage);
                             
                             // Maximize image size while maintaining aspect ratio
-                            $maxImgHeight = (int)($availableHeight - 10);
-                            $scale = min($contentWidth / $imgW, $maxImgHeight / $imgH, 1);
+                            // Allow scaling up to fill the available space
+                            $maxImgHeight = (int)$availableHeight;
+                            $scale = min($contentWidth / $imgW, $maxImgHeight / $imgH);
                             $scaledW = (int)($imgW * $scale);
                             $scaledH = (int)($imgH * $scale);
                             
-                            // Center image horizontally
+                            // Center image horizontally and vertically
                             $imgX = $margin + (int)(($contentWidth - $scaledW) / 2);
+                            $imgY = $contentStartY + (int)(($availableHeight - $scaledH) / 2);
                             
                             $shape = $pptSlide->createDrawingShape();
                             $shape->setPath($tempImage);
                             $shape->setWidth($scaledW);
                             $shape->setHeight($scaledH);
                             $shape->setOffsetX($imgX);
-                            $shape->setOffsetY($contentStartY);
+                            $shape->setOffsetY($imgY);
                         }
                     }
                     
@@ -1227,10 +1570,12 @@ class MegReportsController extends AppController
                         $textShape->setOffsetX($margin);
                         $textShape->setOffsetY($textY);
                         
-                        $textRun = $textShape->createTextRun($slide->col1_content);
-                        $textRun->getFont()
-                            ->setSize(12)
-                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+                        // Get font size from config for structured bullets
+                        $bulletStyles = $pptStyles['structured_bullets'] ?? [];
+                        $structuredFontSize = $bulletStyles['font_size'] ?? 14;
+                        
+                        // Use structured content method for better formatting
+                        $this->addStructuredContentToShape($textShape, $slide->col1_content, $structuredFontSize);
                     }
                 }
                 
@@ -1297,6 +1642,199 @@ class MegReportsController extends AppController
 
     /**
      * Create cover slide with patient and study information
+     *
+     * @param \App\Model\Entity\Report $report Report entity
+     * @return void
+     */
+    private function createDefaultSlides($report)
+    {
+        $ReportSlides = $this->fetchTable('ReportSlides');
+        
+        // Get all slide types from configuration
+        $slideTypes = unserialize(PPT_REPORT_PAGES);
+        
+        // Sort by order
+        uasort($slideTypes, function($a, $b) {
+            return ($a['order'] ?? 999) - ($b['order'] ?? 999);
+        });
+        
+        // Get patient and case information for cover page
+        $patientUser = $report->case->patient_user ?? null;
+        $case = $report->case ?? null;
+        $patient = $patientUser ? ($patientUser->patient ?? null) : null;
+        
+        $slideOrder = 1;
+        
+        foreach ($slideTypes as $slideTypeKey => $slideConfig) {
+            $slideData = [
+                'report_id' => $report->id,
+                'user_id' => $report->user_id,
+                'slide_order' => $slideOrder,
+                'slide_type' => $slideTypeKey,
+                'layout_columns' => $slideConfig['columns'] ?? 1,
+                'title' => $slideConfig['title'] ?? '',
+                'subtitle' => $slideConfig['subtitle'] ?? null,
+                'col1_type' => $slideConfig['col1']['type'] ?? 'text',
+                'col1_content' => null,
+                'col1_image_path' => null,
+                'col1_header' => $slideConfig['col1']['header'] ?? null,
+                'col2_type' => $slideConfig['col2']['type'] ?? 'text',
+                'col2_content' => null,
+                'col2_image_path' => null,
+                'col2_header' => $slideConfig['col2']['header'] ?? null,
+                'footer_text' => $slideConfig['footer_text'] ?? null,
+                'legend_data' => isset($slideConfig['legend']['items']) ? json_encode($slideConfig['legend']['items']) : null,
+                'description' => null,
+                'html_content' => null,
+            ];
+            
+            // Handle special slide types
+            if ($slideTypeKey === 'cover_page') {
+                // Cover page with patient data
+                $slideData = $this->buildCoverSlideData($report, $slideConfig, $slideOrder);
+            } elseif (isset($slideConfig['default_sections'])) {
+                // Slides with structured bullets (summary, original_eeg_signals_text, etc.)
+                $slideData['col1_content'] = json_encode($slideConfig['default_sections']);
+            } elseif (isset($slideConfig['col1']['default_content'])) {
+                // Text slide with default content
+                $slideData['col1_content'] = $slideConfig['col1']['default_content'];
+            } elseif (isset($slideConfig['header_text']['content'])) {
+                // Slides with header text content
+                $headerContent = $slideConfig['header_text']['content'];
+                if (is_array($headerContent)) {
+                    $slideData['col1_content'] = implode("\n", $headerContent);
+                } else {
+                    $slideData['col1_content'] = $headerContent;
+                }
+            }
+            
+            // Build HTML content for preview
+            $slideData['html_content'] = $this->buildSlideHtml($slideData, $slideConfig);
+            
+            $slide = $ReportSlides->newEntity($slideData);
+            $ReportSlides->save($slide);
+            
+            $slideOrder++;
+        }
+    }
+    
+    /**
+     * Build cover slide data with patient information
+     *
+     * @param \App\Model\Entity\Report $report Report entity
+     * @param array $slideConfig Slide configuration
+     * @param int $slideOrder Slide order number
+     * @return array Slide data
+     */
+    private function buildCoverSlideData($report, $slideConfig, $slideOrder)
+    {
+        $patientUser = $report->case->patient_user ?? null;
+        $case = $report->case ?? null;
+        $patient = $patientUser ? ($patientUser->patient ?? null) : null;
+        
+        // Format patient name
+        $firstName = $patientUser->first_name ?? '';
+        $lastName = $patientUser->last_name ?? '';
+        $patientName = trim($lastName . ', ' . $firstName);
+        if (empty($patientName) || $patientName === ',') {
+            $patientName = 'Last, First';
+        }
+        
+        // Format date of birth
+        $dob = 'xx/xx/xxxx';
+        if ($patient && $patient->dob) {
+            $dob = $patient->dob->format('m/d/Y');
+        }
+        
+        // Get MRN and FIN
+        $mrn = ($patient && $patient->medical_record_number) ? $patient->medical_record_number : 'xxx';
+        $fin = ($patient && $patient->financial_record_number) ? $patient->financial_record_number : 'xxx';
+        
+        // Format study date
+        $studyDate = $case && $case->date ? $case->date->format('m/d/Y') : ($case && $case->created ? $case->created->format('m/d/Y') : 'xx/xx/xxxx');
+        
+        // Get referring physician
+        $doctorUser = $report->user ?? null;
+        $referringPhysician = 'Not specified';
+        if ($doctorUser) {
+            $doctorFirstName = $doctorUser->first_name ?? '';
+            $doctorLastName = $doctorUser->last_name ?? '';
+            $referringPhysician = trim($doctorFirstName . ' ' . $doctorLastName);
+            if (empty($referringPhysician)) {
+                $referringPhysician = 'Not specified';
+            }
+        }
+        
+        // MEG ID
+        $megId = 'CASE_' . str_pad((string)($case ? $case->id : 0), 6, 'X', STR_PAD_LEFT);
+        
+        // Get age and gender
+        $age = '';
+        $gender = '';
+        if ($patient) {
+            if ($patient->dob) {
+                $now = new \DateTime();
+                $dobDateTime = new \DateTime($patient->dob->format('Y-m-d'));
+                $diff = $now->diff($dobDateTime);
+                $age = $diff->y . ' years old';
+            }
+            $gender = match($patient->gender ?? '') {
+                'M' => 'Male',
+                'F' => 'Female',
+                'O' => 'Other',
+                default => ''
+            };
+        }
+        
+        // Get ASMs
+        $asms = $case ? ($case->asms ?? 'None listed') : 'None listed';
+        
+        // Build cover page content
+        $coverHeading = $slideConfig['title'] ?? "Magnetoencephalography Report (MEG)";
+        
+        $coverContent = "Name: {$patientName}\n";
+        $coverContent .= "Date of Birth: {$dob}\n";
+        $coverContent .= "MRN: {$mrn}; FIN: {$fin}\n";
+        $coverContent .= "Date of Study: {$studyDate}\n";
+        $coverContent .= "Referring Physician: {$referringPhysician}\n";
+        $coverContent .= "MEG ID: {$megId}\n\n\n\n\n";
+        $coverContent .= "MEG performed without sedation\n";
+        $coverContent .= "{$age} {$gender}\n";
+        $coverContent .= "ASMs: {$asms}";
+        
+        // Build HTML content
+        $htmlContent = '<div class="slide-content" style="text-align: center;">';
+        $htmlContent .= '<h2 style="font-size: 24px;">' . h($coverHeading) . '</h2>';
+        $htmlContent .= '<p style="font-size: 16px;">' . nl2br(h($coverContent)) . '</p>';
+        $htmlContent .= '</div>';
+        
+        $fullDescription = $coverHeading . "\n\n\n" . $coverContent;
+        
+        return [
+            'report_id' => $report->id,
+            'user_id' => $report->user_id,
+            'slide_order' => $slideOrder,
+            'slide_type' => 'cover_page',
+            'layout_columns' => 1,
+            'title' => 'Cover Page',
+            'subtitle' => null,
+            'col1_type' => 'text',
+            'col1_content' => null,
+            'col1_image_path' => null,
+            'col1_header' => null,
+            'col2_type' => 'text',
+            'col2_content' => null,
+            'col2_image_path' => null,
+            'col2_header' => null,
+            'footer_text' => null,
+            'legend_data' => null,
+            'description' => $fullDescription,
+            'html_content' => $htmlContent,
+        ];
+    }
+    
+    /**
+     * Create cover slide with patient information (Legacy - kept for backward compatibility)
      *
      * @param \App\Model\Entity\Report $report Report entity
      * @return void
