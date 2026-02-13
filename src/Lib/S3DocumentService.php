@@ -400,6 +400,69 @@ class S3DocumentService {
     }
     
     /**
+     * Upload a local file directly to S3 with a specific key
+     *
+     * @param string $localFilePath Path to the local file
+     * @param string $s3Key The S3 key/path where the file should be stored
+     * @param string $contentType MIME type of the file
+     * @return array Result with success status and path
+     */
+    public function uploadLocalFile(string $localFilePath, string $s3Key, string $contentType = 'application/octet-stream'): array {
+        if (!file_exists($localFilePath)) {
+            return [
+                'success' => false,
+                'message' => 'Local file does not exist'
+            ];
+        }
+        
+        if ($this->s3Enabled) {
+            try {
+                $result = $this->s3Client->putObject([
+                    'Bucket' => $this->bucket,
+                    'Key' => $s3Key,
+                    'SourceFile' => $localFilePath,
+                    'ContentType' => $contentType,
+                    'ServerSideEncryption' => 'AES256',
+                ]);
+                
+                return [
+                    'success' => true,
+                    'path' => $s3Key,
+                    'url' => $result['ObjectURL'] ?? null,
+                    'storage' => 's3'
+                ];
+            } catch (AwsException $e) {
+                Log::error('S3 upload failed: ' . $e->getMessage());
+                return [
+                    'success' => false,
+                    'message' => 'S3 upload failed: ' . $e->getMessage()
+                ];
+            }
+        } else {
+            // Fallback to local storage
+            $localPath = $this->localUploadPath . $s3Key;
+            $dir = dirname($localPath);
+            
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            
+            if (copy($localFilePath, $localPath)) {
+                return [
+                    'success' => true,
+                    'path' => $s3Key,
+                    'storage' => 'local'
+                ];
+            }
+            
+            return [
+                'success' => false,
+                'message' => 'Failed to copy file to local storage'
+            ];
+        }
+    }
+    
+    /**
      * Get S3 client instance
      *
      * @return S3Client|null

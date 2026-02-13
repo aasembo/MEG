@@ -1065,8 +1065,47 @@ class MegReportsController extends AppController
             ->order(['slide_order' => 'ASC'])
             ->all();
         
-        // Generate URLs for slide images
+        // Calculate current hash based on slides content
+        $currentHash = $this->calculateReportHash($slides);
+        
+        // Generate expected filename (same for cache hit or miss)
+        $caseId = str_pad((string)$report->case_id, 6, 'X', STR_PAD_LEFT);
+        $filename = 'MEG_Report_CASE_' . $caseId . '.pptx';
+        
+        // Check if we have a cached PPT that matches current content
         $s3Service = new S3DocumentService();
+        if (!empty($report->ppt_download_url) && $report->ppt_hash === $currentHash) {
+            // Cache hit - download from S3 and serve with proper filename
+            $downloadUrl = $s3Service->getDownloadUrl($report->ppt_download_url);
+            $tmpFile = TMP . 'ppt_cache_' . uniqid() . '.pptx';
+            
+            $context = stream_context_create([
+                'http' => ['timeout' => 60],
+                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
+            ]);
+            $fileContent = @file_get_contents($downloadUrl, false, $context);
+            
+            if ($fileContent !== false) {
+                file_put_contents($tmpFile, $fileContent);
+                
+                $response = $this->response->withFile($tmpFile, [
+                    'download' => true,
+                    'name' => $filename
+                ]);
+                
+                register_shutdown_function(function() use ($tmpFile) {
+                    if (file_exists($tmpFile)) {
+                        unlink($tmpFile);
+                    }
+                });
+                
+                return $response;
+            }
+            // If cache download failed, fall through to regenerate
+        }
+        
+        // Cache miss - generate PPT
+        // Generate URLs for slide images
         foreach ($slides as $slide) {
             if ($slide->file_path) {
                 $slide->image_url = $s3Service->getDownloadUrl($slide->file_path);
@@ -1126,8 +1165,8 @@ class MegReportsController extends AppController
                 // Cover slide - use styles from site_constants
                 $coverStyles = $pptStyles['cover'] ?? [];
                 $coverHeadingSize = $coverStyles['heading_font_size'] ?? 24;
-                $coverContentSize = $coverStyles['content_font_size'] ?? 22;
-                $coverFooterSize = $coverStyles['footer_font_size'] ?? 16;
+                $coverContentSize = $coverStyles['content_font_size'] ?? 14;
+                $coverFooterSize = $coverStyles['footer_font_size'] ?? 12;
                 $patientNameBold = $coverStyles['patient_name_bold'] ?? true;
                 
                 $lines = explode("\n", $slide->description ?: $slideTitle);
@@ -1136,10 +1175,10 @@ class MegReportsController extends AppController
                 
                 // Add heading - centered
                 $headingShape = $pptSlide->createRichTextShape();
-                $headingShape->setHeight(60);
+                $headingShape->setHeight(50);
                 $headingShape->setWidth($slideWidth - ($margin * 2));
                 $headingShape->setOffsetX($margin);
-                $headingShape->setOffsetY(80);
+                $headingShape->setOffsetY(60);
                 $headingShape->getActiveParagraph()->getAlignment()
                     ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_CENTER);
                 
@@ -1153,10 +1192,10 @@ class MegReportsController extends AppController
                 // Add content below heading - parse for patient name to make bold
                 if (!empty($content)) {
                     $textShape = $pptSlide->createRichTextShape();
-                    $textShape->setHeight($slideHeight - 180);
+                    $textShape->setHeight($slideHeight - 140);
                     $textShape->setWidth($slideWidth - ($margin * 2));
                     $textShape->setOffsetX($margin);
-                    $textShape->setOffsetY(160);
+                    $textShape->setOffsetY(120);
                     $textShape->getActiveParagraph()->getAlignment()
                         ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_CENTER);
                     
@@ -1199,20 +1238,24 @@ class MegReportsController extends AppController
                 
                 // Add title at top
                 if (!empty($slideTitle)) {
-                    $titleFontSize = $pptStyles['title']['font_size'] ?? 36;
-                    $titleMarginBottom = $pptStyles['title']['margin_bottom'] ?? 4;
+                    $titleFontSize = $pptStyles['title']['font_size'] ?? 24;
+                    $titleMarginBottom = $pptStyles['title']['margin_bottom'] ?? 8;
                     $titleFontFamily = $pptStyles['title']['font_family'] ?? 'Calibri';
                     
-                    // Calculate title height - keep compact
-                    // For larger fonts, use tighter spacing
-                    $titleHeight = (int)($titleFontSize * 1.2); // Just enough for single line
+                    // Calculate title height based on text length (estimate chars per line at 24pt)
+                    // At 24pt on 930px width (~60 chars per line)
+                    $contentWidth = $slideWidth - ($margin * 2);
+                    $charsPerLine = (int)($contentWidth / ($titleFontSize * 0.5)); // Rough estimate
+                    $titleLines = max(1, ceil(strlen($slideTitle) / $charsPerLine));
+                    $titleLineHeight = $titleFontSize + 8; // Font size + spacing
+                    $titleHeight = (int)min($titleLines * $titleLineHeight, 70); // Cap at 70px max
                     
                     $titleShape = $pptSlide->createRichTextShape();
                     $titleShape->setHeight($titleHeight);
-                    $titleShape->setWidth($slideWidth - ($margin * 2));
+                    $titleShape->setWidth($contentWidth);
                     $titleShape->setOffsetX($margin);
                     $titleShape->setOffsetY($currentY);
-                    $titleShape->setAutoFit(\PhpOffice\PhpPresentation\Shape\RichText::AUTOFIT_NORMAL);
+                    // Don't use AUTOFIT - it shrinks fonts to fit container
                     
                     $titleRun = $titleShape->createTextRun($slideTitle);
                     $titleRun->getFont()
@@ -1226,23 +1269,23 @@ class MegReportsController extends AppController
                 
                 // Add subtitle if present (as bullet point)
                 if (!empty($slide->subtitle)) {
-                    $subtitleFontSize = $pptStyles['subtitle']['font_size'] ?? 21;
+                    $subtitleFontSize = $pptStyles['subtitle']['font_size'] ?? 20;
                     $subtitleMarginBottom = $pptStyles['subtitle']['margin_bottom'] ?? 8;
                     $subtitleFontFamily = $pptStyles['subtitle']['font_family'] ?? 'Calibri';
                     
-                    // Calculate subtitle height based on text length - keep compact
-                    $subtitleCharsPerLine = 60;
+                    // Calculate subtitle height based on text length
                     $subtitleText = '• ' . $slide->subtitle;
+                    $subtitleCharsPerLine = (int)(($slideWidth - ($margin * 2)) / ($subtitleFontSize * 0.5));
                     $subtitleLines = max(1, ceil(strlen($subtitleText) / $subtitleCharsPerLine));
-                    $subtitleLineHeight = $subtitleFontSize + 4;
-                    $subtitleHeight = (int)min($subtitleLines * $subtitleLineHeight, 60); // Cap max height
+                    $subtitleLineHeight = $subtitleFontSize + 6;
+                    $subtitleHeight = (int)min($subtitleLines * $subtitleLineHeight, 60); // Cap at 60px
                     
                     $subtitleShape = $pptSlide->createRichTextShape();
                     $subtitleShape->setHeight($subtitleHeight);
                     $subtitleShape->setWidth($slideWidth - ($margin * 2));
                     $subtitleShape->setOffsetX($margin);
                     $subtitleShape->setOffsetY($currentY);
-                    $subtitleShape->setAutoFit(\PhpOffice\PhpPresentation\Shape\RichText::AUTOFIT_NORMAL);
+                    // Don't use AUTOFIT - it shrinks fonts to fit container
                     
                     // Check if slide config has bullet formatting
                     $bulletPrefix = '• ';
@@ -1255,9 +1298,9 @@ class MegReportsController extends AppController
                     $currentY += $subtitleHeight + $subtitleMarginBottom;
                 }
                 
-                // Calculate available content area - minimize gap to maximize content space
-                $contentStartY = (int)$currentY; // No extra gap after title/subtitle
-                $contentEndY = (int)($slideHeight - 10); // Minimal bottom margin
+                // Calculate available content area with proper spacing
+                $contentStartY = (int)$currentY; // Content starts right after title margins
+                $contentEndY = (int)($slideHeight - 15); // Bottom margin
                 $availableHeight = (int)($contentEndY - $contentStartY);
                 
                 // Handle two-column layout
@@ -1288,18 +1331,21 @@ class MegReportsController extends AppController
                     // Calculate header height based on text length
                     $col1HeaderText = strip_tags($slide->col1_header ?? '');
                     $col2HeaderText = strip_tags($slide->col2_header ?? '');
-                    $columnHeaderMarginBottom = $pptStyles['column_header']['margin_bottom'] ?? 8;
+                    $columnHeaderMarginBottom = $pptStyles['column_header']['margin_bottom'] ?? 10;
+                    $columnHeaderFontSize = $pptStyles['column_header']['font_size'] ?? 14;
                     
                     // Only reserve header space if there are actual headers
                     $hasHeaders = !empty($col1HeaderText) || !empty($col2HeaderText);
                     $headerHeight = 0;
                     
                     if ($hasHeaders) {
-                        // Estimate lines needed (roughly 40 chars per line at font size 15)
-                        $col1Lines = !empty($col1HeaderText) ? (int)max(1, ceil(strlen($col1HeaderText) / 40)) : 0;
-                        $col2Lines = !empty($col2HeaderText) ? (int)max(1, ceil(strlen($col2HeaderText) / 40)) : 0;
+                        // Estimate lines needed based on column width and font size
+                        $charsPerLineHeader = (int)($col1Width / ($columnHeaderFontSize * 0.5));
+                        $col1Lines = !empty($col1HeaderText) ? (int)max(1, ceil(strlen($col1HeaderText) / $charsPerLineHeader)) : 0;
+                        $col2Lines = !empty($col2HeaderText) ? (int)max(1, ceil(strlen($col2HeaderText) / $charsPerLineHeader)) : 0;
                         $maxHeaderLines = (int)max($col1Lines, $col2Lines);
-                        $headerHeight = (int)min(70, $maxHeaderLines * 18 + 5); // Cap at 70px
+                        $headerLineHeight = $columnHeaderFontSize + 6;
+                        $headerHeight = (int)min(80, $maxHeaderLines * $headerLineHeight + 5); // Cap at 80px
                     }
                     
                     // Column 1 Header
@@ -1313,12 +1359,12 @@ class MegReportsController extends AppController
                         $col1HeaderShape->getActiveParagraph()->getAlignment()
                             ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_LEFT);
                         
-                        // Parse for bold text (simple approach)
+                        // Use config font_bold setting (default false)
                         $col1HeaderRun = $col1HeaderShape->createTextRun($col1HeaderText);
                         $col1HeaderRun->getFont()
                             ->setName($col1HeaderFontFamily)
-                            ->setSize($pptStyles['column_header']['font_size'] ?? 15)
-                            ->setBold(strpos($slide->col1_header ?? '', '<b>') !== false)
+                            ->setSize($pptStyles['column_header']['font_size'] ?? 14)
+                            ->setBold($pptStyles['column_header']['font_bold'] ?? false)
                             ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ($pptStyles['column_header']['font_color'] ?? '000000')));
                     }
                     
@@ -1333,11 +1379,12 @@ class MegReportsController extends AppController
                         $col2HeaderShape->getActiveParagraph()->getAlignment()
                             ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_LEFT);
                         
+                        // Use config font_bold setting (default false)
                         $col2HeaderRun = $col2HeaderShape->createTextRun($col2HeaderText);
                         $col2HeaderRun->getFont()
                             ->setName($col2HeaderFontFamily)
-                            ->setSize($pptStyles['column_header']['font_size'] ?? 15)
-                            ->setBold(strpos($slide->col2_header ?? '', '<b>') !== false)
+                            ->setSize($pptStyles['column_header']['font_size'] ?? 14)
+                            ->setBold($pptStyles['column_header']['font_bold'] ?? false)
                             ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ($pptStyles['column_header']['font_color'] ?? '000000')));
                     }
                     
@@ -1377,7 +1424,7 @@ class MegReportsController extends AppController
                     } elseif (!empty($slide->col1_content)) {
                         // Use text_and_image_content style for text_and_image layout, otherwise default content style
                         $contentFontSize = ($layout === 'text_and_image') 
-                            ? ($pptStyles['text_and_image_content']['font_size'] ?? 17)
+                            ? ($pptStyles['text_and_image_content']['font_size'] ?? 14)
                             : ($pptStyles['content']['font_size'] ?? 14);
                         $contentFontColor = ($layout === 'text_and_image')
                             ? ($pptStyles['text_and_image_content']['font_color'] ?? '000000')
@@ -1423,7 +1470,7 @@ class MegReportsController extends AppController
                     } elseif (!empty($slide->col2_content)) {
                         // Use text_and_image_content style for text_and_image layout, otherwise default content style
                         $contentFontSize = ($layout === 'text_and_image') 
-                            ? ($pptStyles['text_and_image_content']['font_size'] ?? 17)
+                            ? ($pptStyles['text_and_image_content']['font_size'] ?? 14)
                             : ($pptStyles['content']['font_size'] ?? 14);
                         $contentFontColor = ($layout === 'text_and_image')
                             ? ($pptStyles['text_and_image_content']['font_color'] ?? '000000')
@@ -1475,7 +1522,7 @@ class MegReportsController extends AppController
                         // Title styles from site_constants
                         $multiImageTitleStyles = $pptStyles['multi_image_title'] ?? [];
                         $titleHeight = 20;
-                        $titleFontSize = $multiImageTitleStyles['font_size'] ?? 16;
+                        $titleFontSize = $multiImageTitleStyles['font_size'] ?? 14;
                         $titleFontBold = $multiImageTitleStyles['font_bold'] ?? true;
                         
                         // Calculate image area (below title row)
@@ -1606,10 +1653,6 @@ class MegReportsController extends AppController
             }
         }
         
-        // Generate filename
-        $caseId = str_pad((string)$report->case_id, 6, 'X', STR_PAD_LEFT);
-        $filename = 'MEG_Report_CASE_' . $caseId . '.pptx';
-        
         // Generate PowerPoint file
         $writer = new \PhpOffice\PhpPresentation\Writer\PowerPoint2007($presentation);
         
@@ -1622,6 +1665,26 @@ class MegReportsController extends AppController
             if (file_exists($tempFile)) {
                 unlink($tempFile);
             }
+        }
+        
+        // Upload generated PPT to S3 for caching
+        $s3Path = 'generated-ppts/report_' . $reportId . '_' . $currentHash . '.pptx';
+        try {
+            $uploadResult = $s3Service->uploadLocalFile(
+                $tmpFile, 
+                $s3Path, 
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+            );
+            if ($uploadResult['success']) {
+                // Save cache info to database
+                $report->ppt_download_url = $s3Path;
+                $report->ppt_hash = $currentHash;
+                $report->ppt_generated_at = new \Cake\I18n\DateTime();
+                $Reports->save($report);
+            }
+        } catch (\Exception $e) {
+            // Log error but continue - user still gets the file
+            \Cake\Log\Log::error('Failed to cache PPT to S3: ' . $e->getMessage());
         }
         
         // Send file to browser
@@ -1638,6 +1701,45 @@ class MegReportsController extends AppController
         });
         
         return $response;
+    }
+    
+    /**
+     * Calculate hash for report slides to detect changes
+     *
+     * @param \Cake\ORM\ResultSet $slides Collection of report slides
+     * @return string SHA-256 hash of slides content
+     */
+    private function calculateReportHash($slides): string
+    {
+        $hashData = [];
+        
+        foreach ($slides as $slide) {
+            $slideData = [
+                'id' => $slide->id,
+                'slide_type' => $slide->slide_type,
+                'title' => $slide->title,
+                'description' => $slide->description,
+                'subtitle' => $slide->subtitle,
+                'col1_content' => $slide->col1_content,
+                'col2_content' => $slide->col2_content,
+                'col1_header' => $slide->col1_header,
+                'col2_header' => $slide->col2_header,
+                'col3_header' => $slide->col3_header,
+                'col4_header' => $slide->col4_header,
+                'col5_header' => $slide->col5_header,
+                'col1_image_path' => $slide->col1_image_path,
+                'col2_image_path' => $slide->col2_image_path,
+                'col3_image_path' => $slide->col3_image_path,
+                'col4_image_path' => $slide->col4_image_path,
+                'col5_image_path' => $slide->col5_image_path,
+                'file_path' => $slide->file_path,
+                'legend_items' => $slide->legend_items,
+                'modified' => $slide->modified ? $slide->modified->format('Y-m-d H:i:s') : null,
+            ];
+            $hashData[] = $slideData;
+        }
+        
+        return hash('sha256', json_encode($hashData));
     }
 
     /**

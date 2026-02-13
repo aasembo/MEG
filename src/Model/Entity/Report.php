@@ -20,6 +20,9 @@ use Cake\ORM\Entity;
  * @property array|null $scientist_review
  * @property array|null $doctor_approval
  * @property string|null $status
+ * @property string|null $ppt_download_url
+ * @property string|null $ppt_hash
+ * @property \Cake\I18n\DateTime|null $ppt_generated_at
  * @property int|null $user_id
  * @property \Cake\I18n\DateTime|null $created
  * @property \Cake\I18n\DateTime|null $modified
@@ -51,6 +54,9 @@ class Report extends Entity
         'scientist_review' => true,
         'doctor_approval' => true,
         'status' => true,
+        'ppt_download_url' => true,
+        'ppt_hash' => true,
+        'ppt_generated_at' => true,
         'user_id' => true,
         'created' => true,
         'modified' => true,
