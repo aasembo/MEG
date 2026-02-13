@@ -5,6 +5,7 @@
  */
 
 $this->assign('title', 'Case #' . $case->id);
+$caseDocumentsEnabled = \Cake\Core\Configure::read('Features.caseDocuments', true);
 ?>
 
 <div class="container-fluid px-4 py-4" id="caseView<?php echo $case->id; ?>">
@@ -242,6 +243,7 @@ $this->assign('title', 'Case #' . $case->id);
                                                     <div class="text-muted small mb-2">
                                                         <i class="fas fa-procedures me-1"></i><?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>
                                                     </div>
+                                                    <?php if ($caseDocumentsEnabled): ?>
                                                     <?php if ($cep->hasDocuments()): ?>
                                                         <button class="badge bg-info text-white border-0 view-procedure-docs-btn" 
                                                                 style="font-size: 0.7rem; cursor: pointer;"
@@ -256,6 +258,7 @@ $this->assign('title', 'Case #' . $case->id);
                                                         <span class="badge bg-secondary" style="font-size: 0.7rem;">
                                                             <i class="fas fa-folder-open me-1"></i>No documents
                                                         </span>
+                                                    <?php endif; ?>
                                                     <?php endif; ?>
                                                 </div>
                                             </div>
@@ -287,7 +290,7 @@ $this->assign('title', 'Case #' . $case->id);
             <?php endif; ?>
 
             <!-- Documents Section -->
-            <?php if (!empty($case->documents)): ?>
+            <?php if ($caseDocumentsEnabled && !empty($case->documents)): ?>
             <div class="card border-0 shadow mb-4">
                 <div class="card-header bg-light border-0 py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold text-dark">
@@ -570,15 +573,19 @@ $this->assign('title', 'Case #' . $case->id);
                                 ); ?>
                             <?php endif; ?>
                             
+                            <?php if ($caseDocumentsEnabled): ?>
                             <button class="btn btn-outline-danger d-flex align-items-center justify-content-center gap-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
                                 <i class="fas fa-upload"></i>Upload Documents
                             </button>
+                            <?php endif; ?>
                         </div>
                     <?php elseif (in_array($case->status, ['in_progress', 'review'])): ?>
                         <div class="d-grid gap-2">
+                            <?php if ($caseDocumentsEnabled): ?>
                             <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#uploadModal">
                                 <i class="fas fa-upload me-1"></i> Upload Documents
                             </button>
+                            <?php endif; ?>
                             
                             <?php echo $this->Html->link(
                                 '<i class="fas fa-eye me-1"></i> View Reports',
@@ -1094,6 +1101,7 @@ $this->assign('title', 'Case #' . $case->id);
     </div>
 </div>
 
+<?php if ($caseDocumentsEnabled): ?>
 <!-- Upload Modal -->
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -1406,7 +1414,9 @@ $this->assign('title', 'Case #' . $case->id);
         </div>
     </div>
 </div>
+<?php endif; /* caseDocumentsEnabled */ ?>
 
+<?php if ($caseDocumentsEnabled): ?>
 <script>
 // Handle procedure-specific document upload and enhanced UI interactions
 document.addEventListener('DOMContentLoaded', function() {
@@ -2248,6 +2258,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== END DOCUMENT PREVIEW FUNCTIONALITY =====
 });
 </script>
+<?php endif; /* caseDocumentsEnabled */ ?>
 
 <style>
 /* Report Hierarchy Styling */

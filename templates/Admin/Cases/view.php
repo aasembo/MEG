@@ -5,6 +5,7 @@
  */
 
 $this->assign('title', 'Case #' . $case->id);
+$caseDocumentsEnabled = \Cake\Core\Configure::read('Features.caseDocuments', true);
 ?>
 
 <div class="container-fluid px-4 py-4" id="caseView<?php echo $case->id; ?>">
@@ -218,7 +219,7 @@ $this->assign('title', 'Case #' . $case->id);
                                                         <i class="fas fa-check-circle me-1 text-info"></i>
                                                         <?php echo h($cep->exams_procedure->procedure->name ?? 'N/A'); ?>
                                                     </div>
-                                                    <?php if ($cep->hasDocuments()): ?>
+                                                    <?php if ($caseDocumentsEnabled && $cep->hasDocuments()): ?>
                                                         <div class="mt-2">
                                                             <span class="badge bg-success text-white" style="font-size: 0.75rem;" 
                                                                   role="button" 
@@ -271,7 +272,7 @@ $this->assign('title', 'Case #' . $case->id);
             <?php endif; ?>
 
             <!-- Documents -->
-            <?php if (!empty($case->documents)): ?>
+            <?php if ($caseDocumentsEnabled && !empty($case->documents)): ?>
             <div class="card border-0 shadow mb-4">
                 <div class="card-header bg-light border-0 py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold text-dark">
@@ -1139,6 +1140,7 @@ $this->assign('title', 'Case #' . $case->id);
 </div>
 <?php endif; ?>
 
+<?php if ($caseDocumentsEnabled): ?>
 <!-- Document Preview Modal -->
 <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-fullscreen-lg-down">
@@ -1214,7 +1216,9 @@ $this->assign('title', 'Case #' . $case->id);
         </div>
     </div>
 </div>
+<?php endif; /* caseDocumentsEnabled */ ?>
 
+<?php if ($caseDocumentsEnabled): ?>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const previewModal = document.getElementById('previewModal');
@@ -1430,6 +1434,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+<?php endif; /* caseDocumentsEnabled */ ?>
 
 <style>
 .timeline-item {

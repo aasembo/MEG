@@ -902,7 +902,7 @@ class CasesController extends AppController {
                     $casesExamsProcedure = $casesExamsProceduresTable->newEntity([
                         'case_id' => $case->id,
                         'exams_procedure_id' => $procedureId,
-                        'status' => SiteConstants::CASE_STATUS_PENDING,
+                        'status' => SiteConstants::CASE_STATUS_COMPLETED,
                         'scheduled_at' => null,
                         'notes' => ''
                     ]);
@@ -2170,7 +2170,7 @@ class CasesController extends AppController {
                     $casesExamsProcedure = $casesExamsProceduresTable->newEntity([
                         'case_id' => $case->id,
                         'exams_procedure_id' => $examProcedureId,
-                        'status' => SiteConstants::CASE_STATUS_PENDING,
+                        'status' => SiteConstants::CASE_STATUS_COMPLETED,
                         'scheduled_at' => null,
                         'notes' => ''
                     ]);
