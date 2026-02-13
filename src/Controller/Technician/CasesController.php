@@ -1614,6 +1614,21 @@ class CasesController extends AppController {
             } else {
                 // Create assignment record
                 $caseAssignmentsTable = $this->fetchTable('CaseAssignments');
+
+                // Delete any previous scientist/doctor assignments for this case
+                // so reassignment doesn't create duplicates
+                $usersTable = $this->fetchTable('Users');
+                $existingAssignments = $caseAssignmentsTable->find()
+                    ->where(['CaseAssignments.case_id' => $case->id])
+                    ->contain(['AssignedToUsers' => ['Roles']])
+                    ->all();
+                foreach ($existingAssignments as $existing) {
+                    $existingRole = $existing->assigned_to_user->role->type ?? null;
+                    if (in_array($existingRole, [SiteConstants::ROLE_TYPE_SCIENTIST, SiteConstants::ROLE_TYPE_DOCTOR])) {
+                        $caseAssignmentsTable->softDelete($existing);
+                    }
+                }
+
                 // Ensure case_version_id is set
                 $caseVersionId = $case->current_version_id;
                 if (empty($caseVersionId)) {

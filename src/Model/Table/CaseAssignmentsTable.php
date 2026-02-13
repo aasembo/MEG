@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Model\Table;
 
+use Cake\Event\EventInterface;
 use Cake\ORM\Query\SelectQuery;
 use Cake\ORM\RulesChecker;
 use Cake\ORM\Table;
@@ -72,6 +73,28 @@ class CaseAssignmentsTable extends Table {
         $rules->add($rules->existsIn('assigned_to', 'AssignedToUsers'), ['errorField' => 'assigned_to']);
 
         return $rules;
+    }
+
+    /**
+     * Default scope: exclude soft-deleted assignments from all queries.
+     * This applies to find(), matching(), exists(), and contain() calls.
+     */
+    public function beforeFind(EventInterface $event, SelectQuery $query, \ArrayObject $options, bool $primary): void
+    {
+        // Allow bypassing soft-delete filter when explicitly requested
+        if (!empty($options['withDeleted'])) {
+            return;
+        }
+        $query->where(['CaseAssignments.deleted IS' => null]);
+    }
+
+    /**
+     * Soft delete an assignment by setting the deleted timestamp.
+     */
+    public function softDelete(\App\Model\Entity\CaseAssignment $entity): bool
+    {
+        $entity->deleted = new \DateTime();
+        return (bool)$this->save($entity);
     }
 
     public function findByCase(SelectQuery $query, array $options): SelectQuery {

@@ -13,6 +13,7 @@ class CaseAssignment extends Entity {
         'assigned_to' => true,
         'timestamp' => true,
         'notes' => true,
+        'deleted' => true,
         'created' => true,
         'modified' => true,
         'case' => true,
