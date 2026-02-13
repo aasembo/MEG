@@ -204,12 +204,12 @@ define('PPT_REPORT_PAGES', serialize([
         'required' => false,
         'col1' => [
             'type' => 'image',
-            'header' => '<b>Left hand</b> stimulation resulted in a SEF that was localized to the orthotopic contralateral sensory cortex',
+            'header' => 'Left hand stimulation resulted in a SEF that was localized to the orthotopic contralateral sensory cortex',
             'header_editable' => true,
         ],
         'col2' => [
             'type' => 'image',
-            'header' => '<b>Right hand</b> stimulation resulted in a SEF that was localized to the orthotopic contralateral sensory cortex',
+            'header' => 'Right hand stimulation resulted in a SEF that was localized to the orthotopic contralateral sensory cortex',
             'header_editable' => true,
         ],
     ],
@@ -228,12 +228,12 @@ define('PPT_REPORT_PAGES', serialize([
         'required' => false,
         'col1' => [
             'type' => 'image',
-            'header' => '<b>Left hand</b> stimulation resulted in a SEF that was localized to the orthotopic contralateral sensory cortex',
+            'header' => 'Left hand stimulation resulted in a SEF that was localized to the orthotopic contralateral sensory cortex',
             'header_editable' => true,
         ],
         'col2' => [
             'type' => 'image',
-            'header' => '<b>Right hand</b> stimulation resulted in a SEF that was localized to the orthotopic contralateral sensory cortex',
+            'header' => 'Right hand stimulation resulted in a SEF that was localized to the orthotopic contralateral sensory cortex',
             'header_editable' => true,
         ],
     ],
@@ -253,7 +253,7 @@ define('PPT_REPORT_PAGES', serialize([
         'col1' => [
             'type' => 'text',
             'format' => 'bullets',
-            'default_content' => "• We instructed the patient to spontaneously raise and lower their palm at a frequency of one movement per second to assess motor function by analyzing <b>theta</b> band power.\n• The top row shows the motor responses for the left hand, while the bottom row depicts responses for the right hand.\n• The motor function can be localized to the primary motor area, leading us to conclude that the patient's motor function is normal.",
+            'default_content' => "• We instructed the patient to spontaneously raise and lower their palm at a frequency of one movement per second to assess motor function by analyzing theta band power.\n• The top row shows the motor responses for the left hand, while the bottom row depicts responses for the right hand.\n• The motor function can be localized to the primary motor area, leading us to conclude that the patient's motor function is normal.",
         ],
         'col2' => [
             'type' => 'image',
@@ -283,12 +283,12 @@ define('PPT_REPORT_PAGES', serialize([
         'required' => false,
         'col1' => [
             'type' => 'image',
-            'header' => '<b>Left index finger</b> tapping resulted in a MEF that was localized to the orthotopic contralateral motor cortex',
+            'header' => 'Left index finger tapping resulted in a MEF that was localized to the orthotopic contralateral motor cortex',
             'header_editable' => true,
         ],
         'col2' => [
             'type' => 'image',
-            'header' => '<b>Right index finger</b> tapping resulted in a MEF that was localized to the orthotopic contralateral motor cortex',
+            'header' => 'Right index finger tapping resulted in a MEF that was localized to the orthotopic contralateral motor cortex',
             'header_editable' => true,
         ],
     ],
@@ -307,12 +307,12 @@ define('PPT_REPORT_PAGES', serialize([
         'required' => false,
         'col1' => [
             'type' => 'image',
-            'header' => '<b>Left ear</b> stimulation resulted in a AEF that was localized to the contralateral superior temporal gyrus.',
+            'header' => 'Left ear stimulation resulted in a AEF that was localized to the contralateral superior temporal gyrus.',
             'header_editable' => true,
         ],
         'col2' => [
             'type' => 'image',
-            'header' => '<b>Right ear</b> stimulation resulted in a AEF that was localized to the contralateral superior temporal gyrus.',
+            'header' => 'Right ear stimulation resulted in a AEF that was localized to the contralateral superior temporal gyrus.',
             'header_editable' => true,
         ],
     ],
@@ -333,7 +333,7 @@ define('PPT_REPORT_PAGES', serialize([
             'type' => 'text',
             'format' => 'bullets_sub',
             'content' => [
-                'MEG/EEG signals show engagement of receptive language cortex in both hemispheres but with preponderance of the left, suggestive of <b>left dominance for receptive language</b>.',
+                'MEG/EEG signals show engagement of receptive language cortex in both hemispheres but with preponderance of the left, suggestive of left dominance for receptive language.',
                 'Note: Signal-to-noise ratio (SNR) of MEG/EEG signals were low due to *** *** ***',
             ],
         ],
@@ -359,12 +359,12 @@ define('PPT_REPORT_PAGES', serialize([
         'required' => false,
         'col1' => [
             'type' => 'image',
-            'header' => '<b>Left visual field</b> stimulation resulted in a VEF that was localized to the orthotopic contralateral visual cortex',
+            'header' => 'Left visual field stimulation resulted in a VEF that was localized to the orthotopic contralateral visual cortex',
             'header_editable' => true,
         ],
         'col2' => [
             'type' => 'image',
-            'header' => '<b>Right visual field</b> stimulation resulted in a VEF that was localized to the orthotopic contralateral visual cortex',
+            'header' => 'Right visual field stimulation resulted in a VEF that was localized to the orthotopic contralateral visual cortex',
             'header_editable' => true,
         ],
     ],
