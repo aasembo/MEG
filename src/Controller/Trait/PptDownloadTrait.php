@@ -290,6 +290,45 @@ trait PptDownloadTrait
         $slideTitle = $slide->title ?: $slide->description ?: '';
         $layoutColumns = $slide->layout_columns ?? 1;
         
+        // Get slide config early - we need it for fallbacks
+        $slideTypes = unserialize(PPT_REPORT_PAGES);
+        $slideType = $slide->slide_type ?? 'custom';
+        $slideConfig = $slideTypes[$slideType] ?? null;
+        
+        // Apply config fallbacks for slides created before template updates
+        if ($slideConfig) {
+            // Fallback layout_columns from config
+            if (empty($slide->layout_columns) && isset($slideConfig['columns'])) {
+                $layoutColumns = $slideConfig['columns'];
+            }
+            // Fallback subtitle from config
+            if (empty($slide->subtitle) && !empty($slideConfig['subtitle'])) {
+                $slide->subtitle = $slideConfig['subtitle'];
+            }
+            // Fallback col1_content from config (header_text or default_content)
+            if (empty($slide->col1_content)) {
+                if (isset($slideConfig['header_text']['content'])) {
+                    $headerContent = $slideConfig['header_text']['content'];
+                    $slide->col1_content = is_array($headerContent) ? implode("\n", $headerContent) : $headerContent;
+                } elseif (isset($slideConfig['col1']['default_content'])) {
+                    $slide->col1_content = $slideConfig['col1']['default_content'];
+                } elseif (isset($slideConfig['default_sections'])) {
+                    $slide->col1_content = json_encode($slideConfig['default_sections']);
+                }
+            }
+            // Fallback col1_header / col2_header from config
+            if (empty($slide->col1_header) && !empty($slideConfig['col1']['header'])) {
+                $slide->col1_header = $slideConfig['col1']['header'];
+            }
+            if (empty($slide->col2_header) && !empty($slideConfig['col2']['header'])) {
+                $slide->col2_header = $slideConfig['col2']['header'];
+            }
+            // Fallback legend_data from config
+            if (empty($slide->legend_data) && isset($slideConfig['legend']['items'])) {
+                $slide->legend_data = json_encode($slideConfig['legend']['items']);
+            }
+        }
+        
         // Add title
         if (!empty($slideTitle)) {
             $titleFontSize = $pptStyles['title']['font_size'] ?? 24;
@@ -350,11 +389,6 @@ trait PptDownloadTrait
         $contentEndY = (int)($slideHeight - 15);
         $availableHeight = (int)($contentEndY - $contentStartY);
         
-        // Get slide config
-        $slideTypes = unserialize(PPT_REPORT_PAGES);
-        $slideType = $slide->slide_type ?? 'custom';
-        $slideConfig = $slideTypes[$slideType] ?? null;
-        
         // Handle two-column layout
         if ($layoutColumns === 2) {
             $tempFiles = array_merge($tempFiles, $this->renderTwoColumnLayout(
@@ -407,10 +441,14 @@ trait PptDownloadTrait
         $hasImages = !empty($slide->col1_image_url) || !empty($slide->col2_image_url);
         $textHeaderHeight = 0;
         
-        if ($isTextHeaderLayout && !empty($slide->col1_content) && $hasImages) {
+        // Show header text for text_header_two_images layout - always show content, not just when images exist
+        if ($isTextHeaderLayout && !empty($slide->col1_content)) {
             // Render header text spanning full width
             $textFontSize = $pptStyles['content']['font_size'] ?? 14;
-            $textHeaderHeight = 60; // Approximate height for header text
+            
+            // Split content by newlines for multiple bullet points
+            $contentLines = preg_split('/\r\n|\r|\n/', $slide->col1_content);
+            $textHeaderHeight = max(70, count($contentLines) * 22); // Adjust height based on line count
             
             $headerTextShape = $pptSlide->createRichTextShape();
             $headerTextShape->setHeight($textHeaderHeight);
@@ -418,7 +456,23 @@ trait PptDownloadTrait
             $headerTextShape->setOffsetX($margin);
             $headerTextShape->setOffsetY($contentStartY);
             
-            $this->addStructuredContentToShapeForPpt($headerTextShape, $slide->col1_content, $textFontSize);
+            // Render each line as a bullet point
+            $isFirst = true;
+            foreach ($contentLines as $line) {
+                $line = trim($line);
+                if (empty($line)) continue;
+                
+                if (!$isFirst) {
+                    $headerTextShape->createBreak();
+                }
+                $isFirst = false;
+                
+                $textRun = $headerTextShape->createTextRun('• ' . strip_tags($line));
+                $textRun->getFont()
+                    ->setName('Calibri')
+                    ->setSize($textFontSize)
+                    ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+            }
             
             $contentStartY += $textHeaderHeight + 10;
             $availableHeight -= $textHeaderHeight + 10;
@@ -463,7 +517,7 @@ trait PptDownloadTrait
         if (!empty($slide->col1_image_url)) {
             $tempFile = $this->renderColumnImage($pptSlide, $slide->col1_image_url, $col1X, $col1Width, $imageStartY, $imageMaxHeight);
             if ($tempFile) $tempFiles[] = $tempFile;
-        } elseif (!empty($slide->col1_content) && !($isTextHeaderLayout && $hasImages)) {
+        } elseif (!empty($slide->col1_content) && !$isTextHeaderLayout) {
             // Only render col1_content here if not already shown as header text
             $this->renderColumnText($pptSlide, $slide->col1_content, $col1X, $col1Width, $imageStartY, $imageMaxHeight, $pptStyles, $layout);
         }

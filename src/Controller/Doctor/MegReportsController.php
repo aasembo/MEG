@@ -781,6 +781,90 @@ class MegReportsController extends AppController
     }
 
     /**
+     * Reset slide to default template values
+     * Useful for fixing slides that were created before template updates
+     *
+     * @param int|null $id Slide ID
+     * @return \Cake\Http\Response|null Redirects
+     */
+    public function resetSlide($id = null)
+    {
+        $user = $this->request->getAttribute('identity');
+        $userId = $user->getIdentifier();
+        
+        $ReportSlides = $this->fetchTable('ReportSlides');
+        $slide = $ReportSlides->get($id, ['contain' => ['Reports']]);
+        
+        // Verify access through case assignment
+        $Reports = $this->fetchTable('Reports');
+        $report = $Reports->find()
+            ->contain(['Cases' => ['PatientUsers' => ['Patient']], 'Users'])
+            ->matching('Cases.CaseAssignments', function ($q) use ($userId) {
+                return $q->where(['CaseAssignments.assigned_to' => $userId]);
+            })
+            ->where(['Reports.id' => $slide->report_id])
+            ->first();
+            
+        if (!$report) {
+            $this->Flash->error('You do not have access to reset this slide.');
+            return $this->redirect(['controller' => 'Reports', 'action' => 'index']);
+        }
+        
+        // Get slide type configuration
+        $slideTypes = unserialize(PPT_REPORT_PAGES);
+        $slideType = $slide->slide_type;
+        $slideConfig = $slideTypes[$slideType] ?? null;
+        
+        if (!$slideConfig) {
+            $this->Flash->error('Cannot reset: Unknown slide type.');
+            return $this->redirect(['action' => 'index', $slide->report_id]);
+        }
+        
+        // Reset slide data from template
+        $slide->title = $slideConfig['title'] ?? '';
+        $slide->subtitle = $slideConfig['subtitle'] ?? null;
+        $slide->layout_columns = $slideConfig['columns'] ?? 1;
+        $slide->col1_header = $slideConfig['col1']['header'] ?? null;
+        $slide->col2_header = $slideConfig['col2']['header'] ?? null;
+        $slide->footer_text = $slideConfig['footer_text'] ?? null;
+        $slide->legend_data = isset($slideConfig['legend']['items']) ? json_encode($slideConfig['legend']['items']) : null;
+        
+        // Handle special content types
+        if ($slideType === 'cover_page') {
+            // Rebuild cover page
+            $coverData = $this->buildCoverSlideData($report, $slideConfig, $slide->slide_order);
+            $slide->description = $coverData['description'];
+            $slide->html_content = $coverData['html_content'];
+        } elseif (isset($slideConfig['default_sections'])) {
+            // Structured bullets
+            $slide->col1_content = json_encode($slideConfig['default_sections']);
+        } elseif (isset($slideConfig['col1']['default_content'])) {
+            // Default text content
+            $slide->col1_content = $slideConfig['col1']['default_content'];
+        } elseif (isset($slideConfig['header_text']['content'])) {
+            // Header text content
+            $headerContent = $slideConfig['header_text']['content'];
+            if (is_array($headerContent)) {
+                $slide->col1_content = implode("\n", $headerContent);
+            } else {
+                $slide->col1_content = $headerContent;
+            }
+        }
+        
+        // Rebuild HTML content
+        $slideData = $slide->toArray();
+        $slide->html_content = $this->buildSlideHtml($slideData, $slideConfig);
+        
+        if ($ReportSlides->save($slide)) {
+            $this->Flash->success('Slide reset to default template values.');
+        } else {
+            $this->Flash->error('Failed to reset slide.');
+        }
+        
+        return $this->redirect(['action' => 'index', $slide->report_id]);
+    }
+
+    /**
      * Download PowerPoint presentation
      *
      * @param int|null $reportId Report ID

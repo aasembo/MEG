@@ -132,31 +132,6 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
     object-fit: contain;
     margin: 10px auto;
 }
-.preview-multi-image {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 5px;
-    justify-content: center;
-    flex: 1;
-    align-items: flex-start;
-}
-.preview-multi-image-item {
-    flex: 1;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-}
-.preview-multi-image-item .image-title {
-    font-size: 10px;
-    font-weight: bold;
-    margin-bottom: 3px;
-    color: #333;
-}
-.preview-multi-image-item img {
-    max-width: 100%;
-    max-height: 150px;
-    object-fit: contain;
-}
 .legend-editor {
     background: #f8f9fa;
     border-radius: 8px;
@@ -214,6 +189,11 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                     </p>
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <?php echo $this->Html->link(
+                        '<i class="fas fa-sync-alt me-2"></i>Reset to Template',
+                        ['action' => 'resetSlide', $slide->id],
+                        ['class' => 'btn btn-warning me-2', 'escape' => false, 'confirm' => 'This will reset this slide to its default template values. Any custom text content will be lost. Continue?']
+                    ) ?>
                     <?php echo $this->Html->link(
                         '<i class="fas fa-arrow-left me-2"></i>Back to Slides',
                         ['action' => 'index', $slide->report_id],
@@ -281,7 +261,123 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                     </div>
                     <?php endif; ?>
                     
-                    <?php if ($layoutColumns === 2): ?>
+                    <?php if (($slideConfig['layout'] ?? '') === 'text_header_two_images'): ?>
+                        <!-- Text Header Two Images Layout (e.g., functional_mapping_language) -->
+                        
+                        <!-- Header Text Section -->
+                        <div class="column-section mb-4">
+                            <h5><i class="fas fa-list me-2"></i>Header Text (Bullet Points)</h5>
+                            <p class="text-muted small mb-2">
+                                <i class="fas fa-info-circle me-1"></i>Enter each bullet point on a new line. Bullets (•) are added automatically.
+                            </p>
+                            <?php 
+                            $headerContent = $slide->col1_content ?? '';
+                            if (empty($headerContent) && isset($slideConfig['header_text']['content'])) {
+                                $defaultContent = $slideConfig['header_text']['content'];
+                                if (is_array($defaultContent)) {
+                                    $headerContent = implode("\n", $defaultContent);
+                                } else {
+                                    $headerContent = $defaultContent;
+                                }
+                            }
+                            ?>
+                            <?php echo $this->Form->textarea('col1_content', [
+                                'class' => 'form-control',
+                                'rows' => 5,
+                                'placeholder' => "First bullet point text here\nSecond bullet point text here",
+                                'label' => false,
+                                'id' => 'headerTextContent',
+                                'value' => $headerContent
+                            ]) ?>
+                            
+                            <!-- Live Bullet Preview -->
+                            <div class="mt-3 p-3 bg-light border rounded" id="bulletPreviewContainer">
+                                <small class="text-muted d-block mb-2"><i class="fas fa-eye me-1"></i>Preview:</small>
+                                <div id="bulletPreview" style="font-size: 13px; line-height: 1.6;">
+                                    <?php 
+                                    if (!empty($headerContent)) {
+                                        $lines = preg_split('/\r\n|\r|\n/', $headerContent);
+                                        foreach ($lines as $line) {
+                                            $line = trim($line);
+                                            if (!empty($line)) {
+                                                echo '<div>• ' . h(strip_tags($line)) . '</div>';
+                                            }
+                                        }
+                                    } else {
+                                        echo '<div class="text-muted fst-italic">Enter text above to see bullet preview</div>';
+                                    }
+                                    ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Two Image Columns -->
+                        <div class="row">
+                            <!-- Left Image -->
+                            <div class="col-md-6">
+                                <div class="column-section">
+                                    <h5><i class="fas fa-image me-2"></i>Left Image</h5>
+                                    <?php if ($slide->col1_image_url ?? $slide->col1_image_path): ?>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">Current Image:</label>
+                                            <div class="text-center">
+                                                <img src="<?php echo h($slide->col1_image_url ?? $slide->col1_image_path) ?>" 
+                                                     alt="Left Image" class="current-image-preview" id="col1CurrentImage">
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="upload-zone" id="col1UploadZone" data-target="col1_image_file">
+                                        <i class="fas fa-image fa-2x text-danger mb-2"></i>
+                                        <div>Upload New Image</div>
+                                        <small class="text-muted">Drag & drop or click</small>
+                                    </div>
+                                    <?php echo $this->Form->file('col1_image_file', [
+                                        'id' => 'col1_image_file',
+                                        'accept' => 'image/*',
+                                        'style' => 'display: none;'
+                                    ]) ?>
+                                    <div id="col1PreviewContainer" class="mt-2 text-center" style="display: none;">
+                                        <img id="col1Preview" src="" class="current-image-preview" alt="Preview">
+                                        <button type="button" class="btn btn-sm btn-danger mt-2 remove-preview" data-target="col1">
+                                            <i class="fas fa-times"></i> Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Right Image -->
+                            <div class="col-md-6">
+                                <div class="column-section">
+                                    <h5><i class="fas fa-image me-2"></i>Right Image</h5>
+                                    <?php if ($slide->col2_image_url ?? $slide->col2_image_path): ?>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">Current Image:</label>
+                                            <div class="text-center">
+                                                <img src="<?php echo h($slide->col2_image_url ?? $slide->col2_image_path) ?>" 
+                                                     alt="Right Image" class="current-image-preview" id="col2CurrentImage">
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="upload-zone" id="col2UploadZone" data-target="col2_image_file">
+                                        <i class="fas fa-image fa-2x text-danger mb-2"></i>
+                                        <div>Upload New Image</div>
+                                        <small class="text-muted">Drag & drop or click</small>
+                                    </div>
+                                    <?php echo $this->Form->file('col2_image_file', [
+                                        'id' => 'col2_image_file',
+                                        'accept' => 'image/*',
+                                        'style' => 'display: none;'
+                                    ]) ?>
+                                    <div id="col2PreviewContainer" class="mt-2 text-center" style="display: none;">
+                                        <img id="col2Preview" src="" class="current-image-preview" alt="Preview">
+                                        <button type="button" class="btn btn-sm btn-danger mt-2 remove-preview" data-target="col2">
+                                            <i class="fas fa-times"></i> Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php elseif ($layoutColumns === 2): ?>
                         <!-- Two Column Layout -->
                         <div class="row">
                             <!-- Column 1 -->
@@ -330,13 +426,19 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                                             </button>
                                         </div>
                                     <?php elseif ($col1Type === 'text'): ?>
+                                        <?php 
+                                        $col1ContentValue = $slide->col1_content ?? '';
+                                        if (empty($col1ContentValue) && isset($slideConfig['col1']['default_content'])) {
+                                            $col1ContentValue = $slideConfig['col1']['default_content'];
+                                        }
+                                        ?>
                                         <?php echo $this->Form->textarea('col1_content', [
                                             'class' => 'form-control',
                                             'rows' => 6,
                                             'placeholder' => 'Enter column 1 content',
                                             'label' => false,
                                             'id' => 'col1Content',
-                                            'value' => $slide->col1_content ?? ''
+                                            'value' => $col1ContentValue
                                         ]) ?>
                                     <?php endif; ?>
                                 </div>
@@ -388,13 +490,19 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                                             </button>
                                         </div>
                                     <?php elseif ($col2Type === 'text'): ?>
+                                        <?php 
+                                        $col2ContentValue = $slide->col2_content ?? '';
+                                        if (empty($col2ContentValue) && isset($slideConfig['col2']['default_content'])) {
+                                            $col2ContentValue = $slideConfig['col2']['default_content'];
+                                        }
+                                        ?>
                                         <?php echo $this->Form->textarea('col2_content', [
                                             'class' => 'form-control',
                                             'rows' => 6,
                                             'placeholder' => 'Enter column 2 content',
                                             'label' => false,
                                             'id' => 'col2Content',
-                                            'value' => $slide->col2_content ?? ''
+                                            'value' => $col2ContentValue
                                         ]) ?>
                                     <?php endif; ?>
                                 </div>
@@ -646,7 +754,64 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                     <h2 id="previewTitle"><?php echo h($slide->title ?: ($slideConfig['title'] ?? 'Slide Title')) ?></h2>
                     <h4 id="previewSubtitle" class="text-muted" style="font-size: 12px; margin-top: -5px;">• <?php echo h($slide->subtitle ?: ($slideConfig['subtitle'] ?? '')) ?></h4>
                     
-                    <?php if ($layoutColumns === 2): ?>
+                    <?php if (($slideConfig['layout'] ?? '') === 'text_header_two_images'): ?>
+                        <!-- Text Header Two Images Layout Preview -->
+                        <?php 
+                        $headerContent = $slide->col1_content ?? '';
+                        if (empty($headerContent) && isset($slideConfig['header_text']['content'])) {
+                            $defaultContent = $slideConfig['header_text']['content'];
+                            if (is_array($defaultContent)) {
+                                $headerContent = implode("\n", $defaultContent);
+                            } else {
+                                $headerContent = $defaultContent;
+                            }
+                        }
+                        ?>
+                        <!-- Header Text Bullets (Full Width) -->
+                        <div id="previewHeaderText" class="mb-2" style="font-size: 11px; line-height: 1.5; text-align: left; padding: 5px 10px; background: #f8f9fa; border-radius: 4px;">
+                            <?php 
+                            if (!empty($headerContent)) {
+                                $lines = preg_split('/\r\n|\r|\n/', $headerContent);
+                                foreach ($lines as $line) {
+                                    $line = trim($line);
+                                    if (!empty($line)) {
+                                        echo '<div>• ' . h(strip_tags($line)) . '</div>';
+                                    }
+                                }
+                            } else {
+                                echo '<div class="text-muted fst-italic">Header text will appear here</div>';
+                            }
+                            ?>
+                        </div>
+                        
+                        <!-- Two Image Columns -->
+                        <div class="preview-two-columns">
+                            <div class="preview-column" style="flex: 50;">
+                                <div id="previewCol1Content">
+                                    <?php if ($slide->col1_image_url ?? $slide->col1_image_path): ?>
+                                        <img src="<?php echo h($slide->col1_image_url ?? $slide->col1_image_path) ?>" alt="Left Image">
+                                    <?php else: ?>
+                                        <div class="text-center text-muted" style="margin-top: 20px;">
+                                            <i class="fas fa-image fa-2x"></i>
+                                            <div style="font-size: 10px;">Left Image</div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="preview-column" style="flex: 50;">
+                                <div id="previewCol2Content">
+                                    <?php if ($slide->col2_image_url ?? $slide->col2_image_path): ?>
+                                        <img src="<?php echo h($slide->col2_image_url ?? $slide->col2_image_path) ?>" alt="Right Image">
+                                    <?php else: ?>
+                                        <div class="text-center text-muted" style="margin-top: 20px;">
+                                            <i class="fas fa-image fa-2x"></i>
+                                            <div style="font-size: 10px;">Right Image</div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php elseif ($layoutColumns === 2): ?>
                         <?php 
                         $pptLayouts = unserialize(PPT_LAYOUTS);
                         $layout = $slideConfig['layout'] ?? 'two_column_images';
@@ -690,55 +855,6 @@ $slideTitle = $slideConfig['title'] ?? 'Custom Slide';
                                 </div>
                             </div>
                         </div>
-                    <?php elseif (($slideConfig['layout'] ?? '') === 'multi_image_with_titles'): ?>
-                        <!-- Multi-image preview - matches PPT output -->
-                        <?php 
-                        $maxImages = $slideConfig['max_images'] ?? 5;
-                        $defaultTitles = $slideConfig['default_image_titles'] ?? [];
-                        $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
-                        $imagesToShow = [];
-                        for ($i = 0; $i < $maxImages; $i++) {
-                            $colName = $imageColumns[$i];
-                            $imageUrlField = $colName . '_image_url';
-                            $imagePathField = $colName . '_image_path';
-                            $headerField = $colName . '_header';
-                            $defaultTitle = $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
-                            $imageUrl = $slide->{$imageUrlField} ?? $slide->{$imagePathField} ?? null;
-                            if (!empty($imageUrl)) {
-                                $imagesToShow[] = [
-                                    'url' => $imageUrl,
-                                    'title' => $slide->{$headerField} ?? $defaultTitle,
-                                    'colName' => $colName
-                                ];
-                            }
-                        }
-                        ?>
-                        <div class="preview-multi-image" id="previewMultiImage">
-                            <?php if (!empty($imagesToShow)): ?>
-                                <?php foreach ($imagesToShow as $imgData): ?>
-                                    <div class="preview-multi-image-item" id="preview_<?= $imgData['colName'] ?>_item">
-                                        <div class="image-title" id="preview_<?= $imgData['colName'] ?>_title"><?= h($imgData['title']) ?></div>
-                                        <div class="text-muted" style="padding: 20px 5px; display: none;" id="preview_<?= $imgData['colName'] ?>_placeholder">
-                                            <i class="fas fa-image"></i>
-                                        </div>
-                                        <img id="preview_<?= $imgData['colName'] ?>_img" src="<?= h($imgData['url']) ?>" alt="<?= h($imgData['title']) ?>">
-                                    </div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <?php for ($i = 0; $i < $maxImages; $i++): 
-                                    $colName = $imageColumns[$i];
-                                    $defaultTitle = $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
-                                ?>
-                                    <div class="preview-multi-image-item" id="preview_<?= $colName ?>_item">
-                                        <div class="image-title" id="preview_<?= $colName ?>_title"><?= h($defaultTitle) ?></div>
-                                        <div class="text-muted" style="padding: 20px 5px;" id="preview_<?= $colName ?>_placeholder">
-                                            <i class="fas fa-image"></i>
-                                        </div>
-                                        <img id="preview_<?= $colName ?>_img" src="" alt="" style="display: none;">
-                                    </div>
-                                <?php endfor; ?>
-                            <?php endif; ?>
-                        </div>
                     <?php else: ?>
                         <div class="preview-single" id="previewContent">
                             <?php if ($slide->col1_image_url ?? $slide->image_url ?? $slide->file_path): ?>
@@ -781,28 +897,43 @@ $(document).ready(function() {
         }
     });
     
+    // Live preview for header text bullet points
+    $('#headerTextContent').on('input keyup change paste', function() {
+        var val = $(this).val();
+        var $preview = $('#bulletPreview');
+        var $slidePreview = $('#previewHeaderText');
+        
+        var html = '';
+        if (val && val.trim() !== '') {
+            var lines = val.split(/\r?\n/);
+            lines.forEach(function(line) {
+                line = line.trim();
+                if (line) {
+                    // Escape HTML but preserve the line
+                    var escaped = $('<div>').text(line).html();
+                    html += '<div>• ' + escaped + '</div>';
+                }
+            });
+        }
+        
+        // Update form preview (bullet preview section)
+        if ($preview.length) {
+            $preview.html(html || '<div class="text-muted fst-italic">Enter text above to see bullet preview</div>');
+        }
+        
+        // Update slide preview (right side)
+        if ($slidePreview.length) {
+            $slidePreview.html(html || '<div class="text-muted fst-italic">Header text will appear here</div>');
+        }
+    });
+    
     // Column headers
     $('input[name="col1_header"], textarea[name="col1_header"]').on('input keyup change paste', function() {
         $('#previewCol1Header').text($(this).val() || 'Column 1');
-        // Also update multi-image title
-        $('#preview_col1_title').text($(this).val() || 'Discharge 1');
     });
     
     $('input[name="col2_header"], textarea[name="col2_header"]').on('input keyup change paste', function() {
         $('#previewCol2Header').text($(this).val() || 'Column 2');
-        // Also update multi-image title
-        $('#preview_col2_title').text($(this).val() || 'Discharge 2');
-    });
-    
-    // Multi-image column headers (col3-col5)
-    $('input[name="col3_header"]').on('input keyup change paste', function() {
-        $('#preview_col3_title').text($(this).val() || 'Discharge 3');
-    });
-    $('input[name="col4_header"]').on('input keyup change paste', function() {
-        $('#preview_col4_title').text($(this).val() || 'Discharge 4');
-    });
-    $('input[name="col5_header"]').on('input keyup change paste', function() {
-        $('#preview_col5_title').text($(this).val() || 'Discharge 5');
     });
     $('.upload-zone').click(function() {
         const targetId = $(this).data('target');
@@ -863,18 +994,8 @@ $(document).ready(function() {
     function updatePreviewImage(column, src) {
         if (column === 'col1') {
             $('#previewCol1Content').html('<img src="' + src + '" alt="Column 1">');
-            // Also update multi-image preview
-            $('#preview_col1_img').attr('src', src).show();
-            $('#preview_col1_placeholder').hide();
         } else if (column === 'col2') {
             $('#previewCol2Content').html('<img src="' + src + '" alt="Column 2">');
-            // Also update multi-image preview
-            $('#preview_col2_img').attr('src', src).show();
-            $('#preview_col2_placeholder').hide();
-        } else if (column === 'col3' || column === 'col4' || column === 'col5') {
-            // Multi-image layout columns 3-5
-            $('#preview_' + column + '_img').attr('src', src).show();
-            $('#preview_' + column + '_placeholder').hide();
         } else {
             $('#previewContent').html('<img src="' + src + '" alt="Slide Image">');
         }

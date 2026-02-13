@@ -56,6 +56,19 @@ $slideCategories = $slideCategories ?? [];
     border-radius: 10px;
     min-height: 350px;
 }
+.column-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #e9ecef;
+}
+.column-section h5 {
+    color: #dc3545;
+    border-bottom: 2px solid #dc3545;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
 .slide-preview {
     background: white;
     aspect-ratio: 16/9;
@@ -102,41 +115,6 @@ $slideCategories = $slideCategories ?? [];
 .preview-column.has-content {
     border-style: solid;
     border-color: #28a745;
-}
-.slide-preview-body.multi-image {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 5px;
-    padding: 10px;
-    height: calc(100% - 80px);
-}
-.slide-preview-body.multi-image .preview-multi-item {
-    flex: 1;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    border: 1px dashed #dee2e6;
-    border-radius: 4px;
-    padding: 5px;
-}
-.slide-preview-body.multi-image .preview-multi-item .image-title {
-    font-size: 9px;
-    font-weight: bold;
-    margin-bottom: 3px;
-    color: #333;
-}
-.slide-preview-body.multi-image .preview-multi-item img {
-    max-width: 100%;
-    max-height: 100px;
-    object-fit: contain;
-    margin: auto;
-}
-.slide-preview-body.multi-image .preview-multi-item .placeholder-icon {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ccc;
 }
 .upload-dropzone {
     border: 3px dashed #dc3545;
@@ -312,30 +290,329 @@ $slideCategories = $slideCategories ?? [];
                         </div>
                         <?php endif; ?>
 
-                        <!-- Column 1 -->
+                        <?php if (($slideConfig['layout'] ?? '') === 'text_header_two_images'): ?>
+                        <!-- Text Header Two Images Layout (e.g., functional_mapping_language) -->
+                        
+                        <!-- Header Text (Bullet Points) -->
                         <div class="mb-4">
                             <label class="form-label fw-bold">
-                                <i class="fas fa-th-large me-2 text-danger"></i>
-                                <?= ($slideConfig['columns'] ?? 1) == 2 ? 'Column 1' : 'Content' ?>
+                                <i class="fas fa-list me-2 text-danger"></i>Header Text (Bullet Points)
                             </label>
+                            <p class="text-muted small mb-2">
+                                <i class="fas fa-info-circle me-1"></i>Enter each bullet point on a new line. Bullets (•) are added automatically.
+                            </p>
+                            <?php 
+                            $defaultHeaderText = '';
+                            if (isset($slideConfig['header_text']['content'])) {
+                                $hc = $slideConfig['header_text']['content'];
+                                $defaultHeaderText = is_array($hc) ? implode("\n", $hc) : $hc;
+                            }
+                            ?>
+                            <?= $this->Form->textarea('col1_content', [
+                                'class' => 'form-control',
+                                'rows' => 5,
+                                'placeholder' => "First bullet point text here\nSecond bullet point text here",
+                                'id' => 'headerTextContent',
+                                'value' => $slide->col1_content ?? $defaultHeaderText
+                            ]) ?>
+                            <?= $this->Form->hidden('col1_type', ['value' => 'text']) ?>
+                            
+                            <!-- Bullet Preview -->
+                            <div class="mt-3 p-3 bg-light border rounded">
+                                <small class="text-muted d-block mb-2"><i class="fas fa-eye me-1"></i>Preview:</small>
+                                <div id="addBulletPreview" style="font-size: 13px; line-height: 1.6;">
+                                    <?php 
+                                    if (!empty($defaultHeaderText)) {
+                                        $lines = preg_split('/\r\n|\r|\n/', $defaultHeaderText);
+                                        foreach ($lines as $line) {
+                                            $line = trim($line);
+                                            if (!empty($line)) {
+                                                echo '<div>• ' . h(strip_tags($line)) . '</div>';
+                                            }
+                                        }
+                                    }
+                                    ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Two Image Columns -->
+                        <div class="row">
+                            <!-- Left Image -->
+                            <div class="col-md-6">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-image me-2 text-danger"></i>Left Image
+                                    </label>
+                                    <div class="upload-dropzone" id="col1Dropzone">
+                                        <i class="fas fa-cloud-upload-alt fa-2x text-danger mb-2"></i>
+                                        <p class="mb-0">Drop image here or click to upload</p>
+                                    </div>
+                                    <?= $this->Form->file('col1_image', [
+                                        'id' => 'col1ImageInput',
+                                        'accept' => 'image/*',
+                                        'class' => 'd-none'
+                                    ]) ?>
+                                    <div id="col1ImagePreview" class="mt-3 text-center d-none">
+                                        <img id="col1PreviewImg" src="" class="image-preview-thumb">
+                                        <br>
+                                        <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="col1RemoveImg">
+                                            <i class="fas fa-times me-1"></i>Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Right Image -->
+                            <div class="col-md-6">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-image me-2 text-danger"></i>Right Image
+                                    </label>
+                                    <?= $this->Form->hidden('col2_type', ['value' => 'image']) ?>
+                                    <div class="upload-dropzone" id="col2Dropzone">
+                                        <i class="fas fa-cloud-upload-alt fa-2x text-danger mb-2"></i>
+                                        <p class="mb-0">Drop image here or click to upload</p>
+                                    </div>
+                                    <?= $this->Form->file('col2_image', [
+                                        'id' => 'col2ImageInput',
+                                        'accept' => 'image/*',
+                                        'class' => 'd-none'
+                                    ]) ?>
+                                    <div id="col2ImagePreview" class="mt-3 text-center d-none">
+                                        <img id="col2PreviewImg" src="" class="image-preview-thumb">
+                                        <br>
+                                        <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="col2RemoveImg">
+                                            <i class="fas fa-times me-1"></i>Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <?php else: ?>
 
+                        <?php if (($slideConfig['layout'] ?? '') === 'multi_image_with_titles'): ?>
+                        <!-- Multi-Image Layout (up to 5 images with titles) -->
+                        <div class="column-section">
+                            <h5><i class="fas fa-images me-2"></i>Multiple Images</h5>
+                            <p class="text-muted mb-3"><?= h($slideConfig['col1']['description'] ?? 'Upload up to 5 images') ?></p>
+                            
+                            <?php 
+                            $maxImages = $slideConfig['max_images'] ?? 5;
+                            $defaultTitles = $slideConfig['default_image_titles'] ?? [];
+                            $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
+                            ?>
+                            
+                            <div class="row g-3">
+                                <?php for ($i = 0; $i < $maxImages; $i++): 
+                                    $colName = $imageColumns[$i];
+                                    $headerField = $colName . '_header';
+                                    $defaultTitle = $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
+                                ?>
+                                <div class="col-md-4 col-lg-4">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light py-2">
+                                            <span class="badge bg-danger me-2"><?= $i + 1 ?></span>
+                                            <small class="text-muted">Image <?= $i + 1 ?></small>
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <div class="mb-2">
+                                                <input type="text" 
+                                                       name="<?= $headerField ?>" 
+                                                       class="form-control form-control-sm"
+                                                       value="<?= h($defaultTitle) ?>"
+                                                       placeholder="Image title">
+                                            </div>
+                                            
+                                            <div class="upload-dropzone" id="<?= $colName ?>Dropzone" style="padding: 10px; min-height: auto;">
+                                                <i class="fas fa-cloud-upload-alt text-danger mb-1"></i>
+                                                <p class="mb-0" style="font-size: 12px;">Upload</p>
+                                            </div>
+                                            <?= $this->Form->file($colName . '_image', [
+                                                'id' => $colName . 'ImageInput',
+                                                'accept' => 'image/*',
+                                                'class' => 'd-none'
+                                            ]) ?>
+                                            <div id="<?= $colName ?>ImagePreview" class="mt-2 text-center d-none">
+                                                <img id="<?= $colName ?>PreviewImg" src="" class="img-fluid rounded" style="max-height: 100px;">
+                                                <br>
+                                                <button type="button" class="btn btn-sm btn-outline-danger mt-1" id="<?= $colName ?>RemoveImg">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endfor; ?>
+                            </div>
+                        </div>
+
+                        <?php elseif (($slideConfig['columns'] ?? 1) == 2): ?>
+                        <!-- Two Column Layout -->
+                        <div class="row">
+                            <!-- Column 1 -->
+                            <div class="col-md-6">
+                                <div class="column-section">
+                                    <h5><i class="fas fa-columns me-2"></i>Column 1</h5>
+                                    
+                                    <?php $col1Type = $slideConfig['col1']['type'] ?? 'text'; ?>
+
+                                    <?php if (!empty($slideConfig['col1']['header'])): ?>
+                                    <div class="mb-3">
+                                        <label class="form-label small">Column Header</label>
+                                        <?= $this->Form->textarea('col1_header', [
+                                            'class' => 'form-control form-control-sm',
+                                            'rows' => 2,
+                                            'id' => 'col1Header',
+                                            'value' => strip_tags($slideConfig['col1']['header'] ?? '')
+                                        ]) ?>
+                                    </div>
+                                    <?php endif; ?>
+
+                                    <?php if ($col1Type === 'image' || $col1Type === 'composite_image'): ?>
+                                        <?= $this->Form->hidden('col1_type', ['value' => 'image']) ?>
+                                        <div class="upload-dropzone" id="col1Dropzone">
+                                            <i class="fas fa-cloud-upload-alt fa-2x text-danger mb-2"></i>
+                                            <p class="mb-0">Drop image here or click to upload</p>
+                                            <small class="text-muted"><?= h($slideConfig['col1']['description'] ?? 'Upload slide image') ?></small>
+                                        </div>
+                                        <?= $this->Form->file('col1_image', [
+                                            'id' => 'col1ImageInput',
+                                            'accept' => 'image/*',
+                                            'class' => 'd-none'
+                                        ]) ?>
+                                        <div id="col1ImagePreview" class="mt-3 text-center d-none">
+                                            <img id="col1PreviewImg" src="" class="image-preview-thumb">
+                                            <br>
+                                            <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="col1RemoveImg">
+                                                <i class="fas fa-times me-1"></i>Remove
+                                            </button>
+                                        </div>
+                                    <?php elseif ($col1Type === 'text'): ?>
+                                        <?= $this->Form->hidden('col1_type', ['value' => 'text']) ?>
+
+                                        <?php if (($slideConfig['col1']['format'] ?? '') === 'structured_bullets' && !empty($slideConfig['default_sections'])): ?>
+                                            <!-- Structured Bullets Editor for Summary Slide -->
+                                            <div class="structured-bullets-editor" id="structuredBulletsEditor">
+                                                <?php foreach ($slideConfig['default_sections'] as $sectionIndex => $section): ?>
+                                                <div class="summary-section mb-4" data-section="<?= $sectionIndex ?>">
+                                                    <div class="section-heading mb-3">
+                                                        <label class="form-label small text-muted">Section Heading</label>
+                                                        <input type="text" 
+                                                               name="structured_sections[<?= $sectionIndex ?>][heading]" 
+                                                               class="form-control form-control-sm fw-bold"
+                                                               value="<?= h($section['heading'] ?? '') ?>"
+                                                               placeholder="Section heading (e.g., (I) Epileptiform discharges)">
+                                                    </div>
+                                                    
+                                                    <div class="section-items ms-3">
+                                                        <?php foreach ($section['items'] ?? [] as $itemIndex => $item): ?>
+                                                        <div class="section-item mb-3 p-2 bg-light rounded" data-item="<?= $itemIndex ?>">
+                                                            <label class="form-label small text-muted">Item Title</label>
+                                                            <input type="text" 
+                                                                   name="structured_sections[<?= $sectionIndex ?>][items][<?= $itemIndex ?>][title]" 
+                                                                   class="form-control form-control-sm mb-2"
+                                                                   value="<?= h($item['title'] ?? '') ?>"
+                                                                   placeholder="Item title">
+                                                            
+                                                            <label class="form-label small text-muted">Sub-items (one per line)</label>
+                                                            <textarea name="structured_sections[<?= $sectionIndex ?>][items][<?= $itemIndex ?>][subitems_text]" 
+                                                                      class="form-control form-control-sm" 
+                                                                      rows="3"
+                                                                      placeholder="Enter sub-items, one per line"><?= h(implode("\n", $item['subitems'] ?? [])) ?></textarea>
+                                                        </div>
+                                                        <?php endforeach; ?>
+                                                        
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary add-item-btn" data-section="<?= $sectionIndex ?>">
+                                                            <i class="fas fa-plus me-1"></i>Add Item
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <?php endforeach; ?>
+                                                
+                                                <button type="button" class="btn btn-sm btn-outline-primary" id="addSectionBtn">
+                                                    <i class="fas fa-plus me-1"></i>Add Section
+                                                </button>
+                                            </div>
+                                            
+                                            <!-- Hidden field to store JSON data -->
+                                            <?= $this->Form->hidden('col1_content', ['id' => 'col1ContentJson']) ?>
+                                            <?= $this->Form->hidden('content_format', ['value' => 'structured_bullets']) ?>
+
+                                        <?php else: ?>
+                                            <?= $this->Form->textarea('col1_content', [
+                                                'class' => 'form-control',
+                                                'rows' => 6,
+                                                'placeholder' => $slideConfig['col1']['placeholder'] ?? 'Enter text content',
+                                                'id' => 'col1Content',
+                                                'value' => $slide->col1_content ?? ($slideConfig['col1']['default_content'] ?? '')
+                                            ]) ?>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            
+                            <!-- Column 2 -->
+                            <div class="col-md-6">
+                                <div class="column-section">
+                                    <h5><i class="fas fa-columns me-2"></i>Column 2</h5>
+                                    
+                                    <?php $col2Type = $slideConfig['col2']['type'] ?? 'text'; ?>
+
+                                    <?php if (!empty($slideConfig['col2']['header'])): ?>
+                                    <div class="mb-3">
+                                        <label class="form-label small">Column Header</label>
+                                        <?= $this->Form->textarea('col2_header', [
+                                            'class' => 'form-control form-control-sm',
+                                            'rows' => 2,
+                                            'id' => 'col2Header',
+                                            'value' => strip_tags($slideConfig['col2']['header'] ?? '')
+                                        ]) ?>
+                                    </div>
+                                    <?php endif; ?>
+
+                                    <?php if ($col2Type === 'image' || $col2Type === 'composite_image'): ?>
+                                        <?= $this->Form->hidden('col2_type', ['value' => 'image']) ?>
+                                        <div class="upload-dropzone" id="col2Dropzone">
+                                            <i class="fas fa-cloud-upload-alt fa-2x text-danger mb-2"></i>
+                                            <p class="mb-0">Drop image here or click to upload</p>
+                                        </div>
+                                        <?= $this->Form->file('col2_image', [
+                                            'id' => 'col2ImageInput',
+                                            'accept' => 'image/*',
+                                            'class' => 'd-none'
+                                        ]) ?>
+                                        <div id="col2ImagePreview" class="mt-3 text-center d-none">
+                                            <img id="col2PreviewImg" src="" class="image-preview-thumb">
+                                            <br>
+                                            <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="col2RemoveImg">
+                                                <i class="fas fa-times me-1"></i>Remove
+                                            </button>
+                                        </div>
+                                    <?php elseif ($col2Type === 'text'): ?>
+                                        <?= $this->Form->hidden('col2_type', ['value' => 'text']) ?>
+                                        <?= $this->Form->textarea('col2_content', [
+                                            'class' => 'form-control',
+                                            'rows' => 6,
+                                            'placeholder' => 'Enter text content for column 2',
+                                            'id' => 'col2Content',
+                                            'value' => $slide->col2_content ?? ($slideConfig['col2']['default_content'] ?? '')
+                                        ]) ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+
+                        <?php else: ?>
+                        <!-- Single Column Layout -->
+                        <div class="column-section">
+                            <h5><i class="fas fa-image me-2"></i>Slide Content</h5>
+                            
                             <?php $col1Type = $slideConfig['col1']['type'] ?? 'text'; ?>
 
                             <?php if ($col1Type === 'image' || $col1Type === 'composite_image'): ?>
                                 <?= $this->Form->hidden('col1_type', ['value' => 'image']) ?>
-                                
-                                <?php if (!empty($slideConfig['col1']['header'])): ?>
-                                <div class="mb-3">
-                                    <label class="form-label small">Column 1 Header</label>
-                                    <?= $this->Form->textarea('col1_header', [
-                                        'class' => 'form-control form-control-sm',
-                                        'rows' => 2,
-                                        'id' => 'col1Header',
-                                        'value' => strip_tags($slideConfig['col1']['header'] ?? '')
-                                    ]) ?>
-                                </div>
-                                <?php endif; ?>
-                                
                                 <div class="upload-dropzone" id="col1Dropzone">
                                     <i class="fas fa-cloud-upload-alt fa-2x text-danger mb-2"></i>
                                     <p class="mb-0">Drop image here or click to upload</p>
@@ -353,11 +630,13 @@ $slideCategories = $slideCategories ?? [];
                                         <i class="fas fa-times me-1"></i>Remove
                                     </button>
                                 </div>
-                            <?php else: ?>
+                            <?php endif; ?>
+                            
+                            <?php if ($col1Type === 'text' || ($slideConfig['layout'] ?? '') === 'text_only' || ($slideConfig['layout'] ?? '') === 'text_bullets'): ?>
                                 <?= $this->Form->hidden('col1_type', ['value' => 'text']) ?>
-                                
+
                                 <?php if (($slideConfig['col1']['format'] ?? '') === 'structured_bullets' && !empty($slideConfig['default_sections'])): ?>
-                                    <!-- Structured Bullets Editor for Summary Slide -->
+                                    <!-- Structured Bullets Editor -->
                                     <div class="structured-bullets-editor" id="structuredBulletsEditor">
                                         <?php foreach ($slideConfig['default_sections'] as $sectionIndex => $section): ?>
                                         <div class="summary-section mb-4" data-section="<?= $sectionIndex ?>">
@@ -367,7 +646,7 @@ $slideCategories = $slideCategories ?? [];
                                                        name="structured_sections[<?= $sectionIndex ?>][heading]" 
                                                        class="form-control form-control-sm fw-bold"
                                                        value="<?= h($section['heading'] ?? '') ?>"
-                                                       placeholder="Section heading (e.g., (I) Epileptiform discharges)">
+                                                       placeholder="Section heading">
                                             </div>
                                             
                                             <div class="section-items ms-3">
@@ -400,7 +679,6 @@ $slideCategories = $slideCategories ?? [];
                                         </button>
                                     </div>
                                     
-                                    <!-- Hidden field to store JSON data -->
                                     <?= $this->Form->hidden('col1_content', ['id' => 'col1ContentJson']) ?>
                                     <?= $this->Form->hidden('content_format', ['value' => 'structured_bullets']) ?>
                                     
@@ -415,58 +693,8 @@ $slideCategories = $slideCategories ?? [];
                                 <?php endif; ?>
                             <?php endif; ?>
                         </div>
-
-                        <?php if (($slideConfig['columns'] ?? 1) == 2): ?>
-                        <!-- Column 2 -->
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">
-                                <i class="fas fa-th-large me-2 text-danger"></i>Column 2
-                            </label>
-
-                            <?php $col2Type = $slideConfig['col2']['type'] ?? 'text'; ?>
-
-                            <?php if ($col2Type === 'image' || $col2Type === 'composite_image'): ?>
-                                <?= $this->Form->hidden('col2_type', ['value' => 'image']) ?>
-                                
-                                <?php if (!empty($slideConfig['col2']['header'])): ?>
-                                <div class="mb-3">
-                                    <label class="form-label small">Column 2 Header</label>
-                                    <?= $this->Form->textarea('col2_header', [
-                                        'class' => 'form-control form-control-sm',
-                                        'rows' => 2,
-                                        'id' => 'col2Header',
-                                        'value' => strip_tags($slideConfig['col2']['header'] ?? '')
-                                    ]) ?>
-                                </div>
-                                <?php endif; ?>
-                                
-                                <div class="upload-dropzone" id="col2Dropzone">
-                                    <i class="fas fa-cloud-upload-alt fa-2x text-danger mb-2"></i>
-                                    <p class="mb-0">Drop image here or click to upload</p>
-                                </div>
-                                <?= $this->Form->file('col2_image', [
-                                    'id' => 'col2ImageInput',
-                                    'accept' => 'image/*',
-                                    'class' => 'd-none'
-                                ]) ?>
-                                <div id="col2ImagePreview" class="mt-3 text-center d-none">
-                                    <img id="col2PreviewImg" src="" class="image-preview-thumb">
-                                    <br>
-                                    <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="col2RemoveImg">
-                                        <i class="fas fa-times me-1"></i>Remove
-                                    </button>
-                                </div>
-                            <?php else: ?>
-                                <?= $this->Form->hidden('col2_type', ['value' => 'text']) ?>
-                                <?= $this->Form->textarea('col2_content', [
-                                    'class' => 'form-control',
-                                    'rows' => 6,
-                                    'placeholder' => 'Enter text content for column 2',
-                                    'id' => 'col2Content'
-                                ]) ?>
-                            <?php endif; ?>
-                        </div>
-                        <?php endif; ?>
+                        <?php endif; ?><!-- end multi_image / two-col / single-col -->
+                        <?php endif; ?><!-- end text_header_two_images else -->
 
                         <?php if (!empty($slideConfig['footer_text']) || !empty($slideConfig['footer_editable'])): ?>
                         <div class="mb-4">
@@ -504,7 +732,24 @@ $slideCategories = $slideCategories ?? [];
                                 <div class="slide-preview-header">
                                     <h3 id="previewTitle"><?= h($slide->title ?? $slideConfig['title'] ?? 'Slide Title') ?></h3>
                                     <p id="previewSubtitle" style="<?= empty($slideConfig['subtitle']) ? 'display:none;' : '' ?>">• <?= h($slideConfig['subtitle'] ?? '') ?></p>
-                                    <?php if (($slideConfig['columns'] ?? 1) == 2 && !empty($slideConfig['col1']['header'])): ?>
+                                    
+                                    <?php if (($slideConfig['layout'] ?? '') === 'text_header_two_images'): ?>
+                                    <!-- Header text bullets preview -->
+                                    <div id="previewHeaderBullets" style="font-size: 9px; line-height: 1.5; text-align: left; margin-top: 5px; padding: 5px; background: #f8f9fa; border-radius: 3px;">
+                                        <?php 
+                                        if (isset($slideConfig['header_text']['content'])) {
+                                            $hc = $slideConfig['header_text']['content'];
+                                            $lines = is_array($hc) ? $hc : preg_split('/\r\n|\r|\n/', $hc);
+                                            foreach ($lines as $line) {
+                                                $line = trim($line);
+                                                if (!empty($line)) {
+                                                    echo '<div>• ' . h(strip_tags($line)) . '</div>';
+                                                }
+                                            }
+                                        }
+                                        ?>
+                                    </div>
+                                    <?php elseif (($slideConfig['columns'] ?? 1) == 2 && !empty($slideConfig['col1']['header'])): ?>
                                     <?php 
                                     $pptLayouts = unserialize(PPT_LAYOUTS);
                                     $layout = $slideConfig['layout'] ?? 'two_column_images';
@@ -526,33 +771,18 @@ $slideCategories = $slideCategories ?? [];
                                     $col1WidthPercent = $layoutConfig['col1_width_percent'] ?? 50;
                                     $col2WidthPercent = $layoutConfig['col2_width_percent'] ?? 50;
                                 }
-                                $isMultiImageLayout = ($slideConfig['layout'] ?? '') === 'multi_image_with_titles';
-                                $previewBodyClass = 'slide-preview-body';
-                                if (($slideConfig['columns'] ?? 1) == 2) {
-                                    $previewBodyClass .= ' two-col';
-                                } elseif ($isMultiImageLayout) {
-                                    $previewBodyClass .= ' multi-image';
-                                }
                                 ?>
-                                <div class="<?= $previewBodyClass ?>" id="previewBody">
-                                    <?php if ($isMultiImageLayout): ?>
-                                        <?php 
-                                        $maxImages = $slideConfig['max_images'] ?? 5;
-                                        $defaultTitles = $slideConfig['default_image_titles'] ?? [];
-                                        $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
-                                        ?>
-                                        <?php for ($i = 0; $i < $maxImages; $i++): 
-                                            $colName = $imageColumns[$i];
-                                            $defaultTitle = $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
-                                        ?>
-                                        <div class="preview-multi-item" id="preview_<?= $colName ?>_item">
-                                            <div class="image-title" id="preview_<?= $colName ?>_title"><?= h($defaultTitle) ?></div>
-                                            <div class="placeholder-icon" id="preview_<?= $colName ?>_placeholder">
-                                                <i class="fas fa-image"></i>
-                                            </div>
-                                            <img id="preview_<?= $colName ?>_img" src="" alt="" style="display: none;">
-                                        </div>
-                                        <?php endfor; ?>
+                                <div class="slide-preview-body <?= ($slideConfig['columns'] ?? 1) == 2 ? 'two-col' : '' ?>" id="previewBody">
+                                    <?php if (($slideConfig['layout'] ?? '') === 'text_header_two_images'): ?>
+                                    <!-- Two image placeholders side by side -->
+                                    <div class="preview-column" id="previewCol1" style="flex: 50;">
+                                        <i class="fas fa-image fa-2x text-muted mb-2"></i>
+                                        <span class="text-muted">Left Image</span>
+                                    </div>
+                                    <div class="preview-column" id="previewCol2" style="flex: 50;">
+                                        <i class="fas fa-image fa-2x text-muted mb-2"></i>
+                                        <span class="text-muted">Right Image</span>
+                                    </div>
                                     <?php else: ?>
                                     <div class="preview-column" id="previewCol1" style="flex: <?= $col1WidthPercent ?>;">
                                         <i class="fas fa-<?= ($slideConfig['col1']['type'] ?? 'text') === 'image' ? 'image' : 'font' ?> fa-2x text-muted mb-2"></i>
@@ -615,6 +845,33 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Header Text (text_header_two_images layout) live preview
+    const headerTextContent = document.getElementById('headerTextContent');
+    const addBulletPreview = document.getElementById('addBulletPreview');
+    const previewHeaderBullets = document.getElementById('previewHeaderBullets');
+    
+    if (headerTextContent) {
+        headerTextContent.addEventListener('input', function() {
+            const lines = this.value.split('\n').filter(l => l.trim() !== '');
+            // Update inline bullet preview
+            if (addBulletPreview) {
+                if (lines.length > 0) {
+                    addBulletPreview.innerHTML = lines.map(l => '<div>• ' + escapeHtml(l.trim()) + '</div>').join('');
+                } else {
+                    addBulletPreview.innerHTML = '<span class="text-muted">Bullet points will appear here...</span>';
+                }
+            }
+            // Update slide preview
+            if (previewHeaderBullets) {
+                if (lines.length > 0) {
+                    previewHeaderBullets.innerHTML = lines.map(l => '<div>• ' + escapeHtml(l.trim()) + '</div>').join('');
+                } else {
+                    previewHeaderBullets.innerHTML = '<span class="text-muted">Header text bullets</span>';
+                }
+            }
+        });
+    }
+    
     // Column 2 Header live preview
     const col2Header = document.getElementById('col2Header');
     const previewCol2Header = document.getElementById('previewCol2Header');
@@ -624,17 +881,6 @@ document.addEventListener('DOMContentLoaded', function() {
             previewCol2Header.textContent = this.value || 'Column 2';
         });
     }
-    
-    // Multi-image column headers (col1-col5) for multi-image layouts
-    ['col1', 'col2', 'col3', 'col4', 'col5'].forEach(function(col, index) {
-        const headerInput = document.querySelector('input[name="' + col + '_header"]');
-        const previewTitle = document.getElementById('preview_' + col + '_title');
-        if (headerInput && previewTitle) {
-            headerInput.addEventListener('input', function() {
-                previewTitle.textContent = this.value || 'Discharge ' + (index + 1);
-            });
-        }
-    });
     
     // Column 1 Content live preview
     const col1Content = document.getElementById('col1Content');
@@ -665,10 +911,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const previewImg = document.getElementById(col + 'PreviewImg');
         const removeBtn = document.getElementById(col + 'RemoveImg');
         const previewCol = document.getElementById('preview' + col.charAt(0).toUpperCase() + col.slice(1));
-        
-        // Multi-image preview elements
-        const multiPreviewImg = document.getElementById('preview_' + col + '_img');
-        const multiPreviewPlaceholder = document.getElementById('preview_' + col + '_placeholder');
         
         if (!dropzone || !input) return;
         
@@ -707,38 +949,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     previewCol.innerHTML = '<i class="fas fa-image fa-2x text-muted mb-2"></i><span class="text-muted">Upload image</span>';
                     previewCol.classList.remove('has-content');
                 }
-                // Reset multi-image preview
-                if (multiPreviewImg) {
-                    multiPreviewImg.style.display = 'none';
-                    multiPreviewImg.src = '';
-                }
-                if (multiPreviewPlaceholder) {
-                    multiPreviewPlaceholder.style.display = 'block';
-                }
             });
         }
         
         function handleImageUpload(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                if (previewImg) {
-                    previewImg.src = e.target.result;
-                    preview.classList.remove('d-none');
-                    dropzone.style.display = 'none';
-                }
+                previewImg.src = e.target.result;
+                preview.classList.remove('d-none');
+                dropzone.style.display = 'none';
                 
                 if (previewCol) {
                     previewCol.innerHTML = '<img src="' + e.target.result + '" style="max-width: 100%; max-height: 100px; object-fit: contain;">';
                     previewCol.classList.add('has-content');
-                }
-                
-                // Update multi-image preview
-                if (multiPreviewImg) {
-                    multiPreviewImg.src = e.target.result;
-                    multiPreviewImg.style.display = 'block';
-                }
-                if (multiPreviewPlaceholder) {
-                    multiPreviewPlaceholder.style.display = 'none';
                 }
             };
             reader.readAsDataURL(file);
