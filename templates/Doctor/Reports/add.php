@@ -1,4 +1,5 @@
 <?php
+use App\Constants\SiteConstants;
 /**
  * @var \App\View\AppView $this
  * @var \App\Model\Entity\Report $report
@@ -156,8 +157,8 @@ $this->assign('title', $isEdit ? 'Edit Medical Report' : 'Create Medical Report'
                     <div class="mb-3">
                         <?php echo  $this->Form->control('status', [
                             'options' => [
-                                'in_progress' => 'In Progress (Draft)',
-                                'completed' => 'Completed & Final',
+                                SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
+                                SiteConstants::CASE_STATUS_COMPLETED => 'Completed',
                             ],
                             'class' => 'form-select',
                             'label' => ['text' => 'Report Status', 'class' => 'form-label fw-semibold'],

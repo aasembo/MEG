@@ -1,4 +1,5 @@
 <?php
+use App\Constants\SiteConstants;
 /**
  * @var \App\View\AppView $this
  * @var \App\Model\Entity\Report $report
@@ -249,9 +250,8 @@ $this->assign('title', $isEdit ? 'Edit Scientific Report' : 'Create Scientific R
                     <div class="mb-3">
                         <?php echo  $this->Form->control('status', [
                             'options' => [
-                                'pending' => 'Pending (Draft)',
-                                'reviewed' => 'Ready for Review',
-                                'approved' => 'Approved & Final',
+                                SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
+                                SiteConstants::CASE_STATUS_COMPLETED => 'Completed',
                             ],
                             'class' => 'form-select',
                             'label' => ['text' => 'Report Status', 'class' => 'form-label fw-semibold'],
@@ -450,12 +450,12 @@ $this->assign('title', $isEdit ? 'Edit Scientific Report' : 'Create Scientific R
                         <div class="d-flex justify-content-between">
                             <span>Status:</span>
                             <span class="badge bg-<?php 
-                                echo match($report->status ?? 'pending') {
-                                    'approved' => 'success',
-                                    'reviewed' => 'warning',
+                                echo match($report->status ?? SiteConstants::CASE_STATUS_IN_PROGRESS) {
+                                    SiteConstants::CASE_STATUS_COMPLETED => 'success',
+                                    SiteConstants::CASE_STATUS_IN_PROGRESS => 'warning',
                                     default => 'secondary'
                                 };
-                            ?>"><?php echo  h($report->status ?? 'pending') ?></span>
+                            ?>"><?php echo  h(ucwords(str_replace('_', ' ', $report->status ?? SiteConstants::CASE_STATUS_IN_PROGRESS))) ?></span>
                         </div>
                     </div>
                 </div>

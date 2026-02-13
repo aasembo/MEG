@@ -1661,6 +1661,23 @@ class CasesController extends AppController {
 
                     // Handle role-based status transition
                     if ($assignedRole === SiteConstants::ROLE_TYPE_SCIENTIST) {
+                        // Update technician's report status to completed
+                        $reportsTable = $this->fetchTable('Reports');
+                        $technicianReport = $reportsTable->find()
+                            ->where([
+                                'case_id' => $case->id,
+                                'user_id' => $user->id,
+                                'type' => 'PDF'
+                            ])
+                            ->first();
+                        
+                        if ($technicianReport) {
+                            $technicianReport->status = SiteConstants::CASE_STATUS_COMPLETED;
+                            if ($reportsTable->save($technicianReport)) {
+                                Log::info("Updated technician report #{$technicianReport->id} status to completed for case #{$case->id}");
+                            }
+                        }
+
                         $this->caseStatusService->transitionOnAssignment(
                             $case, 
                             'technician', 
@@ -2291,7 +2308,7 @@ class CasesController extends AppController {
         $reportData = [
             'case_id' => $id,
             'hospital_id' => $case->hospital_id,
-            'status' => 'pending',
+            'status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
             'user_id' => $user->id,
             'report_data' => json_encode([
                 'content' => ''  // Empty content - will be dynamically generated in Reports controller

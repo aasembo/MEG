@@ -1358,7 +1358,7 @@ class CasesController extends AppController
         $reportData = [
             'case_id' => $id,
             'hospital_id' => $case->hospital_id,
-            'status' => 'pending',
+            'status' => SiteConstants::CASE_STATUS_IN_PROGRESS,
             'user_id' => $user->id,
             'report_data' => json_encode([
                 'content' => ''  // Empty content - will be dynamically generated in Reports controller

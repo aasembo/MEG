@@ -1,4 +1,5 @@
 <?php
+use App\Constants\SiteConstants;
 /**
  * @var \App\View\AppView $this
  * @var \App\Model\Entity\Report $report
@@ -206,8 +207,8 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                     <div class="mb-3">
                         <?php echo  $this->Form->control('status', [
                             'options' => [
-                                'in_progress' => 'In Progress',
-                                'completed' => 'Completed',
+                                SiteConstants::CASE_STATUS_IN_PROGRESS => 'In Progress',
+                                SiteConstants::CASE_STATUS_COMPLETED => 'Completed',
                             ],
                             'class' => 'form-select',
                             'label' => ['text' => 'Report Status', 'class' => 'form-label fw-semibold'],
@@ -406,12 +407,12 @@ $this->assign('title', $isEdit ? 'Edit MEG Report' : 'Create MEG Report');
                         <div class="d-flex justify-content-between">
                             <span>Status:</span>
                             <span class="badge bg-<?php 
-                                echo match($report->status ?? 'in_progress') {
-                                    'completed' => 'success',
-                                    'in_progress' => 'warning',
+                                echo match($report->status ?? SiteConstants::CASE_STATUS_IN_PROGRESS) {
+                                    SiteConstants::CASE_STATUS_COMPLETED => 'success',
+                                    SiteConstants::CASE_STATUS_IN_PROGRESS => 'warning',
                                     default => 'secondary'
                                 };
-                            ?>"><?php echo  h(ucwords(str_replace('_', ' ', $report->status ?? 'in_progress'))) ?></span>
+                            ?>"><?php echo  h(ucwords(str_replace('_', ' ', $report->status ?? SiteConstants::CASE_STATUS_IN_PROGRESS))) ?></span>
                         </div>
                     </div>
                 </div>
