@@ -664,6 +664,9 @@ class MegReportsController extends AppController
      */
     public function bulkUploadImages($reportId = null)
     {
+        ini_set('upload_max_filesize', '50M');
+        ini_set('post_max_size', '50M');
+        ini_set('max_file_uploads', '50');
         $this->request->allowMethod(['post']);
         $this->autoRender = false;
         set_time_limit(300); // Allow up to 5 minutes for bulk upload
