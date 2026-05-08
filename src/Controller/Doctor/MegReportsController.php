@@ -1432,4 +1432,214 @@ class MegReportsController extends AppController
         
         $ReportSlides->save($slide);
     }
+
+    /**
+     * Paste Image - Handle pasted images from clipboard and upload to specified slide/column
+     *
+     * @param int|null $reportId Report ID
+     * @return \Cake\Http\Response JSON response
+     */
+    public function pasteImage($reportId = null)
+    {
+        $this->request->allowMethod(['post']);
+        $this->autoRender = false;
+
+        $user = $this->request->getAttribute('identity');
+        $userId = $user->getIdentifier();
+
+        if (!$reportId) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Report ID is required.',
+                ]));
+        }
+
+        // Verify access
+        $Reports = $this->fetchTable('Reports');
+        $report = $Reports->find()
+            ->contain(['Cases'])
+            ->matching('Cases.CaseAssignments', function ($q) use ($userId) {
+                return $q->where(['CaseAssignments.assigned_to' => $userId]);
+            })
+            ->where(['Reports.id' => $reportId, 'Reports.type' => 'PPT'])
+            ->first();
+
+        if (!$report) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Report not found or access denied.',
+                ]));
+        }
+
+        $data = $this->request->getData();
+        $slideType = $data['slide_type'] ?? null;
+        $column = $data['column'] ?? 'col1'; // col1, col2, col3, col4, col5
+        $imageData = $data['image_data'] ?? null; // base64 encoded image
+
+        if (!$slideType || !$imageData) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Slide type and image data are required.',
+                ]));
+        }
+
+        $slideTypes = unserialize(PPT_REPORT_PAGES);
+        if (empty($slideTypes[$slideType])) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Invalid slide type selected.',
+                ]));
+        }
+
+        // Find or create the slide for this report and type
+        $ReportSlides = $this->fetchTable('ReportSlides');
+        $slide = $ReportSlides->find()
+            ->where(['report_id' => $reportId, 'slide_type' => $slideType])
+            ->first();
+
+        if (!$slide) {
+            $slideConfig = $slideTypes[$slideType];
+            $maxOrder = $ReportSlides->find()
+                ->where(['report_id' => $reportId])
+                ->select(['max_order' => $ReportSlides->find()->func()->max('slide_order')])
+                ->first();
+            $nextOrder = ($maxOrder->max_order ?? 0) + 1;
+
+            $slide = $ReportSlides->newEntity([
+                'report_id' => $reportId,
+                'user_id' => $report->user_id,
+                'slide_order' => $slideConfig['order'] ?? $nextOrder,
+                'slide_type' => $slideType,
+                'layout_columns' => $slideConfig['columns'] ?? 1,
+                'title' => $slideConfig['title'] ?? '',
+                'subtitle' => $slideConfig['subtitle'] ?? null,
+                'col1_type' => $slideConfig['col1']['type'] ?? 'text',
+                'col1_header' => $slideConfig['col1']['header'] ?? null,
+                'col2_type' => $slideConfig['col2']['type'] ?? 'text',
+                'col2_header' => $slideConfig['col2']['header'] ?? null,
+                'footer_text' => $slideConfig['footer_text'] ?? null,
+                'legend_data' => isset($slideConfig['legend']['items']) ? json_encode($slideConfig['legend']['items']) : null,
+                'file_path' => null,
+                's3_key' => null,
+            ]);
+
+            if (!$ReportSlides->save($slide)) {
+                return $this->response
+                    ->withType('application/json')
+                    ->withStringBody(json_encode([
+                        'success' => false,
+                        'message' => 'Unable to create slide for selected type.',
+                    ]));
+            }
+        }
+
+        // Decode base64 image
+        $imageData = str_replace('data:image/png;base64,', '', $imageData);
+        $imageData = str_replace('data:image/jpeg;base64,', '', $imageData);
+        $imageData = str_replace('data:image/gif;base64,', '', $imageData);
+        $imageData = str_replace('data:image/jpg;base64,', '', $imageData);
+        $imageData = str_replace(' ', '+', $imageData);
+
+        $imageBinary = base64_decode($imageData);
+        if (!$imageBinary) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Invalid image data.',
+                ]));
+        }
+
+        // Create temporary file
+        $tempFile = tmpfile();
+        $tempPath = stream_get_meta_data($tempFile)['uri'];
+        fwrite($tempFile, $imageBinary);
+
+        // Create file array for S3 upload
+        $fileArray = [
+            'tmp_name' => $tempPath,
+            'name' => 'pasted_image_' . uniqid() . '.png',
+            'size' => strlen($imageBinary),
+            'type' => 'image/png'
+        ];
+
+        // Upload to S3 directly
+        $s3Service = new S3DocumentService();
+        $uploadResult = $s3Service->uploadDocument(
+            $fileArray,
+            $report->case_id,
+            $report->case->patient_id ?? 0,
+            'report-images',
+            null
+        );
+
+        // Close temp file
+        fclose($tempFile);
+
+        if (!$uploadResult['success']) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Failed to upload image: ' . ($uploadResult['error'] ?? 'Unknown error'),
+                ]));
+        }
+
+        $uploadedPath = $uploadResult['file_path'];
+
+        if (!$uploadedPath) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Upload succeeded but no file path returned.',
+                ]));
+        }
+
+        // Delete old image if exists
+        $imagePathField = $column . '_image_path';
+        $oldPath = $slide->{$imagePathField} ?? null;
+        if ($oldPath) {
+            $s3Service->deleteDocument($oldPath);
+        }
+
+        // Update slide
+        $slide->{$imagePathField} = $uploadedPath;
+
+        // Also update legacy file_path/s3_key for col1
+        if ($column === 'col1') {
+            $slide->file_path = $uploadedPath;
+            $slide->s3_key = $uploadedPath;
+        }
+
+        if ($ReportSlides->save($slide)) {
+            $imageUrl = $uploadedPath ? $s3Service->getDownloadUrl($uploadedPath) : '';
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => true,
+                    'message' => 'Image uploaded successfully.',
+                    'image_url' => $imageUrl,
+                    'slide_id' => $slide->id,
+                    'column' => $column,
+                ]));
+        } else {
+            // Clean up uploaded file if save failed
+            $s3Service->deleteDocument($uploadedPath);
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => false,
+                    'message' => 'Failed to save slide changes.',
+                ]));
+        }
+    }
 }

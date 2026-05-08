@@ -516,6 +516,12 @@ function formatCoverSlideContent($slide) {
             </div>
         </div>
 
+        <!-- Paste Screenshot Info Banner -->
+        <div class="alert alert-info border-0 rounded-0 mb-0 py-2 text-center" style="font-size: 14px;">
+            <i class="fas fa-paste me-2"></i>
+            <strong>Quick Screenshot Upload:</strong> Take a screenshot and paste it anywhere on this page (Cmd+V / Ctrl+V) to upload it to a slide.
+        </div>
+
         <!-- Slide Viewer -->
         <div class="slide-viewer">
             <?php 
@@ -1057,6 +1063,81 @@ function formatCoverSlideContent($slide) {
     </div>
 </div>
 
+<!-- Paste Image Modal -->
+<div class="modal fade" id="pasteImageModal" tabindex="-1" aria-labelledby="pasteImageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="pasteImageModalLabel">
+                    <i class="fas fa-paste me-2"></i>Paste Screenshot
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>How to use:</strong> Take a screenshot (Cmd+Shift+4 on Mac, Win+Shift+S on Windows), then paste it here (Cmd+V or Ctrl+V).
+                </div>
+
+                <!-- Image Preview -->
+                <div id="pasteImagePreview" class="text-center mb-3" style="display: none;">
+                    <h6>Pasted Image Preview:</h6>
+                    <img id="pastedImage" src="" alt="Pasted image" style="max-width: 100%; max-height: 300px; border: 1px solid #dee2e6; border-radius: 5px;" />
+                </div>
+
+                <!-- Slide Selection -->
+                <div class="mb-3">
+                    <label for="pasteSlideSelect" class="form-label"><strong>Select Slide:</strong></label>
+                    <select id="pasteSlideSelect" class="form-select">
+                        <option value="">Choose a slide...</option>
+                        <?php
+                        $existingSlideTypes = [];
+                        foreach ($slides as $slide) {
+                            if (!empty($slide->slide_type)) {
+                                $existingSlideTypes[$slide->slide_type] = true;
+                            }
+                        }
+                        foreach ($slideTypes as $slideTypeKey => $slideTypeConfig):
+                            $slideTitle = $slideTypeConfig['title'] ?? str_replace('_', ' ', ucfirst($slideTypeKey));
+                            $isExisting = !empty($existingSlideTypes[$slideTypeKey]);
+                            $note = $isExisting ? ' (already added)' : '';
+                        ?>
+                            <option value="<?php echo h($slideTypeKey) ?>" data-columns="<?php echo $slideTypeConfig['columns'] ?? 1 ?>">
+                                <?php echo h($slideTitle . $note) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <!-- Column Selection (shown when slide is selected) -->
+                <div id="pasteColumnSelection" class="mb-3" style="display: none;">
+                    <label for="pasteColumnSelect" class="form-label"><strong>Select Position:</strong></label>
+                    <select id="pasteColumnSelect" class="form-select">
+                        <option value="">Choose position...</option>
+                    </select>
+                </div>
+
+                <!-- Upload Progress -->
+                <div id="pasteUploadProgress" class="mb-3" style="display: none;">
+                    <div class="progress">
+                        <div id="pasteProgressBar" class="progress-bar bg-success progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 0%;">Uploading...</div>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="pasteUploadResults" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="pasteUploadBtn" onclick="uploadPastedImage();" disabled>
+                    <i class="fas fa-upload me-1"></i>Upload Image
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php $this->start('script'); ?>
 <script>
 let currentSlideIndex = 0;
@@ -1524,6 +1605,179 @@ document.getElementById('bulkUploadModal')?.addEventListener('hidden.bs.modal', 
     pb.textContent = '0%';
     pb.classList.add('progress-bar-animated');
     pb.classList.remove('bg-danger');
+});
+
+// ============================================
+// Paste Image Functionality
+// ============================================
+let pastedImageData = null;
+
+// Listen for paste events on the document
+document.addEventListener('paste', function(e) {
+    // Check if there's image data in the clipboard
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf('image') !== -1) {
+            e.preventDefault();
+            
+            const file = item.getAsFile();
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                pastedImageData = event.target.result;
+                showPasteModal();
+            };
+            
+            reader.readAsDataURL(file);
+            break;
+        }
+    }
+});
+
+// Show the paste modal
+function showPasteModal() {
+    if (!pastedImageData) return;
+    
+    // Update preview
+    document.getElementById('pastedImage').src = pastedImageData;
+    document.getElementById('pasteImagePreview').style.display = 'block';
+    
+    // Reset selections
+    document.getElementById('pasteSlideSelect').value = '';
+    document.getElementById('pasteColumnSelection').style.display = 'none';
+    document.getElementById('pasteUploadBtn').disabled = true;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('pasteImageModal'));
+    modal.show();
+}
+
+// Handle slide selection change
+document.getElementById('pasteSlideSelect')?.addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const columns = parseInt(selectedOption.getAttribute('data-columns') || 1);
+    
+    const columnSelect = document.getElementById('pasteColumnSelect');
+    columnSelect.innerHTML = '<option value="">Choose position...</option>';
+    
+    if (columns === 1) {
+        columnSelect.innerHTML += '<option value="col1">Main Image</option>';
+    } else if (columns === 2) {
+        columnSelect.innerHTML += '<option value="col1">Left Column</option>';
+        columnSelect.innerHTML += '<option value="col2">Right Column</option>';
+    } else {
+        // Multi-image layout
+        for (let i = 1; i <= columns && i <= 5; i++) {
+            const labels = {
+                1: 'First Image',
+                2: 'Second Image', 
+                3: 'Third Image',
+                4: 'Fourth Image',
+                5: 'Fifth Image'
+            };
+            columnSelect.innerHTML += `<option value="col${i}">${labels[i]}</option>`;
+        }
+    }
+    
+    document.getElementById('pasteColumnSelection').style.display = this.value ? 'block' : 'none';
+    updatePasteUploadButton();
+});
+
+// Handle column selection change
+document.getElementById('pasteColumnSelect')?.addEventListener('change', function() {
+    updatePasteUploadButton();
+});
+
+function updatePasteUploadButton() {
+    const slideSelected = document.getElementById('pasteSlideSelect').value;
+    const columnSelected = document.getElementById('pasteColumnSelect').value;
+    document.getElementById('pasteUploadBtn').disabled = !(slideSelected && columnSelected && pastedImageData);
+}
+
+// Upload the pasted image
+function uploadPastedImage() {
+    if (!pastedImageData) return;
+    
+    const slideType = document.getElementById('pasteSlideSelect').value;
+    const column = document.getElementById('pasteColumnSelect').value;
+    
+    if (!slideType || !column) return;
+    
+    const uploadBtn = document.getElementById('pasteUploadBtn');
+    const progressDiv = document.getElementById('pasteUploadProgress');
+    const progressBar = document.getElementById('pasteProgressBar');
+    const resultsDiv = document.getElementById('pasteUploadResults');
+    
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Uploading...';
+    progressDiv.style.display = 'block';
+    progressBar.style.width = '50%';
+    resultsDiv.style.display = 'none';
+    
+    const formData = new FormData();
+    formData.append('slide_type', slideType);
+    formData.append('column', column);
+    formData.append('image_data', pastedImageData);
+    
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    
+    fetch('<?php echo $this->Url->build(['controller' => 'MegReports', 'action' => 'pasteImage', $reportId, 'prefix' => 'Doctor']) ?>', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-Token': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        progressBar.style.width = '100%';
+        progressBar.classList.remove('progress-bar-animated');
+        
+        if (data.success) {
+            resultsDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>' + data.message + '</div>';
+            resultsDiv.style.display = 'block';
+            
+            // Close modal after a delay
+            setTimeout(function() {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('pasteImageModal'));
+                if (modal) modal.hide();
+                
+                // Reload the page to show the new image
+                window.location.reload();
+            }, 2000);
+        } else {
+            resultsDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>' + data.message + '</div>';
+            resultsDiv.style.display = 'block';
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i>Upload Image';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        progressBar.style.width = '100%';
+        progressBar.classList.remove('progress-bar-animated');
+        resultsDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>Upload failed. Please try again.</div>';
+        resultsDiv.style.display = 'block';
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i>Upload Image';
+    });
+}
+
+// Reset modal when closed
+document.getElementById('pasteImageModal')?.addEventListener('hidden.bs.modal', function() {
+    pastedImageData = null;
+    document.getElementById('pasteImagePreview').style.display = 'none';
+    document.getElementById('pasteUploadProgress').style.display = 'none';
+    document.getElementById('pasteUploadResults').style.display = 'none';
+    document.getElementById('pasteUploadBtn').disabled = true;
+    document.getElementById('pasteUploadBtn').innerHTML = '<i class="fas fa-upload me-1"></i>Upload Image';
+    const pb = document.getElementById('pasteProgressBar');
+    pb.style.width = '0%';
+    pb.classList.add('progress-bar-animated');
 });
 </script>
 <?php $this->end(); ?>
