@@ -93,26 +93,6 @@ trait PptDownloadTrait
      */
     protected function generateAndServePpt($slides, $report, string $filename, string $currentHash, S3DocumentService $s3Service): Response
     {
-        // Generate URLs for slide images
-        foreach ($slides as $slide) {
-            if ($slide->file_path) {
-                $slide->image_url = $s3Service->getDownloadUrl($slide->file_path);
-            }
-            if ($slide->col1_image_path) {
-                $slide->col1_image_url = $s3Service->getDownloadUrl($slide->col1_image_path);
-            }
-            if ($slide->col2_image_path) {
-                $slide->col2_image_url = $s3Service->getDownloadUrl($slide->col2_image_path);
-            }
-            // Handle col3-col5 for multi-image slides
-            foreach ([3, 4, 5] as $colNum) {
-                $pathField = "col{$colNum}_image_path";
-                if ($slide->{$pathField}) {
-                    $slide->{"col{$colNum}_image_url"} = $s3Service->getDownloadUrl($slide->{$pathField});
-                }
-            }
-        }
-        
         // Create PowerPoint presentation
         $presentation = new \PhpOffice\PhpPresentation\PhpPresentation();
         $presentation->removeSlideByIndex(0);
@@ -144,11 +124,7 @@ trait PptDownloadTrait
                 $background->setColor(new \PhpOffice\PhpPresentation\Style\Color('FFFFFFFF'));
             }
             
-            $slideTitle = $slide->title ?: $slide->description ?: '';
-            $layoutColumns = $slide->layout_columns ?? 1;
-            
-            // Cover page gets special formatting (older reports may lack slide_type on the first slide)
-            if ($slide->slide_type === 'cover_page' || ($index === 0 && empty($slide->slide_type))) {
+            if ($slide->slide_type === 'cover_page') {
                 $this->renderCoverSlide($pptSlide, $slide, $pptStyles, $slideWidth, $slideHeight, $margin);
             } else {
                 $tempFiles = array_merge(
@@ -297,46 +273,6 @@ trait PptDownloadTrait
         $tempFiles = [];
         $currentY = $topMargin;
         $slideTitle = $slide->title ?: $slide->description ?: '';
-        $layoutColumns = $slide->layout_columns ?? 1;
-        
-        // Get slide config early - we need it for fallbacks
-        $slideTypes = unserialize(PPT_REPORT_PAGES);
-        $slideType = $slide->slide_type ?? 'custom';
-        $slideConfig = $slideTypes[$slideType] ?? null;
-        
-        // Apply config fallbacks for slides created before template updates
-        if ($slideConfig) {
-            // Fallback layout_columns from config
-            if (empty($slide->layout_columns) && isset($slideConfig['columns'])) {
-                $layoutColumns = $slideConfig['columns'];
-            }
-            // Fallback subtitle from config
-            if (empty($slide->subtitle) && !empty($slideConfig['subtitle'])) {
-                $slide->subtitle = $slideConfig['subtitle'];
-            }
-            // Fallback col1_content from config (header_text or default_content)
-            if (empty($slide->col1_content)) {
-                if (isset($slideConfig['header_text']['content'])) {
-                    $headerContent = $slideConfig['header_text']['content'];
-                    $slide->col1_content = is_array($headerContent) ? implode("\n", $headerContent) : $headerContent;
-                } elseif (isset($slideConfig['col1']['default_content'])) {
-                    $slide->col1_content = $slideConfig['col1']['default_content'];
-                } elseif (isset($slideConfig['default_sections'])) {
-                    $slide->col1_content = json_encode($slideConfig['default_sections']);
-                }
-            }
-            // Fallback col1_header / col2_header from config
-            if (empty($slide->col1_header) && !empty($slideConfig['col1']['header'])) {
-                $slide->col1_header = $slideConfig['col1']['header'];
-            }
-            if (empty($slide->col2_header) && !empty($slideConfig['col2']['header'])) {
-                $slide->col2_header = $slideConfig['col2']['header'];
-            }
-            // Fallback legend_data from config
-            if (empty($slide->legend_data) && isset($slideConfig['legend']['items'])) {
-                $slide->legend_data = json_encode($slideConfig['legend']['items']);
-            }
-        }
         
         // Add title
         if (!empty($slideTitle)) {
@@ -398,172 +334,11 @@ trait PptDownloadTrait
         $contentEndY = (int)($slideHeight - 15);
         $availableHeight = (int)($contentEndY - $contentStartY);
         
-        // Doctor-defined grid layout
+        // Doctor-defined grid layout (the only content slide type)
         if ($slide->isCustomLayout()) {
             $tempFiles = array_merge($tempFiles, $this->renderGridLayout(
                 $pptSlide, $slide, $pptStyles, $slideWidth, $margin, $contentStartY, $availableHeight, $s3Service
             ));
-        } elseif ($layoutColumns === 2) {
-            // Handle two-column layout
-            $tempFiles = array_merge($tempFiles, $this->renderTwoColumnLayout(
-                $pptSlide, $slide, $pptStyles, $slideWidth, $margin, $contentStartY, $availableHeight, $slideConfig, $s3Service
-            ));
-        } elseif ($slide->slide_type === 'eeg_meg_discharge' || ($slideConfig['layout'] ?? '') === 'multi_image_with_titles') {
-            $tempFiles = array_merge($tempFiles, $this->renderMultiImageLayout(
-                $pptSlide, $slide, $pptStyles, $slideWidth, $slideHeight, $contentStartY, $slideConfig, $s3Service
-            ));
-        } else {
-            $tempFiles = array_merge($tempFiles, $this->renderSingleColumnLayout(
-                $pptSlide, $slide, $pptStyles, $slideWidth, $margin, $contentStartY, $availableHeight
-            ));
-        }
-        
-        // Add legend if present
-        $legendItems = $slide->getLegendItems();
-        if (!empty($legendItems)) {
-            $this->renderLegend($pptSlide, $legendItems, $margin, $slideHeight);
-        }
-        
-        return $tempFiles;
-    }
-    
-    /**
-     * Render two-column layout
-     */
-    protected function renderTwoColumnLayout($pptSlide, $slide, array $pptStyles, int $slideWidth, int $margin, int $contentStartY, int $availableHeight, ?array $slideConfig, S3DocumentService $s3Service): array
-    {
-        $tempFiles = [];
-        $contentWidth = $slideWidth - ($margin * 2);
-        $columnGap = 15;
-        $layout = $slideConfig['layout'] ?? 'two_column_images';
-        
-        // Get layout configuration for column widths
-        $pptLayouts = unserialize(PPT_LAYOUTS);
-        $layoutConfig = $pptLayouts[$layout] ?? [];
-        
-        $col1WidthPercent = $layoutConfig['col1_width_percent'] ?? 50;
-        $col2WidthPercent = $layoutConfig['col2_width_percent'] ?? 50;
-        
-        $col1Width = (int)(($contentWidth - $columnGap) * $col1WidthPercent / 100);
-        $col2Width = (int)(($contentWidth - $columnGap) * $col2WidthPercent / 100);
-        
-        $col1X = $margin;
-        $col2X = $margin + $col1Width + $columnGap;
-        
-        // For text_header_two_images layout, render col1_content as full-width header text
-        $isTextHeaderLayout = ($layout === 'text_header_two_images');
-        $hasImages = !empty($slide->col1_image_url) || !empty($slide->col2_image_url);
-        $textHeaderHeight = 0;
-        
-        // Show header text for text_header_two_images layout - always show content, not just when images exist
-        if ($isTextHeaderLayout && !empty($slide->col1_content)) {
-            // Render header text spanning full width
-            $textFontSize = $pptStyles['content']['font_size'] ?? 14;
-            
-            // Split content by newlines for multiple bullet points
-            $contentLines = preg_split('/\r\n|\r|\n/', $slide->col1_content);
-            $textHeaderHeight = max(70, count($contentLines) * 22); // Adjust height based on line count
-            
-            $headerTextShape = $pptSlide->createRichTextShape();
-            $headerTextShape->setHeight($textHeaderHeight);
-            $headerTextShape->setWidth($contentWidth);
-            $headerTextShape->setOffsetX($margin);
-            $headerTextShape->setOffsetY($contentStartY);
-            
-            // Render each line as a bullet point
-            $isFirst = true;
-            foreach ($contentLines as $line) {
-                $line = trim($line);
-                if (empty($line)) continue;
-                
-                if (!$isFirst) {
-                    $headerTextShape->createBreak();
-                }
-                $isFirst = false;
-                
-                $textRun = $headerTextShape->createTextRun('• ' . strip_tags($line));
-                $textRun->getFont()
-                    ->setName('Calibri')
-                    ->setSize($textFontSize)
-                    ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
-            }
-            
-            $contentStartY += $textHeaderHeight + 10;
-            $availableHeight -= $textHeaderHeight + 10;
-        }
-        
-        // Calculate header height
-        $col1HeaderText = strip_tags($slide->col1_header ?? '');
-        $col2HeaderText = strip_tags($slide->col2_header ?? '');
-        $columnHeaderMarginBottom = $pptStyles['column_header']['margin_bottom'] ?? 10;
-        $columnHeaderFontSize = $pptStyles['column_header']['font_size'] ?? 14;
-        
-        $hasHeaders = !empty($col1HeaderText) || !empty($col2HeaderText);
-        $headerHeight = 0;
-        
-        if ($hasHeaders) {
-            $charsPerLineHeader = (int)($col1Width / ($columnHeaderFontSize * 0.5));
-            $col1Lines = !empty($col1HeaderText) ? (int)max(1, ceil(strlen($col1HeaderText) / $charsPerLineHeader)) : 0;
-            $col2Lines = !empty($col2HeaderText) ? (int)max(1, ceil(strlen($col2HeaderText) / $charsPerLineHeader)) : 0;
-            $maxHeaderLines = (int)max($col1Lines, $col2Lines);
-            $headerLineHeight = $columnHeaderFontSize + 6;
-            $headerHeight = (int)min(80, $maxHeaderLines * $headerLineHeight + 5);
-        }
-        
-        // Render column headers
-        if (!empty($col1HeaderText)) {
-            $this->renderColumnHeader($pptSlide, $col1HeaderText, $col1X, $col1Width, $contentStartY, $headerHeight, $pptStyles);
-        }
-        if (!empty($col2HeaderText)) {
-            $this->renderColumnHeader($pptSlide, $col2HeaderText, $col2X, $col2Width, $contentStartY, $headerHeight, $pptStyles);
-        }
-        
-        // Image area starts after headers
-        if ($hasHeaders) {
-            $imageStartY = (int)($contentStartY + $headerHeight + $columnHeaderMarginBottom);
-            $imageMaxHeight = (int)($availableHeight - $headerHeight - $columnHeaderMarginBottom);
-        } else {
-            $imageStartY = (int)$contentStartY;
-            $imageMaxHeight = (int)$availableHeight;
-        }
-        
-        // Render column 1 content
-        if (!empty($slide->col1_image_url)) {
-            $tempFile = $this->renderColumnImage($pptSlide, $slide->col1_image_url, $col1X, $col1Width, $imageStartY, $imageMaxHeight);
-            if ($tempFile) $tempFiles[] = $tempFile;
-        } elseif (!empty($slide->col1_content) && !$isTextHeaderLayout) {
-            // Only render col1_content here if not already shown as header text
-            $this->renderColumnText($pptSlide, $slide->col1_content, $col1X, $col1Width, $imageStartY, $imageMaxHeight, $pptStyles, $layout);
-        }
-        
-        // Check if this slide has stacked images (e.g., functional_mapping_motor)
-        $isStacked = !empty($slideConfig['stacked_images']) && !empty($slideConfig['stacked_columns']);
-        
-        if ($isStacked) {
-            // Render stacked images: col2 on top, col3 on bottom, both in the col2 area
-            $stackGap = 8;
-            $halfHeight = (int)(($imageMaxHeight - $stackGap) / 2);
-            
-            // Top image (col2)
-            if (!empty($slide->col2_image_url)) {
-                $tempFile = $this->renderColumnImage($pptSlide, $slide->col2_image_url, $col2X, $col2Width, $imageStartY, $halfHeight);
-                if ($tempFile) $tempFiles[] = $tempFile;
-            }
-            
-            // Bottom image (col3)
-            $bottomY = $imageStartY + $halfHeight + $stackGap;
-            if (!empty($slide->col3_image_url)) {
-                $tempFile = $this->renderColumnImage($pptSlide, $slide->col3_image_url, $col2X, $col2Width, $bottomY, $halfHeight);
-                if ($tempFile) $tempFiles[] = $tempFile;
-            }
-        } else {
-            // Render column 2 content (standard)
-            if (!empty($slide->col2_image_url)) {
-                $tempFile = $this->renderColumnImage($pptSlide, $slide->col2_image_url, $col2X, $col2Width, $imageStartY, $imageMaxHeight);
-                if ($tempFile) $tempFiles[] = $tempFile;
-            } elseif (!empty($slide->col2_content)) {
-                $this->renderColumnText($pptSlide, $slide->col2_content, $col2X, $col2Width, $imageStartY, $imageMaxHeight, $pptStyles, $layout);
-            }
         }
         
         return $tempFiles;
@@ -708,147 +483,6 @@ trait PptDownloadTrait
     }
     
     /**
-     * Render multi-image layout
-     */
-    protected function renderMultiImageLayout($pptSlide, $slide, array $pptStyles, int $slideWidth, int $slideHeight, int $contentStartY, ?array $slideConfig, S3DocumentService $s3Service): array
-    {
-        $tempFiles = [];
-        $maxImages = $slideConfig['max_images'] ?? 5;
-        $defaultTitles = $slideConfig['default_image_titles'] ?? [];
-        $imageColumns = ['col1', 'col2', 'col3', 'col4', 'col5'];
-        
-        // Collect all images
-        $imagesToRender = [];
-        foreach (range(0, $maxImages - 1) as $i) {
-            $colName = $imageColumns[$i];
-            $imagePathField = "{$colName}_image_path";
-            $headerField = "{$colName}_header";
-            
-            if (!empty($slide->{$imagePathField})) {
-                $imageUrl = $s3Service->getDownloadUrl($slide->{$imagePathField});
-                $title = $slide->{$headerField} ?? $defaultTitles[$i] ?? 'Discharge ' . ($i + 1);
-                $imagesToRender[] = [
-                    'url' => $imageUrl,
-                    'title' => $title,
-                ];
-            }
-        }
-        
-        if (empty($imagesToRender)) {
-            return $tempFiles;
-        }
-        
-        $imageCount = count($imagesToRender);
-        $totalWidth = $slideWidth;
-        $columnWidth = (int)($totalWidth / $imageCount);
-        
-        $multiImageTitleStyles = $pptStyles['multi_image_title'] ?? [];
-        $titleHeight = 20;
-        $titleFontSize = $multiImageTitleStyles['font_size'] ?? 14;
-        $titleFontBold = $multiImageTitleStyles['font_bold'] ?? true;
-        
-        $imageAreaStartY = $contentStartY + $titleHeight + 3;
-        $imageAreaHeight = $slideHeight - $imageAreaStartY;
-        
-        foreach ($imagesToRender as $index => $imageData) {
-            $columnX = (int)($index * $columnWidth);
-            
-            // Add title
-            if (!empty($imageData['title'])) {
-                $titleShape = $pptSlide->createRichTextShape();
-                $titleShape->setHeight($titleHeight);
-                $titleShape->setWidth($columnWidth);
-                $titleShape->setOffsetX($columnX);
-                $titleShape->setOffsetY($contentStartY);
-                $titleShape->getActiveParagraph()->getAlignment()
-                    ->setHorizontal(\PhpOffice\PhpPresentation\Style\Alignment::HORIZONTAL_CENTER);
-                
-                $titleRun = $titleShape->createTextRun($imageData['title']);
-                $titleRun->getFont()
-                    ->setName('Calibri')
-                    ->setSize($titleFontSize)
-                    ->setBold($titleFontBold)
-                    ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
-            }
-            
-            // Render image
-            $tempImage = $this->downloadTempImageForPpt($imageData['url']);
-            if ($tempImage && file_exists($tempImage)) {
-                $tempFiles[] = $tempImage;
-                list($imgW, $imgH) = getimagesize($tempImage);
-                
-                $scale = min($columnWidth / $imgW, $imageAreaHeight / $imgH);
-                $scaledW = (int)($imgW * $scale);
-                $scaledH = (int)($imgH * $scale);
-                
-                $imgX = $columnX + (int)(($columnWidth - $scaledW) / 2);
-                $imgY = $imageAreaStartY;
-                
-                $shape = $pptSlide->createDrawingShape();
-                $shape->setPath($tempImage);
-                $shape->setWidth($scaledW);
-                $shape->setHeight($scaledH);
-                $shape->setOffsetX($imgX);
-                $shape->setOffsetY($imgY);
-            }
-        }
-        
-        return $tempFiles;
-    }
-    
-    /**
-     * Render single column layout
-     */
-    protected function renderSingleColumnLayout($pptSlide, $slide, array $pptStyles, int $slideWidth, int $margin, int $contentStartY, int $availableHeight): array
-    {
-        $tempFiles = [];
-        $contentWidth = $slideWidth - ($margin * 2);
-        
-        $imageUrl = $slide->col1_image_url ?? $slide->image_url ?? null;
-        if (!empty($imageUrl)) {
-            $tempImage = $this->downloadTempImageForPpt($imageUrl);
-            if ($tempImage && file_exists($tempImage)) {
-                $tempFiles[] = $tempImage;
-                list($imgW, $imgH) = getimagesize($tempImage);
-                
-                $maxImgHeight = (int)$availableHeight;
-                $scale = min($contentWidth / $imgW, $maxImgHeight / $imgH);
-                $scaledW = (int)($imgW * $scale);
-                $scaledH = (int)($imgH * $scale);
-                
-                $imgX = $margin + (int)(($contentWidth - $scaledW) / 2);
-                $imgY = $contentStartY + (int)(($availableHeight - $scaledH) / 2);
-                
-                $shape = $pptSlide->createDrawingShape();
-                $shape->setPath($tempImage);
-                $shape->setWidth($scaledW);
-                $shape->setHeight($scaledH);
-                $shape->setOffsetX($imgX);
-                $shape->setOffsetY($imgY);
-            }
-        }
-        
-        // Add text content if present
-        if (!empty($slide->col1_content)) {
-            $textY = (int)(!empty($imageUrl) ? $contentStartY + $availableHeight - 80 : $contentStartY);
-            $textHeight = (int)(!empty($imageUrl) ? 75 : $availableHeight);
-            
-            $textShape = $pptSlide->createRichTextShape();
-            $textShape->setHeight($textHeight);
-            $textShape->setWidth($contentWidth);
-            $textShape->setOffsetX($margin);
-            $textShape->setOffsetY($textY);
-            
-            $bulletStyles = $pptStyles['structured_bullets'] ?? [];
-            $structuredFontSize = $bulletStyles['font_size'] ?? 14;
-            
-            $this->addStructuredContentToShapeForPpt($textShape, $slide->col1_content, $structuredFontSize);
-        }
-        
-        return $tempFiles;
-    }
-    
-    /**
      * Render column header
      */
     protected function renderColumnHeader($pptSlide, string $headerText, int $x, int $width, int $y, int $height, array $pptStyles): void
@@ -904,51 +538,6 @@ trait PptDownloadTrait
     }
     
     /**
-     * Render column text
-     */
-    protected function renderColumnText($pptSlide, string $content, int $x, int $width, int $y, int $height, array $pptStyles, string $layout): void
-    {
-        $contentFontSize = ($layout === 'text_and_image') 
-            ? ($pptStyles['text_and_image_content']['font_size'] ?? 14)
-            : ($pptStyles['content']['font_size'] ?? 14);
-        
-        $textShape = $pptSlide->createRichTextShape();
-        $textShape->setHeight($height);
-        $textShape->setWidth($width);
-        $textShape->setOffsetX($x);
-        $textShape->setOffsetY($y);
-        
-        $this->addStructuredContentToShapeForPpt($textShape, $content, $contentFontSize);
-    }
-    
-    /**
-     * Render legend
-     */
-    protected function renderLegend($pptSlide, array $legendItems, int $margin, int $slideHeight): void
-    {
-        $legendY = $slideHeight - 22;
-        $legendX = $margin;
-        $legendItemWidth = 120;
-        
-        foreach ($legendItems as $item) {
-            if (!empty($item['label'])) {
-                $legendShape = $pptSlide->createRichTextShape();
-                $legendShape->setHeight(18);
-                $legendShape->setWidth($legendItemWidth);
-                $legendShape->setOffsetX($legendX);
-                $legendShape->setOffsetY($legendY);
-                
-                $legendRun = $legendShape->createTextRun('■ ' . $item['label']);
-                $legendRun->getFont()
-                    ->setSize(9)
-                    ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF' . ltrim($item['color'] ?? '000000', '#')));
-                
-                $legendX += $legendItemWidth;
-            }
-        }
-    }
-    
-    /**
      * Download image from URL to temporary file
      */
     protected function downloadTempImageForPpt(string $imageUrl): ?string
@@ -985,76 +574,6 @@ trait PptDownloadTrait
     }
     
     /**
-     * Add structured bullets content to PPT shape
-     */
-    protected function addStructuredContentToShapeForPpt($textShape, string $content, int $fontSize = 14): void
-    {
-        if (empty($content)) {
-            return;
-        }
-        
-        $pptStyles = unserialize(PPT_STYLES);
-        $bulletStyles = $pptStyles['structured_bullets'] ?? [];
-        $lineSpacing = $bulletStyles['line_spacing'] ?? 100;
-        $headingFontSize = $bulletStyles['heading_font_size'] ?? ($fontSize + 2);
-        
-        $decoded = json_decode($content, true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-            $isFirst = true;
-            
-            foreach ($decoded as $section) {
-                $heading = $section['heading'] ?? '';
-                
-                if ($heading) {
-                    if (!$isFirst) {
-                        $textShape->createBreak();
-                    }
-                    $paragraph = $textShape->createParagraph();
-                    $paragraph->setLineSpacing($lineSpacing);
-                    $paragraph->getAlignment()->setMarginLeft(0);
-                    $headingRun = $paragraph->createTextRun($heading);
-                    $headingRun->getFont()
-                        ->setSize($headingFontSize)
-                        ->setBold(true)
-                        ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
-                    $isFirst = false;
-                }
-                
-                foreach ($section['items'] ?? [] as $item) {
-                    $title = $item['title'] ?? '';
-                    
-                    if ($title) {
-                        $paragraph = $textShape->createParagraph();
-                        $paragraph->setLineSpacing($lineSpacing);
-                        $paragraph->getAlignment()->setMarginLeft(20);
-                        $titleRun = $paragraph->createTextRun('• ' . $title);
-                        $titleRun->getFont()
-                            ->setSize($fontSize)
-                            ->setBold(false)
-                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
-                    }
-                    
-                    foreach ($item['subitems'] ?? [] as $subitem) {
-                        $paragraph = $textShape->createParagraph();
-                        $paragraph->setLineSpacing($lineSpacing);
-                        $paragraph->getAlignment()->setMarginLeft(40);
-                        $subitemRun = $paragraph->createTextRun('○ ' . $subitem);
-                        $subitemRun->getFont()
-                            ->setSize($fontSize - 1)
-                            ->setBold(false)
-                            ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF333333'));
-                    }
-                }
-            }
-        } else {
-            $textRun = $textShape->createTextRun($content);
-            $textRun->getFont()
-                ->setSize($fontSize)
-                ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
-        }
-    }
-    
-    /**
      * Calculate hash for report slides to detect changes
      */
     protected function calculateReportHashForPpt($slides): string
@@ -1064,24 +583,11 @@ trait PptDownloadTrait
         foreach ($slides as $slide) {
             $slideData = [
                 'id' => $slide->id,
+                'slide_order' => $slide->slide_order,
                 'slide_type' => $slide->slide_type,
                 'title' => $slide->title,
                 'description' => $slide->description,
                 'subtitle' => $slide->subtitle,
-                'col1_content' => $slide->col1_content,
-                'col2_content' => $slide->col2_content,
-                'col1_header' => $slide->col1_header,
-                'col2_header' => $slide->col2_header,
-                'col3_header' => $slide->col3_header,
-                'col4_header' => $slide->col4_header,
-                'col5_header' => $slide->col5_header,
-                'col1_image_path' => $slide->col1_image_path,
-                'col2_image_path' => $slide->col2_image_path,
-                'col3_image_path' => $slide->col3_image_path,
-                'col4_image_path' => $slide->col4_image_path,
-                'col5_image_path' => $slide->col5_image_path,
-                'file_path' => $slide->file_path,
-                'legend_items' => $slide->legend_items,
                 'layout_data' => $slide->layout_data,
                 'modified' => $slide->modified ? $slide->modified->format('Y-m-d H:i:s') : null,
             ];

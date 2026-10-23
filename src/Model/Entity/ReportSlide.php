@@ -94,47 +94,6 @@ class ReportSlide extends Entity
     ];
 
     /**
-     * Get the slide configuration from PPT_REPORT_PAGES
-     *
-     * @return array|null
-     */
-    public function getSlideConfig(): ?array
-    {
-        if (empty($this->slide_type)) {
-            return null;
-        }
-        
-        $pptPages = unserialize(PPT_REPORT_PAGES);
-        return $pptPages[$this->slide_type] ?? null;
-    }
-
-    /**
-     * Get decoded legend data
-     *
-     * @return array
-     */
-    public function getLegendItems(): array
-    {
-        if (empty($this->legend_data)) {
-            return [];
-        }
-        
-        $data = json_decode($this->legend_data, true);
-        return is_array($data) ? $data : [];
-    }
-
-    /**
-     * Set legend data from array
-     *
-     * @param array $items Legend items
-     * @return void
-     */
-    public function setLegendItems(array $items): void
-    {
-        $this->legend_data = json_encode($items);
-    }
-
-    /**
      * Whether this slide uses a doctor-defined grid layout
      *
      * @return bool
