@@ -29,13 +29,13 @@ trait PptDownloadTrait
         set_time_limit(300);
         
         $Reports = $this->fetchTable('Reports');
-        $report = $Reports->get($reportId, ['contain' => ['Cases']]);
+        $report = $Reports->get($reportId, contain: ['Cases']);
         
         // Get all slides for this report
         $ReportSlides = $this->fetchTable('ReportSlides');
         $slides = $ReportSlides->find()
             ->where(['report_id' => $reportId])
-            ->order(['slide_order' => 'ASC'])
+            ->orderBy(['slide_order' => 'ASC'])
             ->all();
         
         // Calculate current hash based on slides content
@@ -147,8 +147,8 @@ trait PptDownloadTrait
             $slideTitle = $slide->title ?: $slide->description ?: '';
             $layoutColumns = $slide->layout_columns ?? 1;
             
-            // First slide (cover) gets special formatting
-            if ($index === 0) {
+            // Cover page gets special formatting (older reports may lack slide_type on the first slide)
+            if ($slide->slide_type === 'cover_page' || ($index === 0 && empty($slide->slide_type))) {
                 $this->renderCoverSlide($pptSlide, $slide, $pptStyles, $slideWidth, $slideHeight, $margin);
             } else {
                 $tempFiles = array_merge(
@@ -161,7 +161,16 @@ trait PptDownloadTrait
         // Generate PowerPoint file
         $writer = new \PhpOffice\PhpPresentation\Writer\PowerPoint2007($presentation);
         $tmpFile = TMP . 'ppt_' . uniqid() . '.pptx';
-        $writer->save($tmpFile);
+
+        // PhpPresentation 1.2.0 triggers PHP 8.5 "null as array offset" deprecations while writing
+        // (HashTable::add); in debug mode they are printed into the response and corrupt the download.
+        // Fixed upstream on master - remove this once composer has a phppresentation release after 1.2.0.
+        $errorLevel = error_reporting(error_reporting() & ~E_DEPRECATED);
+        try {
+            $writer->save($tmpFile);
+        } finally {
+            error_reporting($errorLevel);
+        }
         
         // Clean up temp image files
         foreach ($tempFiles as $tempFile) {
@@ -389,8 +398,13 @@ trait PptDownloadTrait
         $contentEndY = (int)($slideHeight - 15);
         $availableHeight = (int)($contentEndY - $contentStartY);
         
-        // Handle two-column layout
-        if ($layoutColumns === 2) {
+        // Doctor-defined grid layout
+        if ($slide->isCustomLayout()) {
+            $tempFiles = array_merge($tempFiles, $this->renderGridLayout(
+                $pptSlide, $slide, $pptStyles, $slideWidth, $margin, $contentStartY, $availableHeight, $s3Service
+            ));
+        } elseif ($layoutColumns === 2) {
+            // Handle two-column layout
             $tempFiles = array_merge($tempFiles, $this->renderTwoColumnLayout(
                 $pptSlide, $slide, $pptStyles, $slideWidth, $margin, $contentStartY, $availableHeight, $slideConfig, $s3Service
             ));
@@ -553,6 +567,144 @@ trait PptDownloadTrait
         }
         
         return $tempFiles;
+    }
+    
+    /**
+     * Render doctor-defined grid layout: rows of columns, each column with an optional
+     * header and one or more stacked boxes (image / text / bullets / heading)
+     */
+    protected function renderGridLayout($pptSlide, $slide, array $pptStyles, int $slideWidth, int $margin, int $contentStartY, int $availableHeight, S3DocumentService $s3Service): array
+    {
+        $tempFiles = [];
+        $rows = array_values(array_filter($slide->getLayoutData()['rows'], fn($row) => !empty($row['columns'])));
+        if (empty($rows)) {
+            return $tempFiles;
+        }
+        
+        $contentWidth = $slideWidth - ($margin * 2);
+        $columnGap = 15;
+        $rowGap = 10;
+        $stackGap = 8;
+        $headerFontSize = $pptStyles['column_header']['font_size'] ?? 14;
+        $headerMarginBottom = $pptStyles['column_header']['margin_bottom'] ?? 8;
+        $headerLineHeight = $headerFontSize + 6;
+        
+        // Header text block height for a given width (max 3 lines)
+        $headerHeightFor = function (string $text, int $width) use ($headerFontSize, $headerLineHeight): int {
+            $charsPerLine = max(1, (int)($width / ($headerFontSize * 0.5)));
+            $lines = min(3, (int)ceil(strlen($text) / $charsPerLine));
+            return $lines * $headerLineHeight + 5;
+        };
+        
+        $totalRowWeight = array_sum(array_map(fn($row) => max(0.1, (float)($row['height'] ?? 1)), $rows));
+        $rowsHeight = $availableHeight - $rowGap * (count($rows) - 1);
+        $rowY = $contentStartY;
+        
+        foreach ($rows as $row) {
+            $columns = $row['columns'];
+            $rowHeight = (int)($rowsHeight * max(0.1, (float)($row['height'] ?? 1)) / $totalRowWeight);
+            $totalColumnWeight = array_sum(array_map(fn($column) => max(0.1, (float)($column['width'] ?? 1)), $columns));
+            $columnsWidth = $contentWidth - $columnGap * (count($columns) - 1);
+            
+            $columnWidths = [];
+            foreach ($columns as $c => $column) {
+                $columnWidths[$c] = (int)($columnsWidth * max(0.1, (float)($column['width'] ?? 1)) / $totalColumnWeight);
+            }
+            
+            // One column-header band per row so column bodies stay top-aligned
+            $headerHeight = 0;
+            foreach ($columns as $c => $column) {
+                if (!empty($column['header'])) {
+                    $headerHeight = max($headerHeight, $headerHeightFor((string)$column['header'], $columnWidths[$c]));
+                }
+            }
+            $headerHeight = (int)min($rowHeight / 3, $headerHeight);
+            $bodyY = $headerHeight > 0 ? $rowY + $headerHeight + $headerMarginBottom : $rowY;
+            $bodyHeight = (int)max(20, $rowHeight - ($bodyY - $rowY));
+            
+            $columnX = $margin;
+            foreach ($columns as $c => $column) {
+                $columnWidth = $columnWidths[$c];
+                
+                if (!empty($column['header'])) {
+                    $this->renderColumnHeader($pptSlide, (string)$column['header'], $columnX, $columnWidth, (int)$rowY, $headerHeight, $pptStyles);
+                }
+                
+                // Stacked boxes share the column body equally
+                $boxes = $column['boxes'] ?? [];
+                $boxCount = max(1, count($boxes));
+                $boxHeight = (int)(($bodyHeight - $stackGap * ($boxCount - 1)) / $boxCount);
+                $boxY = $bodyY;
+                
+                foreach ($boxes as $box) {
+                    $contentY = $boxY;
+                    $contentHeight = $boxHeight;
+                    
+                    if (!empty($box['header'])) {
+                        $boxHeaderHeight = (int)min($boxHeight / 3, $headerHeightFor((string)$box['header'], $columnWidth));
+                        $this->renderColumnHeader($pptSlide, (string)$box['header'], $columnX, $columnWidth, (int)$boxY, $boxHeaderHeight, $pptStyles);
+                        $contentY += $boxHeaderHeight;
+                        $contentHeight -= $boxHeaderHeight;
+                    }
+                    
+                    if (($box['type'] ?? 'image') === 'image') {
+                        if (!empty($box['image_path'])) {
+                            $tempFile = $this->renderColumnImage($pptSlide, $s3Service->getDownloadUrl($box['image_path']), $columnX, $columnWidth, (int)$contentY, (int)max(10, $contentHeight));
+                            if ($tempFile) $tempFiles[] = $tempFile;
+                        }
+                    } elseif (!empty($box['text'])) {
+                        $this->renderGridCellText($pptSlide, $box, $columnX, $columnWidth, (int)$contentY, (int)max(10, $contentHeight), $pptStyles);
+                    }
+                    
+                    $boxY += $boxHeight + $stackGap;
+                }
+                
+                $columnX += $columnWidth + $columnGap;
+            }
+            
+            $rowY += $rowHeight + $rowGap;
+        }
+        
+        return $tempFiles;
+    }
+    
+    /**
+     * Render grid cell text - one paragraph per line, prefixed with a bullet for 'bullets' cells,
+     * bold and larger for 'heading' cells
+     */
+    protected function renderGridCellText($pptSlide, array $cell, int $x, int $width, int $y, int $height, array $pptStyles): void
+    {
+        $fontFamily = $pptStyles['content']['font_family'] ?? 'Calibri';
+        $fontSize = $pptStyles['content']['font_size'] ?? 14;
+        $isBullets = ($cell['type'] ?? '') === 'bullets';
+        $isHeading = ($cell['type'] ?? '') === 'heading';
+        if ($isHeading) {
+            $fontSize = $pptStyles['subtitle']['font_size'] ?? 20;
+        }
+        
+        $textShape = $pptSlide->createRichTextShape();
+        $textShape->setHeight($height);
+        $textShape->setWidth($width);
+        $textShape->setOffsetX($x);
+        $textShape->setOffsetY($y);
+        
+        $isFirst = true;
+        foreach (preg_split('/\r\n|\r|\n/', (string)$cell['text']) as $line) {
+            $line = trim($line);
+            if ($line === '' && $isBullets) {
+                continue;
+            }
+            
+            $paragraph = $isFirst ? $textShape->getActiveParagraph() : $textShape->createParagraph();
+            $isFirst = false;
+            
+            $textRun = $paragraph->createTextRun($isBullets ? '• ' . $line : $line);
+            $textRun->getFont()
+                ->setName($fontFamily)
+                ->setSize($fontSize)
+                ->setBold($isHeading)
+                ->setColor(new \PhpOffice\PhpPresentation\Style\Color('FF000000'));
+        }
     }
     
     /**
@@ -930,6 +1082,7 @@ trait PptDownloadTrait
                 'col5_image_path' => $slide->col5_image_path,
                 'file_path' => $slide->file_path,
                 'legend_items' => $slide->legend_items,
+                'layout_data' => $slide->layout_data,
                 'modified' => $slide->modified ? $slide->modified->format('Y-m-d H:i:s') : null,
             ];
             $hashData[] = $slideData;

@@ -37,6 +37,7 @@ use Cake\ORM\Entity;
  * @property string|null $footer_text
  * @property string|null $legend_data
  * @property string|null $title
+ * @property string|null $layout_data JSON grid for 'custom_layout' slides
  * @property string|null $description
  * @property string|null $html_content
  * @property \Cake\I18n\DateTime $created
@@ -80,6 +81,7 @@ class ReportSlide extends Entity
         'subtitle' => true,
         'footer_text' => true,
         'legend_data' => true,
+        'layout_data' => true,
         'title' => true,
         'description' => true,
         'html_content' => true,
@@ -130,5 +132,25 @@ class ReportSlide extends Entity
     public function setLegendItems(array $items): void
     {
         $this->legend_data = json_encode($items);
+    }
+
+    /**
+     * Whether this slide uses a doctor-defined grid layout
+     *
+     * @return bool
+     */
+    public function isCustomLayout(): bool
+    {
+        return $this->slide_type === \App\Service\SlideGridLayoutService::SLIDE_TYPE;
+    }
+
+    /**
+     * Get decoded grid layout data (rows -> cells)
+     *
+     * @return array
+     */
+    public function getLayoutData(): array
+    {
+        return \App\Service\SlideGridLayoutService::decode($this->layout_data);
     }
 }

@@ -6,8 +6,10 @@
  * @var int $reportId
  * @var array $slideTypes
  * @var array $slideCategories
+ * @var iterable<\App\Model\Entity\ReportTemplate> $reportTemplates
  */
 $this->assign('title', 'MEG Report Slides');
+$reportTemplates = $reportTemplates ?? [];
 
 /**
  * Helper function to format structured bullets content
@@ -500,6 +502,9 @@ function formatCoverSlideContent($slide) {
                     ['action' => 'add', '?' => ['report_id' => $reportId]],
                     ['class' => 'btn btn-sm btn-outline-light', 'escape' => false, 'id' => 'addSlideBtn']
                 ) ?>
+                <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#reportTemplatesModal">
+                    <i class="fas fa-copy me-1"></i>Templates
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#bulkUploadModal">
                     <i class="fas fa-cloud-upload-alt me-1"></i>Bulk Upload
                 </button>
@@ -515,6 +520,21 @@ function formatCoverSlideContent($slide) {
                 ) ?>
             </div>
         </div>
+
+        <?php if ($slides->count() === 1): ?>
+            <!-- New report (cover page only): offer report templates -->
+            <div class="alert alert-warning border-0 rounded-0 mb-0 py-2 text-center" style="font-size: 14px;">
+                <i class="fas fa-magic me-2"></i>
+                <?php if (count($reportTemplates) > 0): ?>
+                    <strong>New report:</strong> start from one of your report templates, or add slides one by one.
+                    <button type="button" class="btn btn-sm btn-dark ms-2" data-bs-toggle="modal" data-bs-target="#reportTemplatesModal">
+                        <i class="fas fa-copy me-1"></i>Start from Template
+                    </button>
+                <?php else: ?>
+                    <strong>New report:</strong> use <em>Add Slide</em> to build your slides. Then use <em>Templates &rarr; Save</em> to reuse the same set of slides on your next report.
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
 
         <!-- Paste Screenshot Info Banner -->
         <div class="alert alert-info border-0 rounded-0 mb-0 py-2 text-center" style="font-size: 14px;">
@@ -560,7 +580,7 @@ function formatCoverSlideContent($slide) {
                 ?>
                 <div class="slide-container <?php echo $index === 0 ? 'active' : '' ?>" data-slide-index="<?php echo $index ?>" data-slide-id="<?php echo $slide->id ?>">
                     <!-- Slide type badge -->
-                    <?php if ($slideConfig): ?>
+                    <?php if ($slideConfig || $slide->isCustomLayout()): ?>
                         <div class="slide-type-badge">
                             <?php echo h(str_replace('_', ' ', $slideType)) ?>
                         </div>
@@ -581,10 +601,19 @@ function formatCoverSlideContent($slide) {
                         <?php endif; ?>
                     </div>
                     
-                    <div class="slide-content <?php echo $slide->slide_order === 1 ? 'text-center' : '' ?>">
+                    <div class="slide-content <?php echo $slide->slide_order === 1 ? 'text-center' : '' ?> <?php echo $slide->isCustomLayout() ? 'grid-slide' : '' ?>">
                         <?php if ($slide->slide_order === 1): ?>
                             <!-- Cover slide with centered content - matches PPT output -->
                             <?php echo formatCoverSlideContent($slide) ?>
+                        <?php elseif ($slide->isCustomLayout()): ?>
+                            <!-- Custom grid layout -->
+                            <?php if (!empty($slide->title)): ?>
+                                <h2><?php echo h($slide->title) ?></h2>
+                            <?php endif; ?>
+                            <?php if (!empty($slide->subtitle)): ?>
+                                <h3>• <?php echo h($slide->subtitle) ?></h3>
+                            <?php endif; ?>
+                            <?php echo $this->element('MegReports/grid_layout', ['layout' => $slide->grid_layout]) ?>
                         <?php elseif ($layoutColumns === 2): ?>
                             <!-- Two-column layout -->
                             <?php if (!empty($slide->title)): ?>
@@ -837,6 +866,14 @@ function formatCoverSlideContent($slide) {
                                     <div style="font-size: 6px; color: #6c757d; font-style: italic;">(Patient Info)</div>
                                 </div>
                             </div>
+                        <?php elseif ($slide->isCustomLayout()): ?>
+                            <!-- Custom grid layout thumbnail -->
+                            <div style="font-size: 7px; margin-bottom: 2px; text-align: center; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                <?php echo h($slide->title ?? '') ?>
+                            </div>
+                            <div style="height: 52px;">
+                                <?php echo $this->element('MegReports/grid_layout', ['layout' => $slide->grid_layout, 'compact' => true]) ?>
+                            </div>
                         <?php elseif ($layoutColumns === 2): ?>
                             <!-- Two-column thumbnail -->
                             <div style="font-size: 7px; margin-bottom: 2px; text-align: center; font-weight: bold;">
@@ -1063,6 +1100,60 @@ function formatCoverSlideContent($slide) {
     </div>
 </div>
 
+<!-- Report Templates Modal -->
+<div class="modal fade" id="reportTemplatesModal" tabindex="-1" aria-labelledby="reportTemplatesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="reportTemplatesModalLabel">
+                    <i class="fas fa-copy me-2"></i>Report Templates
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6 class="fw-bold">Start from a template</h6>
+                <p class="text-muted small mb-2">Adds the template's slides (layouts, titles, headers and text) after the current slides. Images are not included.</p>
+                <?php if (count($reportTemplates) > 0): ?>
+                    <ul class="list-group mb-4">
+                        <?php foreach ($reportTemplates as $reportTemplate): ?>
+                            <?php $templateSlides = $reportTemplate->getSlides(); ?>
+                            <li class="list-group-item d-flex align-items-center gap-2">
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold"><?php echo h($reportTemplate->name) ?></div>
+                                    <small class="text-muted">
+                                        <?php echo count($templateSlides) ?> slide(s):
+                                        <?php echo h(implode(', ', array_map(fn($ts) => ($ts['title'] ?? '') !== '' ? $ts['title'] : 'Untitled', array_slice($templateSlides, 0, 4)))) ?><?php echo count($templateSlides) > 4 ? ', ...' : '' ?>
+                                    </small>
+                                </div>
+                                <?php echo $this->Form->create(null, ['url' => ['action' => 'applyReportTemplate', $reportId], 'class' => 'm-0']) ?>
+                                    <?php echo $this->Form->hidden('template_id', ['value' => $reportTemplate->id]) ?>
+                                    <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-plus me-1"></i>Use</button>
+                                <?php echo $this->Form->end() ?>
+                                <?php echo $this->Form->postLink(
+                                    '<i class="fas fa-trash"></i>',
+                                    ['action' => 'deleteReportTemplate', $reportTemplate->id, '?' => ['report_id' => $reportId]],
+                                    ['escape' => false, 'class' => 'btn btn-sm btn-outline-secondary', 'title' => 'Delete template', 'confirm' => 'Delete report template "' . $reportTemplate->name . '"? Reports already made from it are not affected.']
+                                ) ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php else: ?>
+                    <div class="alert alert-light border mb-4 small">You have no report templates yet. Save one below once this report's slides are set up.</div>
+                <?php endif; ?>
+
+                <h6 class="fw-bold">Save this report as a template</h6>
+                <p class="text-muted small mb-2">Saves this report's custom layout slides, in order, without images or the patient cover page. Using an existing name replaces that template.</p>
+                <?php echo $this->Form->create(null, ['url' => ['action' => 'saveReportTemplate', $reportId]]) ?>
+                    <div class="input-group">
+                        <input type="text" name="name" class="form-control" maxlength="150" required placeholder="Template name, e.g. Epilepsy pre-surgical">
+                        <button type="submit" class="btn btn-dark"><i class="fas fa-save me-1"></i>Save</button>
+                    </div>
+                <?php echo $this->Form->end() ?>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Paste Image Modal -->
 <div class="modal fade" id="pasteImageModal" tabindex="-1" aria-labelledby="pasteImageModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -1097,6 +1188,27 @@ function formatCoverSlideContent($slide) {
                                 $existingSlideTypes[$slide->slide_type] = true;
                             }
                         }
+                        $customSlides = array_filter($slides->toArray(), fn($s) => $s->isCustomLayout());
+                        ?>
+                        <?php if (!empty($customSlides)): ?>
+                            <optgroup label="Custom layout slides">
+                                <?php foreach ($customSlides as $customSlide):
+                                    $customLayout = $customSlide->getLayoutData();
+                                    $cellLabels = \App\Service\SlideGridLayoutService::cellLabels($customLayout);
+                                    foreach (\App\Service\SlideGridLayoutService::cells($customLayout) as $cellIndex => $cell) {
+                                        $cellLabels[$cellIndex] .= ($cell['type'] ?? 'image') !== 'image'
+                                            ? ' (text, will become image)'
+                                            : (!empty($cell['image_path']) ? ' (replace image)' : '');
+                                    }
+                                ?>
+                                    <option value="custom:<?php echo (int)$customSlide->id ?>" data-cells="<?php echo h(json_encode($cellLabels)) ?>">
+                                        <?php echo h(($customSlide->title ?: 'Untitled') . ' (custom, slide ' . $customSlide->slide_order . ')') ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                        <?php endif; ?>
+                        <optgroup label="Standard slides">
+                        <?php
                         foreach ($slideTypes as $slideTypeKey => $slideTypeConfig):
                             $slideTitle = $slideTypeConfig['title'] ?? str_replace('_', ' ', ucfirst($slideTypeKey));
                             $isExisting = !empty($existingSlideTypes[$slideTypeKey]);
@@ -1106,6 +1218,7 @@ function formatCoverSlideContent($slide) {
                                 <?php echo h($slideTitle . $note) ?>
                             </option>
                         <?php endforeach; ?>
+                        </optgroup>
                     </select>
                 </div>
 
@@ -1663,7 +1776,15 @@ document.getElementById('pasteSlideSelect')?.addEventListener('change', function
     const columnSelect = document.getElementById('pasteColumnSelect');
     columnSelect.innerHTML = '<option value="">Choose position...</option>';
     
-    if (columns === 1) {
+    if (this.value.indexOf('custom:') === 0) {
+        // Custom layout slide: one option per box
+        JSON.parse(selectedOption.getAttribute('data-cells') || '[]').forEach(function(label, index) {
+            const option = document.createElement('option');
+            option.value = String(index);
+            option.textContent = label;
+            columnSelect.appendChild(option);
+        });
+    } else if (columns === 1) {
         columnSelect.innerHTML += '<option value="col1">Main Image</option>';
     } else if (columns === 2) {
         columnSelect.innerHTML += '<option value="col1">Left Column</option>';
@@ -1718,8 +1839,13 @@ function uploadPastedImage() {
     resultsDiv.style.display = 'none';
     
     const formData = new FormData();
-    formData.append('slide_type', slideType);
-    formData.append('column', column);
+    if (slideType.indexOf('custom:') === 0) {
+        formData.append('slide_id', slideType.substring('custom:'.length));
+        formData.append('cell', column);
+    } else {
+        formData.append('slide_type', slideType);
+        formData.append('column', column);
+    }
     formData.append('image_data', pastedImageData);
     
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';

@@ -1,0 +1,222 @@
+/*
+ * Custom grid layout slides (slide_type 'custom_layout')
+ * Mirrors PptDownloadTrait::renderGridLayout(): rows share height by weight,
+ * columns share width by weight, one column-header band per row keeps columns aligned,
+ * stacked boxes share their column's height equally.
+ */
+.grid-slide {
+    display: flex;
+    flex-direction: column;
+}
+.grid-slide > .grid-layout {
+    flex: 1;
+    min-height: 0;
+}
+
+.grid-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+}
+.grid-layout-row {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    column-gap: 15px;
+    min-height: 0;
+}
+.grid-layout-row.has-headers {
+    grid-template-rows: auto minmax(0, 1fr);
+}
+.grid-layout-cell {
+    display: grid;
+    grid-row: 1 / -1;
+    grid-template-rows: subgrid;
+    min-width: 0;
+    min-height: 0;
+}
+.grid-layout-header {
+    font-size: 14px;
+    line-height: 1.3;
+    color: #000;
+    padding-bottom: 6px;
+    overflow-wrap: anywhere;
+}
+.grid-layout-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+}
+.grid-layout-box {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.grid-layout-body {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.grid-layout-body img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+.grid-layout-text {
+    align-self: flex-start;
+    width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 1.35;
+    color: #000;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+.grid-layout-text.plain {
+    white-space: pre-line;
+}
+.grid-layout-text.heading {
+    font-size: 20px;
+    font-weight: bold;
+}
+.grid-layout-text ul {
+    margin: 0;
+    padding-left: 1.1em;
+}
+.grid-layout-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px dashed #ced4da;
+    border-radius: 4px;
+    color: #adb5bd;
+    font-size: 12px;
+}
+
+/* Thumbnail strip */
+.grid-layout.compact {
+    gap: 2px;
+}
+.grid-layout.compact .grid-layout-row {
+    column-gap: 2px;
+}
+.grid-layout.compact .grid-layout-stack {
+    gap: 2px;
+}
+.grid-layout.compact .grid-layout-header {
+    font-size: 5px;
+    padding-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.grid-layout.compact .grid-layout-text {
+    font-size: 4px;
+}
+.grid-layout.compact .grid-layout-text.heading {
+    font-size: 6px;
+}
+.grid-layout.compact .grid-layout-empty {
+    font-size: 6px;
+    border-radius: 2px;
+}
+.grid-layout.compact .grid-layout-body img {
+    margin: 0;
+    max-height: 100%;
+}
+
+/* Layout matrix picker (add slide + custom layout form) */
+.layout-matrix {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+}
+.layout-option {
+    display: block;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 8px;
+    background: #fff;
+    color: #212529;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.layout-option:hover,
+.layout-option.active {
+    border-color: #dc3545;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2);
+    color: #212529;
+}
+.layout-option-name {
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 6px;
+}
+.layout-diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    aspect-ratio: 16 / 9;
+    padding: 4px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+.layout-diagram-row {
+    display: grid;
+    gap: 3px;
+    min-height: 0;
+}
+.layout-diagram-column {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-height: 0;
+}
+.layout-diagram-column .layout-diagram-cell {
+    flex: 1 1 0;
+}
+.layout-diagram-cell {
+    border-radius: 2px;
+    background: #f1aeb5;
+}
+.layout-diagram-cell.type-text,
+.layout-diagram-cell.type-bullets {
+    background: repeating-linear-gradient(180deg, #adb5bd 0 2px, transparent 2px 6px) #e9ecef;
+    background-origin: content-box;
+    padding: 3px;
+}
+.layout-diagram-cell.type-heading {
+    background: linear-gradient(#495057, #495057) left center / 60% 4px no-repeat #e9ecef;
+}
+/* Header bar above each column */
+.layout-diagram-row.has-headers .layout-diagram-column {
+    border-top: 4px solid #495057;
+    padding-top: 2px;
+}
+.layout-group-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    margin: 12px 0 6px;
+}
+.layout-group-title:first-child {
+    margin-top: 0;
+}
+/* Header slot the doctor has not filled in yet (form preview only, not exported) */
+.grid-layout-header.placeholder {
+    color: #adb5bd;
+    font-style: italic;
+}

@@ -9,12 +9,16 @@
  * @var array|null $slideConfig
  * @var array $slideTypes
  * @var array $slideCategories
+ * @var array $gridPresets
+ * @var iterable<\App\Model\Entity\SlideLayoutTemplate> $layoutTemplates
  */
 $this->assign('title', 'Add Slide');
 $slideType = $slideType ?? null;
 $slideConfig = $slideConfig ?? null;
 $slideTypes = $slideTypes ?? [];
 $slideCategories = $slideCategories ?? [];
+$gridPresets = $gridPresets ?? [];
+$layoutTemplates = $layoutTemplates ?? [];
 ?>
 
 <style>
@@ -204,49 +208,59 @@ $slideCategories = $slideCategories ?? [];
         <div class="card border-0 shadow">
             <div class="card-header bg-white py-3 border-bottom">
                 <h5 class="mb-0 fw-bold text-dark">
-                    <span class="badge bg-danger me-2">1</span>Select Slide Type
+                    <span class="badge bg-danger me-2">1</span>Choose a Layout
                 </h5>
             </div>
             <div class="card-body p-4">
-                <?php foreach ($slideCategories as $categoryKey => $category): ?>
+                <!-- Custom Layout: pick any grid, then choose header + image/text per box -->
+                <div class="category-section">
+                    <div class="category-title">
+                        <i class="fas fa-th-large me-2"></i>Custom Layout
+                        <small class="text-muted fw-normal ms-2">Pick a grid, then choose a header and image / text for each box</small>
+                    </div>
+                    <?php foreach (\App\Service\SlideGridLayoutService::groupedPresets() as $groupName => $groupPresets): ?>
+                        <div class="layout-group-title"><?= h($groupName) ?></div>
+                        <div class="layout-matrix mb-3">
+                            <?php foreach ($groupPresets as $presetKey => $preset): ?>
+                                <a href="<?= $this->Url->build(['action' => 'add', '?' => ['report_id' => $reportId, 'slide_type' => 'custom_layout', 'preset' => $presetKey]]) ?>"
+                                   class="layout-option" title="<?= h($preset['name']) ?>">
+                                    <?= $this->element('MegReports/layout_diagram', ['rows' => $preset['rows']]) ?>
+                                    <div class="layout-option-name"><?= h($preset['name']) ?></div>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <?php if (!empty($layoutTemplates) && count($layoutTemplates) > 0): ?>
                     <div class="category-section">
                         <div class="category-title">
-                            <i class="fas fa-folder me-2"></i><?= h($category['name']) ?>
+                            <i class="fas fa-star me-2"></i>My Layouts
                         </div>
-                        <div class="slide-type-selection">
-                            <?php foreach ($category['slides'] as $typeKey): ?>
-                                <?php if (isset($slideTypes[$typeKey])): ?>
-                                    <?php $config = $slideTypes[$typeKey]; ?>
-                                    <?php if ($typeKey === 'cover_page') continue; ?>
-                                    <a href="<?= $this->Url->build(['action' => 'add', '?' => ['report_id' => $reportId, 'slide_type' => $typeKey]]) ?>" 
-                                       class="slide-type-card text-decoration-none text-dark">
-                                        <div class="d-flex align-items-start">
-                                            <div class="slide-type-icon me-3">
-                                                <?php if (($config['columns'] ?? 1) == 2): ?>
-                                                    <i class="fas fa-columns"></i>
-                                                <?php elseif (($config['layout'] ?? '') === 'text_only' || ($config['layout'] ?? '') === 'text_bullets'): ?>
-                                                    <i class="fas fa-align-left"></i>
-                                                <?php else: ?>
-                                                    <i class="fas fa-image"></i>
-                                                <?php endif; ?>
-                                            </div>
-                                            <div>
-                                                <div class="slide-type-title"><?= h($config['title'] ?? ucwords(str_replace('_', ' ', $typeKey))) ?></div>
-                                                <div class="slide-type-meta">
-                                                    <?= ($config['columns'] ?? 1) ?> column(s) • 
-                                                    <?= h($config['layout'] ?? 'single_image') ?>
-                                                    <?php if (!empty($config['subtitle'])): ?>
-                                                        <br><small><?= h($config['subtitle']) ?></small>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                        </div>
+                        <div class="layout-matrix mb-3">
+                            <?php foreach ($layoutTemplates as $layoutTemplate): ?>
+                                <div class="layout-option position-relative">
+                                    <a href="<?= $this->Url->build(['action' => 'add', '?' => ['report_id' => $reportId, 'slide_type' => 'custom_layout', 'template_id' => $layoutTemplate->id]]) ?>"
+                                       class="text-decoration-none text-dark d-block" title="<?= h($layoutTemplate->title ?: $layoutTemplate->name) ?>">
+                                        <?= $this->element('MegReports/layout_diagram', ['rows' => $layoutTemplate->getLayoutData()['rows']]) ?>
+                                        <div class="layout-option-name"><?= h($layoutTemplate->name) ?></div>
                                     </a>
-                                <?php endif; ?>
+                                    <?= $this->Form->postLink(
+                                        '<i class="fas fa-times"></i>',
+                                        ['action' => 'deleteLayoutTemplate', $layoutTemplate->id, '?' => ['report_id' => $reportId]],
+                                        [
+                                            'escape' => false,
+                                            'class' => 'btn btn-sm btn-light position-absolute top-0 end-0 m-1 py-0 px-1',
+                                            'title' => 'Delete saved layout',
+                                            'confirm' => 'Delete saved layout "' . $layoutTemplate->name . '"? Slides already made from it are not affected.',
+                                        ]
+                                    ) ?>
+                                </div>
                             <?php endforeach; ?>
                         </div>
                     </div>
-                <?php endforeach; ?>
+                <?php endif; ?>
+
             </div>
         </div>
     <?php else: ?>

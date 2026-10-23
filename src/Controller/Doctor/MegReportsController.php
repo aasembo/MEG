@@ -8,6 +8,8 @@ use App\Controller\Trait\PptDownloadTrait;
 use Cake\Http\Exception\NotFoundException;
 use Cake\Http\Response;
 use App\Lib\S3DocumentService;
+use App\Service\SlideGridLayoutService;
+use Psr\Http\Message\UploadedFileInterface;
 
 /**
  * MegReports Controller (Doctor)
@@ -73,14 +75,12 @@ class MegReportsController extends AppController
                     $reportId = $report->id;
                     
                     // Reload report with associations after creation
-                    $report = $Reports->get($reportId, [
-                        'contain' => ['Cases' => ['PatientUsers' => ['Patient']], 'Users']
-                    ]);
+                    $report = $Reports->get($reportId, contain: ['Cases' => ['PatientUsers' => ['Patient']], 'Users']);
                     
-                    // Create all default slides from configuration
-                    $this->createDefaultSlides($report);
+                    // Start with only the patient cover page; doctors add their own slides (or apply a report template)
+                    $this->createCoverPage($report);
                     
-                    $this->Flash->success('MEG Report created with all default slides. You can now edit each slide to add images and customize content.');
+                    $this->Flash->success('MEG Report created with the patient cover page. Add slides, or start from one of your report templates.');
                 } else {
                     $this->Flash->error('Unable to create MEG report. Please try again.');
                     return $this->redirect(['controller' => 'Cases', 'action' => 'view', $caseId]);
@@ -115,7 +115,7 @@ class MegReportsController extends AppController
         $ReportSlides = $this->fetchTable('ReportSlides');
         $slides = $ReportSlides->find()
             ->where(['report_id' => $reportId])
-            ->order(['slide_order' => 'ASC'])
+            ->orderBy(['slide_order' => 'ASC'])
             ->all();
         
         // Generate URLs for slide images
@@ -137,13 +137,22 @@ class MegReportsController extends AppController
                     $slide->{"col{$colNum}_image_url"} = $s3Service->getDownloadUrl($slide->{$pathField});
                 }
             }
+            if ($slide->isCustomLayout()) {
+                $slide->grid_layout = SlideGridLayoutService::withImageUrls($slide->getLayoutData(), $s3Service);
+            }
         }
         
         // Get available slide types from configuration
         $slideTypes = unserialize(PPT_REPORT_PAGES);
         $slideCategories = unserialize(PPT_SLIDE_CATEGORIES);
         
-        $this->set(compact('slides', 'report', 'reportId', 'slideTypes', 'slideCategories'));
+        // This doctor's whole-report templates (save / start-from-template on the slides page)
+        $reportTemplates = $this->fetchTable('ReportTemplates')->find()
+            ->where(['user_id' => $userId])
+            ->orderBy(['name' => 'ASC'])
+            ->all();
+        
+        $this->set(compact('slides', 'report', 'reportId', 'slideTypes', 'slideCategories', 'reportTemplates'));
     }
 
     /**
@@ -178,6 +187,10 @@ class MegReportsController extends AppController
         if (!$report) {
             $this->Flash->error('Report not found or you do not have access.');
             return $this->redirect(['controller' => 'Reports', 'action' => 'index']);
+        }
+        
+        if ($slideType === SlideGridLayoutService::SLIDE_TYPE) {
+            return $this->customLayoutForm($report);
         }
         
         // Get slide type configuration
@@ -335,7 +348,359 @@ class MegReportsController extends AppController
         
         $slideCategories = unserialize(PPT_SLIDE_CATEGORIES);
         
-        $this->set(compact('slide', 'report', 'reportId', 'examProceduresList', 'slideType', 'slideConfig', 'slideTypes', 'slideCategories'));
+        // Custom layout matrix + this doctor's saved layouts for the slide type picker
+        $gridPresets = SlideGridLayoutService::presets();
+        $layoutTemplates = $this->fetchTable('SlideLayoutTemplates')->find()
+            ->where(['user_id' => $userId])
+            ->orderBy(['name' => 'ASC'])
+            ->all();
+        
+        $this->set(compact('slide', 'report', 'reportId', 'examProceduresList', 'slideType', 'slideConfig', 'slideTypes', 'slideCategories', 'gridPresets', 'layoutTemplates'));
+    }
+
+    /**
+     * Add/edit form for doctor-defined grid layout slides
+     *
+     * New slides start from ?preset=<key> or ?template_id=<id> (a saved layout).
+     * Box and column content is matched by flat index, so switching presets keeps content.
+     *
+     * @param \App\Model\Entity\Report $report Report (with Cases)
+     * @param \App\Model\Entity\ReportSlide|null $slide Existing slide, null when adding
+     * @return \Cake\Http\Response|null
+     */
+    private function customLayoutForm($report, $slide = null): ?Response
+    {
+        $userId = $this->request->getAttribute('identity')->getIdentifier();
+        $ReportSlides = $this->fetchTable('ReportSlides');
+        $LayoutTemplates = $this->fetchTable('SlideLayoutTemplates');
+        $gridPresets = SlideGridLayoutService::presets();
+        $isNew = $slide === null;
+        $oldLayout = $isNew ? ['preset' => null, 'rows' => []] : $slide->getLayoutData();
+        
+        if ($isNew) {
+            $slide = $ReportSlides->newEmptyEntity();
+            $layout = null;
+            
+            $templateId = $this->request->getQuery('template_id');
+            if ($templateId) {
+                $template = $LayoutTemplates->find()
+                    ->where(['id' => $templateId, 'user_id' => $userId])
+                    ->first();
+                if ($template) {
+                    $layout = $template->getLayoutData();
+                    $slide->title = $template->title;
+                    $slide->subtitle = $template->subtitle;
+                }
+            }
+            
+            if (!$layout || !isset($gridPresets[$layout['preset'] ?? ''])) {
+                $presetKey = (string)$this->request->getQuery('preset', '');
+                $layout = SlideGridLayoutService::fromPreset(isset($gridPresets[$presetKey]) ? $presetKey : '2col');
+            }
+        } else {
+            $layout = $oldLayout;
+            if (!isset($gridPresets[$layout['preset'] ?? ''])) {
+                $layout = SlideGridLayoutService::fromPreset('2col');
+            }
+        }
+        
+        if ($this->request->is(['post', 'put', 'patch'])) {
+            $data = $this->request->getData();
+            $presetKey = (string)($data['preset'] ?? '');
+            
+            if (!isset($gridPresets[$presetKey])) {
+                $this->Flash->error('Please choose a layout.');
+                return $this->redirect($this->referer());
+            }
+            
+            $s3Service = new S3DocumentService();
+            $oldCells = SlideGridLayoutService::cells($oldLayout);
+            $postedCells = (array)($data['cells'] ?? []);
+            
+            // Only boxes that exist in the chosen preset are kept (and uploaded)
+            $counts = SlideGridLayoutService::counts($presetKey);
+            $cellInput = [];
+            $uploadedPaths = [];
+            for ($i = 0; $i < $counts['boxes']; $i++) {
+                $posted = (array)($postedCells[$i] ?? []);
+                $imagePath = empty($posted['remove_image']) ? ($oldCells[$i]['image_path'] ?? null) : null;
+                
+                $imageFile = $posted['image_file'] ?? null;
+                if ($imageFile instanceof UploadedFileInterface && $imageFile->getError() === UPLOAD_ERR_OK) {
+                    $uploaded = $this->uploadSlideImage($imageFile, $report, $s3Service);
+                    if ($uploaded) {
+                        $imagePath = $uploaded;
+                        $uploadedPaths[] = $uploaded;
+                    } else {
+                        $this->Flash->warning('Box ' . ($i + 1) . ': image could not be uploaded (use JPG, PNG or GIF).');
+                    }
+                }
+                
+                $cellInput[$i] = [
+                    'header' => $posted['header'] ?? '',
+                    'type' => $posted['type'] ?? null,
+                    'text' => $posted['text'] ?? '',
+                    'image_path' => $imagePath,
+                ];
+            }
+            
+            $columnInput = array_slice((array)($data['columns'] ?? []), 0, $counts['columns'], true);
+            $layout = SlideGridLayoutService::build($presetKey, $cellInput, $columnInput);
+            $title = trim((string)($data['title'] ?? ''));
+            $subtitle = trim((string)($data['subtitle'] ?? ''));
+            
+            $slideData = [
+                'slide_type' => SlideGridLayoutService::SLIDE_TYPE,
+                'title' => $title,
+                'subtitle' => $subtitle !== '' ? $subtitle : null,
+                'description' => $title,
+                'layout_columns' => SlideGridLayoutService::maxColumns($layout),
+                'layout_data' => json_encode($layout),
+                'html_content' => null,
+            ];
+            
+            if ($isNew) {
+                $maxOrder = $ReportSlides->find()
+                    ->where(['report_id' => $report->id])
+                    ->select(['max_order' => $ReportSlides->find()->func()->max('slide_order')])
+                    ->first();
+                $slideData['report_id'] = $report->id;
+                $slideData['user_id'] = $userId;
+                $slideData['slide_order'] = (int)($maxOrder->max_order ?? 0) + 1;
+            }
+            
+            $slide = $ReportSlides->patchEntity($slide, $slideData);
+            
+            if ($ReportSlides->save($slide)) {
+                // Remove images that were replaced, removed, or dropped by a smaller layout
+                $keptPaths = SlideGridLayoutService::imagePaths($layout);
+                foreach (array_diff(SlideGridLayoutService::imagePaths($oldLayout), $keptPaths) as $orphanPath) {
+                    $s3Service->deleteDocument($orphanPath);
+                }
+                
+                if (!empty($data['save_as_template'])) {
+                    $templateName = trim((string)($data['template_name'] ?? '')) ?: ($title ?: $gridPresets[$presetKey]['name']);
+                    $template = $LayoutTemplates->newEntity([
+                        'user_id' => $userId,
+                        'name' => mb_substr($templateName, 0, 150),
+                        'preset' => $presetKey,
+                        'title' => $title,
+                        'subtitle' => $slideData['subtitle'],
+                        'layout_data' => json_encode(SlideGridLayoutService::withoutImages($layout)),
+                    ]);
+                    if ($LayoutTemplates->save($template)) {
+                        $this->Flash->success('Layout saved to "My Layouts" as "' . $template->name . '".');
+                    } else {
+                        $this->Flash->warning('Slide saved, but the layout template could not be saved.');
+                    }
+                }
+                
+                $this->Flash->success($isNew ? 'Slide has been added.' : 'Slide has been updated.');
+                return $this->redirect(['action' => 'index', $report->id]);
+            }
+            
+            foreach ($uploadedPaths as $uploadedPath) {
+                $s3Service->deleteDocument($uploadedPath);
+            }
+            $this->Flash->error('Unable to save the slide. Please try again.');
+        }
+        
+        $layout = SlideGridLayoutService::withImageUrls($layout, new S3DocumentService());
+        $cellTypes = SlideGridLayoutService::CELL_TYPES;
+        $reportId = $report->id;
+        
+        $this->set(compact('slide', 'report', 'reportId', 'layout', 'gridPresets', 'cellTypes', 'isNew'));
+        
+        return $this->render('custom_layout');
+    }
+
+    /**
+     * Find a PPT report the current doctor is assigned to
+     *
+     * @param int|string|null $reportId Report ID
+     * @return \App\Model\Entity\Report|null
+     */
+    private function findAssignedReport($reportId)
+    {
+        $userId = $this->request->getAttribute('identity')->getIdentifier();
+
+        return $this->fetchTable('Reports')->find()
+            ->matching('Cases.CaseAssignments', function ($q) use ($userId) {
+                return $q->where(['CaseAssignments.assigned_to' => $userId]);
+            })
+            ->where(['Reports.id' => $reportId, 'Reports.type' => 'PPT'])
+            ->first();
+    }
+
+    /**
+     * Save this report's custom layout slides (layouts, titles, headers, text; no images)
+     * as a whole-report template. Saving under an existing name replaces that template.
+     *
+     * @param int|null $reportId Report ID
+     * @return \Cake\Http\Response|null Redirects back to the slides page
+     */
+    public function saveReportTemplate($reportId = null)
+    {
+        $this->request->allowMethod(['post']);
+        $userId = $this->request->getAttribute('identity')->getIdentifier();
+        
+        if (!$this->findAssignedReport($reportId)) {
+            $this->Flash->error('Report not found or you do not have access.');
+            return $this->redirect(['controller' => 'Reports', 'action' => 'index']);
+        }
+        
+        $customSlides = $this->fetchTable('ReportSlides')->find()
+            ->where(['report_id' => $reportId, 'slide_type' => SlideGridLayoutService::SLIDE_TYPE])
+            ->orderBy(['slide_order' => 'ASC'])
+            ->all();
+        
+        $templateSlides = [];
+        foreach ($customSlides as $slide) {
+            $templateSlides[] = [
+                'title' => $slide->title,
+                'subtitle' => $slide->subtitle,
+                'layout' => SlideGridLayoutService::withoutImages($slide->getLayoutData()),
+            ];
+        }
+        
+        if (empty($templateSlides)) {
+            $this->Flash->error('This report has no custom layout slides to save yet.');
+            return $this->redirect(['action' => 'index', $reportId]);
+        }
+        
+        $name = mb_substr(trim((string)$this->request->getData('name')), 0, 150);
+        if ($name === '') {
+            $this->Flash->error('Please enter a template name.');
+            return $this->redirect(['action' => 'index', $reportId]);
+        }
+        
+        $ReportTemplates = $this->fetchTable('ReportTemplates');
+        $template = $ReportTemplates->find()->where(['user_id' => $userId, 'name' => $name])->first()
+            ?? $ReportTemplates->newEntity(['user_id' => $userId, 'name' => $name]);
+        $isUpdate = !$template->isNew();
+        $template->slides_data = json_encode($templateSlides);
+        
+        if ($ReportTemplates->save($template)) {
+            $this->Flash->success(sprintf(
+                'Report template "%s" %s with %d slide(s).',
+                $template->name,
+                $isUpdate ? 'updated' : 'saved',
+                count($templateSlides)
+            ));
+        } else {
+            $this->Flash->error('Unable to save the report template. Please try again.');
+        }
+        
+        return $this->redirect(['action' => 'index', $reportId]);
+    }
+
+    /**
+     * Add all slides from one of the doctor's report templates to this report (after existing slides)
+     *
+     * @param int|null $reportId Report ID
+     * @return \Cake\Http\Response|null Redirects back to the slides page
+     */
+    public function applyReportTemplate($reportId = null)
+    {
+        $this->request->allowMethod(['post']);
+        $userId = $this->request->getAttribute('identity')->getIdentifier();
+        
+        if (!$this->findAssignedReport($reportId)) {
+            $this->Flash->error('Report not found or you do not have access.');
+            return $this->redirect(['controller' => 'Reports', 'action' => 'index']);
+        }
+        
+        $template = $this->fetchTable('ReportTemplates')->find()
+            ->where(['id' => $this->request->getData('template_id'), 'user_id' => $userId])
+            ->first();
+        if (!$template) {
+            $this->Flash->error('Report template not found.');
+            return $this->redirect(['action' => 'index', $reportId]);
+        }
+        
+        $ReportSlides = $this->fetchTable('ReportSlides');
+        $maxOrder = $ReportSlides->find()
+            ->where(['report_id' => $reportId])
+            ->select(['max_order' => $ReportSlides->find()->func()->max('slide_order')])
+            ->first();
+        $nextOrder = (int)($maxOrder->max_order ?? 0) + 1;
+        
+        $newSlides = [];
+        foreach ($template->getSlides() as $templateSlide) {
+            $layout = SlideGridLayoutService::withoutImages($templateSlide['layout'] ?? ['rows' => []]);
+            if (empty($layout['rows'])) {
+                continue;
+            }
+            $newSlides[] = $ReportSlides->newEntity([
+                'report_id' => $reportId,
+                'user_id' => $userId,
+                'slide_order' => $nextOrder++,
+                'slide_type' => SlideGridLayoutService::SLIDE_TYPE,
+                'title' => (string)($templateSlide['title'] ?? ''),
+                'subtitle' => $templateSlide['subtitle'] ?? null,
+                'description' => (string)($templateSlide['title'] ?? ''),
+                'layout_columns' => SlideGridLayoutService::maxColumns($layout),
+                'layout_data' => json_encode($layout),
+            ]);
+        }
+        
+        if ($newSlides && $ReportSlides->saveMany($newSlides)) {
+            $this->Flash->success(sprintf('Added %d slide(s) from "%s". Now add the images to each slide.', count($newSlides), $template->name));
+        } else {
+            $this->Flash->error('Unable to apply the report template.');
+        }
+        
+        return $this->redirect(['action' => 'index', $reportId]);
+    }
+
+    /**
+     * Delete one of the current doctor's report templates
+     *
+     * @param int|null $id Template ID
+     * @return \Cake\Http\Response|null Redirects back to the slides page
+     */
+    public function deleteReportTemplate($id = null)
+    {
+        $this->request->allowMethod(['post', 'delete']);
+        $userId = $this->request->getAttribute('identity')->getIdentifier();
+        
+        $ReportTemplates = $this->fetchTable('ReportTemplates');
+        $template = $ReportTemplates->find()
+            ->where(['id' => $id, 'user_id' => $userId])
+            ->first();
+        
+        if ($template && $ReportTemplates->delete($template)) {
+            $this->Flash->success('Report template deleted.');
+        } else {
+            $this->Flash->error('Report template not found.');
+        }
+        
+        return $this->redirect(['action' => 'index', $this->request->getQuery('report_id')]);
+    }
+
+    /**
+     * Delete one of the current doctor's saved layout templates
+     *
+     * @param int|null $id Template ID
+     * @return \Cake\Http\Response|null Redirects back to the slide type picker
+     */
+    public function deleteLayoutTemplate($id = null)
+    {
+        $this->request->allowMethod(['post', 'delete']);
+        $userId = $this->request->getAttribute('identity')->getIdentifier();
+        
+        $LayoutTemplates = $this->fetchTable('SlideLayoutTemplates');
+        $template = $LayoutTemplates->find()
+            ->where(['id' => $id, 'user_id' => $userId])
+            ->first();
+        
+        if ($template && $LayoutTemplates->delete($template)) {
+            $this->Flash->success('Saved layout deleted.');
+        } else {
+            $this->Flash->error('Saved layout not found.');
+        }
+        
+        return $this->redirect(['action' => 'add', '?' => ['report_id' => $this->request->getQuery('report_id')]]);
     }
 
     /**
@@ -471,7 +836,7 @@ class MegReportsController extends AppController
         $userId = $user->getIdentifier();
         
         $ReportSlides = $this->fetchTable('ReportSlides');
-        $slide = $ReportSlides->get($id, ['contain' => ['Reports']]);
+        $slide = $ReportSlides->get($id, contain: ['Reports']);
         
         // Verify access through case assignment
         $Reports = $this->fetchTable('Reports');
@@ -486,6 +851,10 @@ class MegReportsController extends AppController
         if (!$report) {
             $this->Flash->error('You do not have access to edit this slide.');
             return $this->redirect(['controller' => 'Reports', 'action' => 'index']);
+        }
+        
+        if ($slide->isCustomLayout()) {
+            return $this->customLayoutForm($report, $slide);
         }
         
         // Get slide type configuration
@@ -714,20 +1083,6 @@ class MegReportsController extends AppController
             ->indexBy('slide_type')
             ->toArray();
 
-        // If no slides exist at all, create all default slides first
-        if (empty($slides)) {
-            // Reload report with associations needed for createDefaultSlides
-            $report = $Reports->get($reportId, contain: ['Cases' => ['PatientUsers' => ['Patient']], 'Users']);
-            $this->createDefaultSlides($report);
-
-            // Re-fetch slides after creation
-            $slides = $ReportSlides->find()
-                ->where(['report_id' => $reportId])
-                ->all()
-                ->indexBy('slide_type')
-                ->toArray();
-        }
-
         $s3Service = new S3DocumentService();
         $results = ['matched' => [], 'skipped' => [], 'errors' => []];
         $uploadedFiles = $this->request->getUploadedFiles();
@@ -910,12 +1265,17 @@ class MegReportsController extends AppController
         $reportId = $slide->report_id;
         
         // Delete image (S3 or local)
+        $s3Service = new S3DocumentService();
         if ($slide->file_path) {
-            $s3Service = new S3DocumentService();
             $s3Service->deleteDocument($slide->file_path);
         }
         
+        $gridImagePaths = $slide->isCustomLayout() ? SlideGridLayoutService::imagePaths($slide->getLayoutData()) : [];
+        
         if ($ReportSlides->delete($slide)) {
+            foreach ($gridImagePaths as $gridImagePath) {
+                $s3Service->deleteDocument($gridImagePath);
+            }
             $this->Flash->success('Slide has been deleted.');
         } else {
             $this->Flash->error('Unable to delete slide. Please try again.');
@@ -1022,7 +1382,7 @@ class MegReportsController extends AppController
         $userId = $user->getIdentifier();
         
         $ReportSlides = $this->fetchTable('ReportSlides');
-        $slide = $ReportSlides->get($id, ['contain' => ['Reports']]);
+        $slide = $ReportSlides->get($id, contain: ['Reports']);
         
         // Verify access through case assignment
         $Reports = $this->fetchTable('Reports');
@@ -1106,7 +1466,7 @@ class MegReportsController extends AppController
         $userId = $user->getIdentifier();
         
         $Reports = $this->fetchTable('Reports');
-        $report = $Reports->get($reportId, ['contain' => ['Cases']]);
+        $report = $Reports->get($reportId, contain: ['Cases']);
         
         // Verify access through case assignment
         $hasAccess = $this->fetchTable('CaseAssignments')->exists([
@@ -1123,81 +1483,16 @@ class MegReportsController extends AppController
     }
 
     /**
-     * Create cover slide with patient and study information
+     * Create the patient cover page - the only slide a new report starts with
      *
-     * @param \App\Model\Entity\Report $report Report entity
+     * @param \App\Model\Entity\Report $report Report entity (with Cases.PatientUsers.Patient)
      * @return void
      */
-    private function createDefaultSlides($report)
+    private function createCoverPage($report): void
     {
+        $slideConfig = unserialize(PPT_REPORT_PAGES)['cover_page'];
         $ReportSlides = $this->fetchTable('ReportSlides');
-        
-        // Get all slide types from configuration
-        $slideTypes = unserialize(PPT_REPORT_PAGES);
-        
-        // Sort by order
-        uasort($slideTypes, function($a, $b) {
-            return ($a['order'] ?? 999) - ($b['order'] ?? 999);
-        });
-        
-        // Get patient and case information for cover page
-        $patientUser = $report->case->patient_user ?? null;
-        $case = $report->case ?? null;
-        $patient = $patientUser ? ($patientUser->patient ?? null) : null;
-        
-        $slideOrder = 1;
-        
-        foreach ($slideTypes as $slideTypeKey => $slideConfig) {
-            $slideData = [
-                'report_id' => $report->id,
-                'user_id' => $report->user_id,
-                'slide_order' => $slideOrder,
-                'slide_type' => $slideTypeKey,
-                'layout_columns' => $slideConfig['columns'] ?? 1,
-                'title' => $slideConfig['title'] ?? '',
-                'subtitle' => $slideConfig['subtitle'] ?? null,
-                'col1_type' => $slideConfig['col1']['type'] ?? 'text',
-                'col1_content' => null,
-                'col1_image_path' => null,
-                'col1_header' => $slideConfig['col1']['header'] ?? null,
-                'col2_type' => $slideConfig['col2']['type'] ?? 'text',
-                'col2_content' => null,
-                'col2_image_path' => null,
-                'col2_header' => $slideConfig['col2']['header'] ?? null,
-                'footer_text' => $slideConfig['footer_text'] ?? null,
-                'legend_data' => isset($slideConfig['legend']['items']) ? json_encode($slideConfig['legend']['items']) : null,
-                'description' => null,
-                'html_content' => null,
-            ];
-            
-            // Handle special slide types
-            if ($slideTypeKey === 'cover_page') {
-                // Cover page with patient data
-                $slideData = $this->buildCoverSlideData($report, $slideConfig, $slideOrder);
-            } elseif (isset($slideConfig['default_sections'])) {
-                // Slides with structured bullets (summary, original_eeg_signals_text, etc.)
-                $slideData['col1_content'] = json_encode($slideConfig['default_sections']);
-            } elseif (isset($slideConfig['col1']['default_content'])) {
-                // Text slide with default content
-                $slideData['col1_content'] = $slideConfig['col1']['default_content'];
-            } elseif (isset($slideConfig['header_text']['content'])) {
-                // Slides with header text content
-                $headerContent = $slideConfig['header_text']['content'];
-                if (is_array($headerContent)) {
-                    $slideData['col1_content'] = implode("\n", $headerContent);
-                } else {
-                    $slideData['col1_content'] = $headerContent;
-                }
-            }
-            
-            // Build HTML content for preview
-            $slideData['html_content'] = $this->buildSlideHtml($slideData, $slideConfig);
-            
-            $slide = $ReportSlides->newEntity($slideData);
-            $ReportSlides->save($slide);
-            
-            $slideOrder++;
-        }
+        $ReportSlides->save($ReportSlides->newEntity($this->buildCoverSlideData($report, $slideConfig, 1)));
     }
     
     /**
@@ -1480,7 +1775,11 @@ class MegReportsController extends AppController
         $column = $data['column'] ?? 'col1'; // col1, col2, col3, col4, col5
         $imageData = $data['image_data'] ?? null; // base64 encoded image
 
-        if (!$slideType || !$imageData) {
+        // Custom layout slides are addressed by slide id + flat cell index instead of slide type
+        $customSlideId = $data['slide_id'] ?? null;
+        $cellIndex = (int)($data['cell'] ?? 0);
+
+        if ((!$slideType && !$customSlideId) || !$imageData) {
             return $this->response
                 ->withType('application/json')
                 ->withStringBody(json_encode([
@@ -1489,55 +1788,75 @@ class MegReportsController extends AppController
                 ]));
         }
 
-        $slideTypes = unserialize(PPT_REPORT_PAGES);
-        if (empty($slideTypes[$slideType])) {
-            return $this->response
-                ->withType('application/json')
-                ->withStringBody(json_encode([
-                    'success' => false,
-                    'message' => 'Invalid slide type selected.',
-                ]));
-        }
-
-        // Find or create the slide for this report and type
         $ReportSlides = $this->fetchTable('ReportSlides');
-        $slide = $ReportSlides->find()
-            ->where(['report_id' => $reportId, 'slide_type' => $slideType])
-            ->first();
 
-        if (!$slide) {
-            $slideConfig = $slideTypes[$slideType];
-            $maxOrder = $ReportSlides->find()
-                ->where(['report_id' => $reportId])
-                ->select(['max_order' => $ReportSlides->find()->func()->max('slide_order')])
+        if ($customSlideId) {
+            $slide = $ReportSlides->find()
+                ->where([
+                    'id' => $customSlideId,
+                    'report_id' => $reportId,
+                    'slide_type' => SlideGridLayoutService::SLIDE_TYPE,
+                ])
                 ->first();
-            $nextOrder = ($maxOrder->max_order ?? 0) + 1;
 
-            $slide = $ReportSlides->newEntity([
-                'report_id' => $reportId,
-                'user_id' => $report->user_id,
-                'slide_order' => $slideConfig['order'] ?? $nextOrder,
-                'slide_type' => $slideType,
-                'layout_columns' => $slideConfig['columns'] ?? 1,
-                'title' => $slideConfig['title'] ?? '',
-                'subtitle' => $slideConfig['subtitle'] ?? null,
-                'col1_type' => $slideConfig['col1']['type'] ?? 'text',
-                'col1_header' => $slideConfig['col1']['header'] ?? null,
-                'col2_type' => $slideConfig['col2']['type'] ?? 'text',
-                'col2_header' => $slideConfig['col2']['header'] ?? null,
-                'footer_text' => $slideConfig['footer_text'] ?? null,
-                'legend_data' => isset($slideConfig['legend']['items']) ? json_encode($slideConfig['legend']['items']) : null,
-                'file_path' => null,
-                's3_key' => null,
-            ]);
-
-            if (!$ReportSlides->save($slide)) {
+            if (!$slide || !isset(SlideGridLayoutService::cells($slide->getLayoutData())[$cellIndex])) {
                 return $this->response
                     ->withType('application/json')
                     ->withStringBody(json_encode([
                         'success' => false,
-                        'message' => 'Unable to create slide for selected type.',
+                        'message' => 'Selected slide or box was not found.',
                     ]));
+            }
+        } else {
+            // Find or create the slide for this report and type
+            $slideTypes = unserialize(PPT_REPORT_PAGES);
+            if (empty($slideTypes[$slideType])) {
+                return $this->response
+                    ->withType('application/json')
+                    ->withStringBody(json_encode([
+                        'success' => false,
+                        'message' => 'Invalid slide type selected.',
+                    ]));
+            }
+
+            $slide = $ReportSlides->find()
+                ->where(['report_id' => $reportId, 'slide_type' => $slideType])
+                ->first();
+
+            if (!$slide) {
+                $slideConfig = $slideTypes[$slideType];
+                $maxOrder = $ReportSlides->find()
+                    ->where(['report_id' => $reportId])
+                    ->select(['max_order' => $ReportSlides->find()->func()->max('slide_order')])
+                    ->first();
+                $nextOrder = ($maxOrder->max_order ?? 0) + 1;
+
+                $slide = $ReportSlides->newEntity([
+                    'report_id' => $reportId,
+                    'user_id' => $report->user_id,
+                    'slide_order' => $slideConfig['order'] ?? $nextOrder,
+                    'slide_type' => $slideType,
+                    'layout_columns' => $slideConfig['columns'] ?? 1,
+                    'title' => $slideConfig['title'] ?? '',
+                    'subtitle' => $slideConfig['subtitle'] ?? null,
+                    'col1_type' => $slideConfig['col1']['type'] ?? 'text',
+                    'col1_header' => $slideConfig['col1']['header'] ?? null,
+                    'col2_type' => $slideConfig['col2']['type'] ?? 'text',
+                    'col2_header' => $slideConfig['col2']['header'] ?? null,
+                    'footer_text' => $slideConfig['footer_text'] ?? null,
+                    'legend_data' => isset($slideConfig['legend']['items']) ? json_encode($slideConfig['legend']['items']) : null,
+                    'file_path' => null,
+                    's3_key' => null,
+                ]);
+
+                if (!$ReportSlides->save($slide)) {
+                    return $this->response
+                        ->withType('application/json')
+                        ->withStringBody(json_encode([
+                            'success' => false,
+                            'message' => 'Unable to create slide for selected type.',
+                        ]));
+                }
             }
         }
 
@@ -1604,20 +1923,27 @@ class MegReportsController extends AppController
                 ]));
         }
 
-        // Delete old image if exists
-        $imagePathField = $column . '_image_path';
-        $oldPath = $slide->{$imagePathField} ?? null;
-        if ($oldPath) {
-            $s3Service->deleteDocument($oldPath);
+        if ($customSlideId) {
+            $layout = $slide->getLayoutData();
+            $oldPath = SlideGridLayoutService::setCellImage($layout, $cellIndex, $uploadedPath);
+            $slide->layout_data = json_encode($layout);
+        } else {
+            $imagePathField = $column . '_image_path';
+            $oldPath = $slide->{$imagePathField} ?? null;
+
+            // Update slide
+            $slide->{$imagePathField} = $uploadedPath;
+
+            // Also update legacy file_path/s3_key for col1
+            if ($column === 'col1') {
+                $slide->file_path = $uploadedPath;
+                $slide->s3_key = $uploadedPath;
+            }
         }
 
-        // Update slide
-        $slide->{$imagePathField} = $uploadedPath;
-
-        // Also update legacy file_path/s3_key for col1
-        if ($column === 'col1') {
-            $slide->file_path = $uploadedPath;
-            $slide->s3_key = $uploadedPath;
+        // Delete old image if exists
+        if ($oldPath) {
+            $s3Service->deleteDocument($oldPath);
         }
 
         if ($ReportSlides->save($slide)) {
